@@ -18,6 +18,8 @@ repos:
           - pydantic-settings==2.7.0
           - structlog==24.4.0
           - types-redis
+          - pandas-stubs==2.2.3.241126
+          - types-PyYAML==6.0.12.20241230
         exclude: ^(tests/|protos/)
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -32,3 +34,16 @@ repos:
         args: [--maxkb=1024]
       - id: no-commit-to-branch
         args: [--branch, main]
+      - id: check-case-conflict
+      - id: check-docstring-first
+      - id: debug-statements
+
+  - repo: local
+    hooks:
+      - id: pytest-fast
+        name: pytest (unit tests only — no I/O)
+        language: system
+        entry: python -m pytest tests/ -m "unit" --no-header -q --tb=short --timeout=30
+        pass_filenames: false
+        stages: [pre-push]
+        types: [python]

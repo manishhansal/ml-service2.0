@@ -80,10 +80,15 @@ dev = [
     "pytest-asyncio==0.24.0",
     "pytest-cov==6.0.0",
     "pytest-benchmark==5.1.0",
+    "pytest-timeout==2.3.1",
     "hypothesis==6.123.4",
     "ruff==0.8.4",
     "mypy==1.13.0",
     "pre-commit==4.0.1",
+    # Type stubs
+    "types-redis==4.6.0.20241004",
+    "pandas-stubs==2.2.3.241126",
+    "types-PyYAML==6.0.12.20241230",
 ]
 
 [build-system]
@@ -99,14 +104,41 @@ target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W"]
-ignore = ["E501"]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "PTH", "RUF"]
+ignore = ["E501", "B008", "N818"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "D", "ANN"]
 
 # ── Mypy ──────────────────────────────────────────────────────────────────────
 [tool.mypy]
 python_version = "3.11"
 strict = true
 exclude = ["tests/", "protos/"]
+# Allow untyped third-party libs that ship no stubs
+[[tool.mypy.overrides]]
+module = [
+    "finrl.*",
+    "qlib.*",
+    "ta.*",
+    "shap.*",
+    "optuna.*",
+    "evidently.*",
+    "nannyml.*",
+    "langchain.*",
+    "langchain_community.*",
+    "langchain_huggingface.*",
+    "transformers.*",
+    "catboost.*",
+    "riskfolio.*",
+    "pypfopt.*",
+    "stable_baselines3.*",
+    "gymnasium.*",
+    "grpc.*",
+    "mlflow.*",
+    "structlog.*",
+]
+ignore_missing_imports = true
 
 # ── Pytest ────────────────────────────────────────────────────────────────────
 [tool.pytest.ini_options]
@@ -114,6 +146,13 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "--cov=src --cov-report=term-missing"
 timeout = 120
+markers = [
+    "unit: fast isolated unit tests (no I/O)",
+    "integration: tests that require running services",
+    "slow: tests that take > 5 seconds",
+    "pit: Point-In-Time correctness tests",
+    "tdd: TDD red-phase tests expected to drive implementation",
+]
 
 # ── Coverage ──────────────────────────────────────────────────────────────────
 [tool.coverage.run]
