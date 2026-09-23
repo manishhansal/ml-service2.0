@@ -1,0 +1,24 @@
+{
+  "request": {"method": "GET", "urlPattern": "/api/v1/alphaforge/news-context/.*"},
+  "response": {
+    "status": 200,
+    "headers": {"Content-Type": "application/json"},
+    "jsonBody": {
+      "success": true,
+      "data": {
+        "instrument": "NIFTY",
+        "news_impact_score": 0.512,
+        "impact_direction": "BULLISH",
+        "impact_confidence": 0.73,
+        "sentiment": {
+          "overall": 0.43,
+          "market": 0.38,
+          "company": 0.51,
+          "macro": -0.05,
+          "risk": -0.09
+        },
+        "market_regime": "RISK_ON"
+      }
+    }
+  }
+}
