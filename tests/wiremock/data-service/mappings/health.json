@@ -1,0 +1,1 @@
+{"request": {"method": "GET", "url": "/v1/health"}, "response": {"status": 200, "jsonBody": {"status": "UP"}}}

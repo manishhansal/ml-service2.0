@@ -1,0 +1,22 @@
+{
+  "request": {"method": "GET", "urlPattern": "/v1/india/quotes/.*"},
+  "response": {
+    "status": 200,
+    "headers": {"Content-Type": "application/json"},
+    "jsonBody": {
+      "data": {
+        "symbol": "NIFTY",
+        "ltp": 22150.50,
+        "change": 45.25,
+        "changePct": 0.205
+      },
+      "metadata": {
+        "quality": {
+          "score": 85,
+          "signalEngineAllowed": true
+        },
+        "dataAsOf": "2024-01-15T09:14:59.000Z"
+      }
+    }
+  }
+}

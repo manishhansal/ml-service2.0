@@ -1,0 +1,59 @@
+# ────────────────────────────────────────────────────────────────────────────
+# ml-service2.0 — CI Integration Test stack
+#
+# Services:
+#   ml-service-test      — Runs the full pytest suite against live containers.
+#   redis-test           — Ephemeral Redis for the test run.
+#   mock-data-service    — WireMock stub for data-service2.0 (port 8080).
+#   mock-sentinel-pulse  — WireMock stub for SentinelPulse (port 8080).
+#
+# Usage (CI):
+#   docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+#
+# WireMock mapping files live under:
+#   tests/wiremock/data-service/mappings/
+#   tests/wiremock/sentinel-pulse/mappings/
+# ────────────────────────────────────────────────────────────────────────────
+version: "3.9"
+
+services:
+
+  # ── Test runner ──────────────────────────────────────────────────────────────
+  ml-service-test:
+    build:
+      context: .
+      target: dev
+    environment:
+      - ML_SERVICE_API_KEY=test-key-for-ci
+      - DATA_SERVICE_API_KEY=test-data-key
+      - DATA_SERVICE_2_URL=http://mock-data-service:8080
+      - SENTINEL_PULSE_URL=http://mock-sentinel-pulse:8080
+      - REDIS_URL=redis://redis-test:6379
+      - MLFLOW_TRACKING_URI=http://mlflow-test:5000
+      - DEPLOYMENT_MODE=research
+      - LOG_LEVEL=WARNING
+    depends_on:
+      - redis-test
+      - mock-data-service
+      - mock-sentinel-pulse
+    command: pytest tests/ -v --cov=src --cov-fail-under=90
+
+  # ── Redis (test-isolated) ─────────────────────────────────────────────────────
+  redis-test:
+    image: redis:7-alpine
+
+  # ── WireMock: data-service2.0 ────────────────────────────────────────────────
+  # Serves pre-recorded HTTP stubs from tests/wiremock/data-service/mappings/
+  mock-data-service:
+    image: wiremock/wiremock:3.3.1
+    command: --port 8080 --root-dir /home/wiremock
+    volumes:
+      - ./tests/wiremock/data-service:/home/wiremock
+
+  # ── WireMock: SentinelPulse ──────────────────────────────────────────────────
+  # Serves pre-recorded HTTP stubs from tests/wiremock/sentinel-pulse/mappings/
+  mock-sentinel-pulse:
+    image: wiremock/wiremock:3.3.1
+    command: --port 8080 --root-dir /home/wiremock
+    volumes:
+      - ./tests/wiremock/sentinel-pulse:/home/wiremock

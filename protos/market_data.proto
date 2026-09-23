@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package ml_service.market_data;
+
+option py_generic_services = false;
+
+// ---------------------------------------------------------------------------
+// TickStreamRequest — subscribe to OHLCV bars for a single instrument
+// ---------------------------------------------------------------------------
+message TickStreamRequest {
+  string symbol          = 1;
+  string exchange        = 2;  // "NSE", "NFO", "BSE", etc.
+  string interval        = 3;  // canonical timeframe: "1m", "5m", "15m", "1d"
+                               // (never "3m" — not a valid NSE/NFO timeframe)
+  int64  pit_timestamp_ms = 4; // 0 = live streaming mode
+                               // >0 = backtest mode (PIT boundary in UTC epoch ms)
+}
+
+// ---------------------------------------------------------------------------
+// OHLCVBar — a single OHLCV candle / tick snapshot
+// ---------------------------------------------------------------------------
+message OHLCVBar {
+  int64  timestamp_ms         = 1;  // UTC epoch milliseconds (candle open time)
+  double open                 = 2;
+  double high                 = 3;
+  double low                  = 4;
+  double close                = 5;
+  double volume               = 6;
+  double vwap                 = 7;
+  double oi                   = 8;  // Open interest; 0 when unavailable
+  bool   volume_unavailable   = 9;  // true when volume data is not available
+  string provider             = 10; // upstream data provider identifier
+  double confidence_score     = 11; // DataConfidenceScore from data-service2.0 [0-100]
+  bool   signal_engine_allowed = 12; // signalEngineAllowed flag from data-service2.0
+}
+
+// ---------------------------------------------------------------------------
+// TickStreamResponse — server-streaming response envelope
+// ---------------------------------------------------------------------------
+message TickStreamResponse {
+  OHLCVBar bar        = 1;
+  string   request_id = 2; // correlates back to the originating request
+  bool     is_final   = 3; // true on the last message in the stream (stream end)
+}
+
+// ---------------------------------------------------------------------------
+// FeatureRequest — unary fetch of the current feature snapshot for a symbol
+// ---------------------------------------------------------------------------
+message FeatureRequest {
+  string symbol   = 1;
+  string pit_date = 2; // YYYY-MM-DD; empty string = live (current) snapshot
+}
+
+// ---------------------------------------------------------------------------
+// FeatureResponse — raw market data consumed by ml-service2.0 FeaturePipeline
+// ---------------------------------------------------------------------------
+message FeatureResponse {
+  string symbol                 = 1;
+  int64  data_timestamp_ms      = 2;  // UTC epoch ms of the most-recent data point
+  double confidence_score       = 3;  // DataConfidenceScore [0-100]
+  bool   signal_engine_allowed  = 4;  // signalEngineAllowed flag
+  double india_vix              = 5;  // India VIX index value
+  double nifty_change_pct       = 6;  // NIFTY 50 change % vs previous close
+  double banknifty_change_pct   = 7;  // BANKNIFTY change % vs previous close
+  double put_call_ratio         = 8;  // PCR for the symbol (or index)
+  double advance_decline_ratio  = 9;  // market breadth ratio
+  double fii_net_cr             = 10; // FII net buy/sell in crores (+ = net buy)
+  double dii_net_cr             = 11; // DII net buy/sell in crores (+ = net buy)
+  // Complex nested structures serialized as JSON strings for forward-compatibility
+  string option_chain_json      = 12; // option chain snapshot (JSON)
+  string market_breadth_json    = 13; // full market breadth data (JSON)
+}
+
+// ---------------------------------------------------------------------------
+// MarketDataFeeder — the gRPC service exposed by data-service2.0
+// ml-service2.0 acts as a client to this service
+// ---------------------------------------------------------------------------
+service MarketDataFeeder {
+  // Server-streaming RPC: stream live OHLCV bars for a symbol.
+  // When pit_timestamp_ms > 0 the stream replays historical bars up to that
+  // PIT boundary (backtest mode) and sets is_final=true on the last bar.
+  rpc StreamTicks(TickStreamRequest) returns (stream TickStreamResponse);
+
+  // Unary RPC: fetch a current feature snapshot for use in the FeaturePipeline.
+  // Equivalent to the data-service2.0 REST GET /v1/features/{symbol} endpoint
+  // but with lower latency for high-frequency inference calls.
+  rpc GetFeatureSnapshot(FeatureRequest) returns (FeatureResponse);
+}

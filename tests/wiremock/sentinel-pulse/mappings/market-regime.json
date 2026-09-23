@@ -1,0 +1,18 @@
+{
+  "request": {"method": "GET", "url": "/api/v1/news/regime"},
+  "response": {
+    "status": 200,
+    "headers": {"Content-Type": "application/json"},
+    "jsonBody": {
+      "success": true,
+      "data": {
+        "markets": {
+          "nifty50": {
+            "regime": "RISK_ON",
+            "confidence": 0.76
+          }
+        }
+      }
+    }
+  }
+}
