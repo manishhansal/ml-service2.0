@@ -1,0 +1,14 @@
+{
+  "request": {"method": "GET", "urlPattern": "/v1/india/historical.*"},
+  "response": {
+    "status": 200,
+    "headers": {"Content-Type": "application/json"},
+    "jsonBody": {
+      "data": [],
+      "metadata": {
+        "quality": {"score": 85, "signalEngineAllowed": true},
+        "dataAsOf": "2024-01-15T09:00:00.000Z"
+      }
+    }
+  }
+}

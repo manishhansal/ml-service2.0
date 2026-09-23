@@ -1,0 +1,131 @@
+[project]
+name = "ml-service2"
+version = "2.0.0"
+description = "Institutional-grade standalone ML microservice for AlphaForge trading platform"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+
+dependencies = [
+    # ── Web Framework ──────────────────────────────────────────────
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+
+    # ── Data / Numerics ────────────────────────────────────────────
+    "numpy==1.26.4",
+    "pandas==2.2.3",
+    "scipy==1.14.1",
+    "joblib==1.4.2",
+
+    # ── ML / Tree Models ───────────────────────────────────────────
+    "scikit-learn==1.5.2",
+    "xgboost==2.1.3",
+    "lightgbm==4.5.0",
+    "catboost==1.2.7",
+
+    # ── Deep RL ───────────────────────────────────────────────────
+    "stable-baselines3==2.4.0",
+    "gymnasium==1.0.0",
+    "finrl==0.3.7",
+
+    # ── Explainability ─────────────────────────────────────────────
+    "shap==0.46.0",
+
+    # ── Portfolio Optimisation ─────────────────────────────────────
+    "riskfolio-lib==6.3.0",
+    "pyportfolioopt==1.5.5",
+
+    # ── Schemas / Config ───────────────────────────────────────────
+    "pydantic==2.10.3",
+    "pydantic-settings==2.7.0",
+    "python-dotenv==1.0.1",
+
+    # ── HTTP Client ────────────────────────────────────────────────
+    "httpx==0.28.1",
+    "tenacity==9.0.0",
+
+    # ── Cache / Messaging ──────────────────────────────────────────
+    "redis[hiredis]==5.2.1",
+
+    # ── gRPC ──────────────────────────────────────────────────────
+    "grpcio==1.69.0",
+    "grpcio-tools==1.69.0",
+
+    # ── Experiment Tracking ────────────────────────────────────────
+    "mlflow==2.19.0",
+
+    # ── HPO ───────────────────────────────────────────────────────
+    "optuna==4.1.0",
+
+    # ── Logging ───────────────────────────────────────────────────
+    "structlog==24.4.0",
+
+    # ── Technical Indicators ───────────────────────────────────────
+    "ta==0.11.0",
+
+    # ── Drift Monitoring ───────────────────────────────────────────
+    "evidently==0.5.0",
+    "nannyml==0.13.0",
+
+    # ── LLM / NLP ─────────────────────────────────────────────────
+    "langchain==0.3.14",
+    "langchain-community==0.3.14",
+    "langchain-huggingface==0.1.2",
+    "transformers==4.47.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.4",
+    "pytest-asyncio==0.24.0",
+    "pytest-cov==6.0.0",
+    "pytest-benchmark==5.1.0",
+    "hypothesis==6.123.4",
+    "ruff==0.8.4",
+    "mypy==1.13.0",
+    "pre-commit==4.0.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+# ── Ruff ──────────────────────────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]
+
+# ── Mypy ──────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.11"
+strict = true
+exclude = ["tests/", "protos/"]
+
+# ── Pytest ────────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "--cov=src --cov-report=term-missing"
+timeout = 120
+
+# ── Coverage ──────────────────────────────────────────────────────────────────
+[tool.coverage.run]
+source = ["src"]
+omit = ["src/**/__init__.py"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+
+# ── Scripts (proto generation) ────────────────────────────────────────────────
+[tool.hatch.envs.default.scripts]
+generate-stubs = "bash protos/generate_stubs.sh"
+serve = "uvicorn src.main:app --host 0.0.0.0 --port 8100 --reload"
+serve-prod = "uvicorn src.main:app --host 0.0.0.0 --port 8100 --workers 4"
