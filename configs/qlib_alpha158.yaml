@@ -1,0 +1,35 @@
+# Qlib Alpha158 feature configuration
+# Reference: https://qlib.readthedocs.io/en/latest/advanced/alpha158.html
+#
+# These settings control the Alpha158 factor computation inside
+# src/features/qlib_engine.py.  All fields are validated by QlibConfig.
+
+name: alpha158
+version: "1.0.0"
+
+# Rolling window sizes (trading days)
+windows:
+  short: 5
+  medium: 20
+  long: 60
+  volatility: 252
+
+# MACD parameters
+macd:
+  fast: 12
+  slow: 26
+  signal: 9
+
+# RSI period
+rsi_period: 14
+
+# Bollinger Band parameters
+bollinger:
+  period: 20
+  num_std: 2.0
+
+# Minimum bars required before factors are computed
+min_history_bars: 200
+
+# Alpha360 toggle (slower — set to true only in research mode)
+alpha360_enabled: false
