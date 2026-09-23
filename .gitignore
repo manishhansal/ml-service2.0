@@ -1,0 +1,104 @@
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+MANIFEST
+
+# ── Virtual Environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.env.local
+.env.*.local
+
+# ── Environment / Secrets ─────────────────────────────────────────────────────
+.env
+# .env.example is intentionally NOT ignored — it documents required variables
+
+# ── Pytest / Coverage ─────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.coveragerc
+
+# ── Mypy ──────────────────────────────────────────────────────────────────────
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ── Ruff ──────────────────────────────────────────────────────────────────────
+.ruff_cache/
+
+# ── Pre-commit ────────────────────────────────────────────────────────────────
+.pre-commit-cache/
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+
+# ── Model Artifacts ───────────────────────────────────────────────────────────
+# Large model files — store in the configured artifact path / S3, not in git
+artifacts/
+*.pkl
+*.joblib
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.onnx
+policy.zip
+
+# ── Audit Log ─────────────────────────────────────────────────────────────────
+# The live audit log is not committed — it lives on the production volume
+audit.jsonl
+audit.jsonl.*
+
+# ── MLflow ────────────────────────────────────────────────────────────────────
+mlruns/
+mlartifacts/
+mlflow.db
+
+# ── Optuna ────────────────────────────────────────────────────────────────────
+optuna.db
+optuna.db-shm
+optuna.db-wal
+
+# ── gRPC Generated Stubs ──────────────────────────────────────────────────────
+# Stubs are generated at build time; do not commit generated files
+src/clients/market_data_pb2.py
+src/clients/market_data_pb2_grpc.py
+src/clients/market_data_pb2.pyi
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+.docker/
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Temporary Files ───────────────────────────────────────────────────────────
+*.tmp
+*.bak
+*.swp
+*~
+.hypothesis/
+
+# ── qlib ──────────────────────────────────────────────────────────────────────
+qlib_data/
