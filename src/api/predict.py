@@ -70,10 +70,11 @@ _NOT_IMPLEMENTED = JSONResponse(
 )
 
 
-@router.post("/predict/regime")
-async def predict_regime(request: RegimePredictionRequest) -> JSONResponse:
-    """Market regime classification.  POST /v2/predict/regime — 503 stub."""
-    return _NOT_IMPLEMENTED
+@router.post("/predict/regime", response_model=RegimePredictionResponse)
+async def predict_regime(request: RegimePredictionRequest) -> RegimePredictionResponse:
+    """Market regime classification.  POST /v2/predict/regime."""
+    features = request.model_dump(exclude_none=True)
+    return _regime_classifier.predict(features)
 
 
 @router.post("/predict/rankings", response_model=RankingResponse)
