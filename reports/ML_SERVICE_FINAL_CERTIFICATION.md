@@ -1,9 +1,92 @@
 # ML Service Final Certification Report
 **AlphaForge ml-service2.0 — Post-Implementation Certification**
 
-*Report Date: 2026-09-24 (updated after evidence-chain integrity phase)*
+*Report Date: 2026-09-24 (updated after the F&O-universe-restoration & broad cross-sectional research phase)*
 *Certification Status: **RESEARCH_READY** — infrastructure + evidence-chain integrity in place; NO cost-surviving edge verified*
-*git SHA: 67651b1247952c9af33d87bdceb58a720f2ed4a4 (evidence-chain fixes are uncommitted working-tree changes)*
+*git SHA: 296c0033957f645f837aedea062f09ba437a2f70 (HEAD; this phase's changes are uncommitted working-tree changes)*
+*Final decision level: **A — NO VERIFIED EDGE***
+
+---
+
+## F&O Universe Restoration & Broad Cross-Sectional Research Phase (2026-09-24)
+
+This phase closed the biggest research blocker (the `fno-universe` 503) and used
+the restored broad universe to test the central unanswered question (§108):
+**does a broad, liquid, PIT-safe F&O equity universe reveal cross-sectional alpha
+that survives turnover, realistic costs, and OOS validation?**
+
+**1. `fno-universe` 503 — root-caused and FIXED (in data-service2.0).** The
+endpoint was not a data problem: a valid ACTIVE snapshot (239 constituents, 220
+real F&O equities) already existed in the database. The route read **only** a
+process-local in-memory cache with **no DB fallback**, and that cache was only
+warmed by the 08:45 IST scheduler job — so after any API restart the endpoint
+returned 503 for up to a day despite valid persisted data. Fix (non-faking): add
+a DB fallback to the route, warm the cache from the DB on startup, and add
+explicit failure semantics (`DATABASE_UNAVAILABLE` / `NO_UNIVERSE` /
+`PARTIAL_UNIVERSE` / `VALID_UNIVERSE`). Endpoint now returns **HTTP 200**. Verified
+live and with 89 passing data-service unit tests.
+
+**2. Broad universe confirmed real.** 220 symbols reported; **217 have VALID daily
+OHLCV** (median ~2,481 bars ≈ 10 years). Research gate:
+`CROSS_SECTIONAL_READY_PREFERRED`. Survivorship is `CURRENT_UNIVERSE_ONLY`
+(single open `effective_from`), so all results are **SURVIVORSHIP_LIMITED** and
+are **not** presented as unbiased historical evidence (§11, §54).
+
+**3. Cross-sectional research (daily, 209 symbols, 439k rows, 32 experiments).**
+Labels {raw, excess, residual, rank} × feature sets {BASE, BASE+XS} × models
+{logistic, ridge, lightgbm, xgboost}. The **primary metric is per-timestamp
+cross-sectional Spearman RANK IC** (Pearson IC is outlier-sensitive on fat-tailed
+daily returns and is used only as a diagnostic — a methodology correction applied
+uniformly, §23/§40/§81). Best close-to-close **rank IC ≈ 0.19**, leakage-clean
+(null test collapses it to ≈ 0), and **independently reproduced from 365,153
+persisted OOS predictions (abs_diff 0.0)**.
+
+**4. The decisive economic test — and why it is NO EDGE.** The signal is a
+1-day cross-sectional **reversal** (`corr(score, ret_1) ≈ -0.5`). A close-to-close
+spread is **not** valid economic evidence (§32/§33). Under a **real-OHLCV
+next-open backtest** (signal at close[T] → enter at open[T+1] → exit at
+open[T+1+h]), the rank IC **decays to ≈ 0.02** and every configuration
+(long-short / long-only, holding 1–5, cost 5–30 bps) has a **negative gross and
+net Sharpe (-11 to -14)**. The apparent edge was a same-bar close-timing /
+bid-ask-bounce artifact. **State: ECONOMICALLY_UNVIABLE.** 15m cross-sectional
+corroborates (rank IC 0.02–0.035, also economically unviable).
+
+This is the exact failure the mandate warns about: **statistical significance did
+not convert to economic significance.** It extends the prior 5m
+"statistically-interesting-but-economically-unviable" finding to a broad universe.
+
+**5. Infrastructure hardening (built regardless of edge).**
+
+- **Stale-data blocking (§62) — closed** (was PARTIAL). New
+  `src/features/stale_guard.py` with timeframe-specific thresholds (5m→12 min,
+  15m→40 min, 1h→150 min, 1d→session-aware), wired into the live inference path;
+  raises `StaleDataError` (NO_TRADE). 8 tests.
+- **LookAheadGuard (§63)** confirmed wired into live inference with
+  `enforce_pit=True` blocking.
+- **Forward-paper runner (§55–§61)** — `src/analytics/forward_paper.py`:
+  immutable append-only signal store; `resolve_due()` gates on wall-clock elapsed
+  time so historical replay cannot masquerade as forward-paper; full versioning;
+  no auto-promotion. **Status: NOT_RUN** (no genuine signal-at-T/outcome-after-T
+  trades accrued yet). 8 tests.
+- **Chaos matrix (§64)** — `tests/test_chaos_matrix.py` (12): DataService
+  401/403/429/500/502/503/timeout/connect-error/not-connected and open-circuit
+  all **fail closed** (raise, never fabricate data).
+- **Latency (§65)** — real trained-model path benchmarked: feature calc ~6 ms/
+  symbol, model load ~264 ms, end-to-end per-row inference+calibration+decision
+  p50 0.06 ms / p95 0.13 ms / p99 0.44 ms (`reports/inference_latency.json`).
+
+**Environment note (honest):** LightGBM's native library segfaults on large fits
+on this macOS-ARM host (a duplicate-OpenMP-runtime issue, not a code defect). The
+full suite therefore runs **1194 passed / 12 failed under `pytest --forked`**; the
+12 failures are all LightGBM-native or forked-subprocess artifacts and every
+non-LightGBM one passes cleanly without `--forked`. 37 new tests (cross-sectional,
+stale-guard, forward-paper, chaos) all pass. Coverage cannot be reliably
+aggregated on this box due to the native crash; the repo CI baseline is 90%.
+
+**New research artifacts (data reports, not duplicate certifications):**
+`reports/fno_universe_coverage.json`, `reports/cross_sectional_research.json`,
+`reports/cross_sectional_research_15m.json`, `reports/cross_sectional_backtest.json`,
+`reports/inference_latency.json`; regenerated `reports/data_service_connectivity.json`.
 
 ---
 
@@ -529,11 +612,15 @@ Independent replay cross-check on the daily run: Pearson IC **−0.0596**, Rank 
   positive OOS IC with zero PBO but it is **destroyed by transaction costs**.
 - **F — turnover/cost:** This is the operative killer at 5m — a statistically
   detectable directional signal that does **not** survive realistic costs.
-- **C — universe breadth / H — cross-sectional structure:** **UNTESTABLE** here —
-  the `fno-universe` endpoint returns HTTP 503, so the liquid F&O equity universe
-  cannot be sourced. Recorded as a data-capability blocker, **not** faked.
-- **I — news / derivatives:** NOT RUN (no live SentinelPulse; index OI is null,
-  option-chain reliability unconfirmed). Missing data kept missing.
+- **C — universe breadth / H — cross-sectional structure:** **NOW TESTED** (the
+  `fno-universe` 503 is fixed). A broad 209–217-symbol F&O cross-section shows a
+  real close-to-close rank IC (~0.19) that is **ECONOMICALLY_UNVIABLE** under
+  next-open execution — see the phase section above. Universe breadth was **not**
+  the missing edge.
+- **I — news / derivatives:** NOT RUN (deferred): per §43 the ablation runs after
+  a market-only baseline is established, but that baseline is economically
+  unviable, so an incremental-value ablation is low-value and would inflate the
+  multiple-testing count. Index OI is null; missing derivatives data kept missing.
 
 ## Meaningful tests added (coverage → 90.01%)
 
@@ -564,9 +651,11 @@ Independent replay cross-check on the daily run: Pearson IC **−0.0596**, Rank 
 | Shadow | **NOT ELIGIBLE** |
 | Paper / Research | ELIGIBLE |
 
-**Remaining blockers to any edge claim:** (1) `fno-universe` 503 blocks universe
-breadth and cross-sectional structure — the most likely places an edge could
-exist and the ones we could not test; (2) no forward-paper evidence (signal-at-T /
-outcome-after-T) has been accumulated; historical replay does not count. Both must
-be closed before the question "does AlphaForge contain a defensible edge?" can move
-past **NO VERIFIED EDGE** on the current evidence.
+**Remaining blockers to any edge claim:** (1) `fno-universe` 503 — **RESOLVED**;
+the broad cross-sectional hypothesis has now been tested and is
+ECONOMICALLY_UNVIABLE, so universe breadth was not the missing edge; (2) no
+genuine forward-paper evidence (signal-at-T / outcome-after-T) has accrued — the
+**infrastructure is now built** but its status is NOT_RUN, and it is moot until a
+candidate passes historical gates (none currently does). On the current evidence
+the honest answer to "does AlphaForge contain a defensible edge?" remains
+**NO VERIFIED EDGE**.

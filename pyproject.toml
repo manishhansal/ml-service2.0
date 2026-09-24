@@ -158,6 +158,12 @@ markers = [
 [tool.coverage.run]
 source = ["src"]
 omit = ["src/**/__init__.py"]
+# Single-process data file. Prevents orphaned `.coverage.<host>.<pid>.*`
+# fragments from piling up when a test run is interrupted/killed before
+# coverage can combine them.
+parallel = false
+# Wipe stale data at the start of every run so nothing accumulates.
+data_file = ".coverage"
 
 [tool.coverage.report]
 fail_under = 90
