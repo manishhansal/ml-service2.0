@@ -27,8 +27,15 @@ import pytest
 # ── Env-var bootstrap ─────────────────────────────────────────────────────────
 # Must be set before any `src.*` import so pydantic-settings does not raise
 # on missing required fields.
-os.environ.setdefault("ML_SERVICE_API_KEY", "test-key-for-testing")
-os.environ.setdefault("DATA_SERVICE_API_KEY", "test-data-key")
+#
+# The API-key vars are FORCED (assignment, not setdefault) so the test suite is
+# hermetic: the whole suite hardcodes the "test-key-for-testing" X-API-KEY, so
+# the app's configured key must match regardless of any ML_SERVICE_API_KEY value
+# the caller may have exported in their shell. Without this, running the suite
+# with a different ML_SERVICE_API_KEY in the environment produces spurious 401s
+# on every authenticated endpoint test.
+os.environ["ML_SERVICE_API_KEY"] = "test-key-for-testing"
+os.environ["DATA_SERVICE_API_KEY"] = "test-data-key"
 os.environ.setdefault("DATA_SERVICE_2_URL", "http://localhost:8200")
 os.environ.setdefault("SENTINEL_PULSE_URL", "http://localhost:3001")
 

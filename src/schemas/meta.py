@@ -7,20 +7,31 @@ These schemas cover the MetaDecisionEngine's input/output contracts:
     ConfidenceDecomposition — Five-component breakdown of the final confidence score.
     MetaOutputExplainability — XAI breakdown attached to every MetaOutput.
     MetaOutput             — The final trading decision produced by MetaDecisionEngine.
+    SignalRecord           — Complete persisted signal with full PIT provenance chain.
     MetaDecideRequest      — Input to POST /v2/meta/decide.
     OOSRecord              — Single OOS record for meta-layer calibrator retraining.
     MetaFitResponse        — Response from POST /v2/meta/fit.
+    FeedbackRecord         — Outcome feedback from AlphaForge (POST /train/feedback).
+    OutcomeResolution      — Resolved trade outcome with MAE/MFE/realized_return.
 
 All schemas inherit from BaseSchema (Pydantic V2, strict=True, frozen=True).
 
-Validates: Requirements 10.1, 10.8, 19.2
+PIT timestamp chain (P0-005):
+    prediction_timestamp  — when the signal was generated (UTC)
+    feature_as_of         — latest data timestamp used in features (must be < prediction_timestamp)
+    data_as_of            — data-service2.0 data_as_of timestamp
+    news_as_of            — SentinelPulse as_of timestamp (must be < prediction_timestamp)
+    expires_at            — when the signal is no longer actionable
+
+Validates: Requirements 10.1, 10.8, 14.1, 19.2, P0-005
 """
 from __future__ import annotations
 
-from datetime import datetime
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from src.schemas.base import BaseSchema, PredictionProvenance
 
@@ -82,6 +93,15 @@ class MetaOutput(BaseSchema):
     contributing models (TRAINED_MODEL > HEURISTIC > INSUFFICIENT_EVIDENCE
     > UNAVAILABLE).  Only TRAINED_MODEL provenance is eligible for live
     capital deployment.
+
+    PIT timestamp chain (P0-005):
+        prediction_timestamp  — when the signal was generated (UTC)
+        feature_as_of         — latest data timestamp used in features
+        data_as_of            — data-service2.0 data_as_of timestamp
+        news_as_of            — SentinelPulse as_of timestamp
+        expires_at            — when the signal is no longer actionable
+    Invariant enforced: feature_as_of <= prediction_timestamp
+                        news_as_of <= prediction_timestamp
     """
 
     # ── Core decision ─────────────────────────────────────────────────────────
@@ -102,6 +122,81 @@ class MetaOutput(BaseSchema):
     news_sentiment_signal: Optional[NewsSignal] = None
     decomposition: Optional[ConfidenceDecomposition] = None
     explainability: Optional[MetaOutputExplainability] = None
+
+    # ── PIT timestamp chain (P0-005) ──────────────────────────────────────────
+    prediction_timestamp: Optional[datetime] = Field(
+        default=None,
+        description="UTC timestamp when this signal was generated.",
+    )
+    feature_as_of: Optional[datetime] = Field(
+        default=None,
+        description="UTC timestamp of the most-recent feature data used (must be < prediction_timestamp).",
+    )
+    data_as_of: Optional[datetime] = Field(
+        default=None,
+        description="data-service2.0 data_as_of timestamp.",
+    )
+    news_as_of: Optional[datetime] = Field(
+        default=None,
+        description="SentinelPulse as_of timestamp (must be < prediction_timestamp).",
+    )
+    expires_at: Optional[datetime] = Field(
+        default=None,
+        description="UTC timestamp after which this signal must not be executed.",
+    )
+
+    # ── Data quality (P0-004) ─────────────────────────────────────────────────
+    data_confidence_score: int = Field(
+        default=0,
+        ge=0,
+        le=100,
+        description="DataConfidenceScore from data-service2.0 [0,100]. 0 = unknown/unavailable.",
+    )
+
+    # ── Risk / expected value ─────────────────────────────────────────────────
+    expected_net_edge: Optional[float] = Field(
+        default=None,
+        description="Expected net return after costs (positive = viable trade).",
+    )
+    prob_stop_hit: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="P(stop loss hit) from RiskPredictor.",
+    )
+    prob_target_hit: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="P(target hit) from RiskPredictor.",
+    )
+    suggested_position_size_pct: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Suggested position size as % of portfolio.",
+    )
+
+    # ── Provenance / reproducibility ──────────────────────────────────────────
+    signal_id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Unique signal identifier for audit trail and feedback loop.",
+    )
+    dataset_version: str = Field(
+        default="",
+        description="Dataset version used to train the contributing models.",
+    )
+    model_versions: dict[str, str] = Field(
+        default_factory=dict,
+        description="model_id → version mapping for all contributing models.",
+    )
+    calibration_version: str = Field(
+        default="",
+        description="Calibration artifact version.",
+    )
+    feature_schema_version: str = Field(
+        default="",
+        description="Feature schema version string.",
+    )
 
     # ── Request tracing ───────────────────────────────────────────────────────
     request_id: str = ""
@@ -153,3 +248,63 @@ class MetaFitResponse(BaseSchema):
     records_used: int = 0
     success: bool
     message: str = ""
+
+
+class FeedbackRecord(BaseSchema):
+    """Outcome feedback submitted by AlphaForge to POST /train/feedback.
+
+    Immutable record linking a generated signal to its realized outcome.
+    Enters the feedback loop for online-learning challenger evaluation.
+    """
+
+    signal_id: str
+    symbol: str
+    prediction_timestamp: datetime
+    action: Literal["BUY", "SELL", "WAIT", "NO_TRADE"]
+    entry_price: float = Field(gt=0.0)
+    exit_price: Optional[float] = Field(default=None, gt=0.0)
+    realized_return: Optional[float] = Field(
+        default=None, description="Gross realized return (fraction, e.g. 0.012 = 1.2%)."
+    )
+    realized_return_net: Optional[float] = Field(
+        default=None, description="Net realized return after costs."
+    )
+    resolved_at: Optional[datetime] = None
+    holding_period_minutes: Optional[int] = Field(default=None, ge=0)
+    mae: Optional[float] = Field(
+        default=None, description="Maximum adverse excursion (fraction)."
+    )
+    mfe: Optional[float] = Field(
+        default=None, description="Maximum favourable excursion (fraction)."
+    )
+    exit_reason: Literal[
+        "TARGET_HIT", "STOP_HIT", "TIME_EXPIRY", "MANUAL_EXIT",
+        "FORCED_EXIT", "MISSING_EXECUTION", "UNRESOLVED",
+    ] = "UNRESOLVED"
+
+
+class OutcomeResolution(BaseSchema):
+    """Resolved trade outcome produced by the OutcomeResolver.
+
+    Deterministically classifies how a trade concluded, computing realized
+    return, MAE, MFE, and holding period from a price path. Never marks a
+    trade resolved purely because a timer expired — the exit_reason records
+    the actual cause.
+    """
+
+    signal_id: str
+    symbol: str
+    resolved: bool
+    exit_reason: Literal[
+        "TARGET_HIT", "STOP_HIT", "TIME_EXPIRY", "MANUAL_EXIT",
+        "FORCED_EXIT", "MISSING_EXECUTION", "UNRESOLVED",
+    ]
+    entry_price: float = Field(gt=0.0)
+    exit_price: Optional[float] = Field(default=None, gt=0.0)
+    realized_return: float = 0.0
+    realized_return_net: float = 0.0
+    realized_cost: float = 0.0
+    mae: float = 0.0
+    mfe: float = 0.0
+    holding_period_minutes: int = Field(default=0, ge=0)
+    resolved_at: Optional[datetime] = None
