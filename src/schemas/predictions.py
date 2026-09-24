@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from src.schemas.base import (
     BaseSchema,
@@ -22,10 +22,22 @@ from src.schemas.base import (
 )
 
 
+# ── Request base: non-strict so JSON strings coerce to enum values normally ───
+# FastAPI deserialises HTTP request bodies from JSON. Pydantic v2 strict=True
+# blocks enum coercion ("bull" → MarketRegime.BULL) which is the standard
+# FastAPI/HTTP contract. Request schemas opt out of strict mode while keeping
+# frozen=False (requests are mutable during validation).
+# Response schemas keep the inherited BaseSchema strict=True, frozen=True.
+
+class _RequestSchema(BaseSchema):
+    """Base for all incoming request schemas. Disables strict enum coercion."""
+    model_config = ConfigDict(strict=False, frozen=False)
+
+
 # ─── Market Regime ────────────────────────────────────────────────────────────
 
 
-class RegimePredictionRequest(BaseSchema):
+class RegimePredictionRequest(_RequestSchema):
     """Input features for market regime classification."""
 
     nifty_change_pct: Optional[float] = Field(
@@ -82,7 +94,7 @@ class RegimePredictionResponse(BaseSchema):
 # ─── Stock Ranking ────────────────────────────────────────────────────────────
 
 
-class StockFeatures(BaseSchema):
+class StockFeatures(_RequestSchema):
     """Per-stock feature vector for the ranking model."""
 
     symbol: str
@@ -117,7 +129,7 @@ class StockFeatures(BaseSchema):
     cmf: Optional[float] = Field(default=None)
 
 
-class RankingRequest(BaseSchema):
+class RankingRequest(_RequestSchema):
     """Batch ranking request for the full F&O universe."""
 
     stocks: list[StockFeatures]
@@ -148,7 +160,7 @@ class RankingResponse(BaseSchema):
 # ─── Strategy Selection ───────────────────────────────────────────────────────
 
 
-class StrategyRequest(BaseSchema):
+class StrategyRequest(_RequestSchema):
     """Context for strategy selection."""
 
     regime: MarketRegime
@@ -186,7 +198,7 @@ class StrategyResponse(BaseSchema):
 # ─── Risk Prediction ──────────────────────────────────────────────────────────
 
 
-class RiskRequest(BaseSchema):
+class RiskRequest(_RequestSchema):
     """Input for per-trade risk estimation."""
 
     symbol: str
@@ -232,7 +244,7 @@ class RiskResponse(BaseSchema):
 # ─── Portfolio Optimization ───────────────────────────────────────────────────
 
 
-class PortfolioAsset(BaseSchema):
+class PortfolioAsset(_RequestSchema):
     """Single asset for portfolio optimization."""
 
     symbol: str
@@ -242,7 +254,7 @@ class PortfolioAsset(BaseSchema):
     rank_score: float
 
 
-class PortfolioRequest(BaseSchema):
+class PortfolioRequest(_RequestSchema):
     """Portfolio optimization request (legacy v1 endpoint)."""
 
     assets: list[PortfolioAsset]
@@ -278,7 +290,7 @@ class PortfolioResponse(BaseSchema):
     provenance: PredictionProvenance = PredictionProvenance.HEURISTIC
 
 
-class PortfolioV2Request(BaseSchema):
+class PortfolioV2Request(_RequestSchema):
     """
     Portfolio optimization request for the v2 Riskfolio-Lib endpoint.
 
@@ -325,7 +337,7 @@ class PortfolioV2Response(BaseSchema):
 # ─── RL Execution ─────────────────────────────────────────────────────────────
 
 
-class ExecutionState(BaseSchema):
+class ExecutionState(_RequestSchema):
     """Current trade state for the RL execution agent."""
 
     symbol: str
@@ -369,7 +381,7 @@ class ExecutionDecision(BaseSchema):
 # ─── Deep Learning Models ─────────────────────────────────────────────────────
 
 
-class PriceRegimeRequest(BaseSchema):
+class PriceRegimeRequest(_RequestSchema):
     """
     Input for the Temporal Fusion Transformer price-regime forecaster.
 
@@ -393,7 +405,7 @@ class PriceRegimeResponse(BaseSchema):
     provenance: PredictionProvenance = PredictionProvenance.HEURISTIC
 
 
-class IVRegimeRequest(BaseSchema):
+class IVRegimeRequest(_RequestSchema):
     """
     Input for the PatchTST implied-volatility regime classifier.
 
@@ -418,7 +430,7 @@ class IVRegimeResponse(BaseSchema):
 # ─── SHAP Explainability ──────────────────────────────────────────────────────
 
 
-class ExplainRequest(BaseSchema):
+class ExplainRequest(_RequestSchema):
     """Request explanation for a specific prediction."""
 
     model: str = Field(
