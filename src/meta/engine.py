@@ -92,6 +92,7 @@ class MetaDecisionEngine:
         regime: str = "sideways",
         news_context: dict[str, Any] | None = None,
         risk_context: dict[str, Any] | None = None,
+        data_quality: float | None = None,
     ) -> MetaOutput:
         """
         Produce a final MetaOutput from all base model outputs.
@@ -221,9 +222,13 @@ class MetaDecisionEngine:
         if risk_context:
             prob_stop_hit = float(risk_context.get("prob_stop_hit", 0.0))
 
+        # P0-004: real data_quality threaded from FeaturePipeline (DataConfidenceScore/100).
+        # Falls back to 1.0 ONLY when the caller supplies no value (legacy/test callers).
+        effective_data_quality = 1.0 if data_quality is None else max(0.0, min(1.0, data_quality))
+
         abstention_ctx = AbstentionContext(
             agreement_ratio=agreement_ratio,
-            data_quality=1.0,       # simplified: assumes good data quality
+            data_quality=effective_data_quality,
             mean_confidence=mean_confidence,
             prob_stop_hit=prob_stop_hit,
             n_available_models=n_available,
@@ -239,8 +244,37 @@ class MetaDecisionEngine:
             )
             reason_codes.extend(news_codes)
 
+        # ── Step 9b: Expected-value gate (Phase 40) ───────────────────────────
+        # When the risk context provides calibrated target/stop probabilities
+        # and barrier returns, reject any directional trade whose expected net
+        # edge is not positive after costs. Confidence alone never suffices.
+        expected_net_edge: float | None = None
+        insufficient_edge = False
+        if risk_context and not abstention_result.should_abstain and plurality_direction != 0:
+            has_ev_inputs = (
+                "prob_target_hit" in risk_context
+                and "target_return" in risk_context
+                and "stop_return" in risk_context
+            )
+            if has_ev_inputs:
+                from src.meta.expected_value import compute_expected_value
+
+                ev = compute_expected_value(
+                    prob_target=float(risk_context.get("prob_target_hit", 0.0)),
+                    prob_stop=float(risk_context.get("prob_stop_hit", 0.0)),
+                    target_return=float(risk_context.get("target_return", 0.0)),
+                    stop_return=float(risk_context.get("stop_return", 0.0)),
+                    cost_bps=float(risk_context.get("cost_bps", 10.0)),
+                    slippage_bps=float(risk_context.get("slippage_bps", 2.0)),
+                    uncertainty=max(0.0, 1.0 - mean_confidence),
+                )
+                expected_net_edge = ev.expected_net_edge
+                if not ev.is_viable:
+                    insufficient_edge = True
+                    reason_codes.append("INSUFFICIENT_EDGE")
+
         # ── Step 10: Determine final action ───────────────────────────────────
-        if abstention_result.should_abstain:
+        if abstention_result.should_abstain or insufficient_edge:
             action = "NO_TRADE"
         else:
             # Check news conflict override
@@ -291,7 +325,7 @@ class MetaDecisionEngine:
         decomp = self._decomposer.decompose(
             base_confidence=mean_confidence,
             agreement_ratio=agreement_ratio,
-            data_quality=1.0,
+            data_quality=effective_data_quality,
             regime_confidence=mean_confidence,
             calibration_ece=worst_ece,
         )
@@ -305,11 +339,15 @@ class MetaDecisionEngine:
             ensemble_score=ensemble_score,
             reason_codes=reason_codes,
             contributing_models=model_ids,
-            abstention=abstention_result.should_abstain,
+            abstention=abstention_result.should_abstain or insufficient_edge,
             provenance=meta_provenance,
             news_sentiment_signal=news_signal,
             decomposition=decomp,
             explainability=explainability,
+            data_confidence_score=int(round(effective_data_quality * 100)),
+            prob_stop_hit=prob_stop_hit,
+            prob_target_hit=float(risk_context.get("prob_target_hit", 0.0)) if risk_context else 0.0,
+            expected_net_edge=expected_net_edge,
             symbol=symbol,
         )
 

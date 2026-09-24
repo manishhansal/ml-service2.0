@@ -1,0 +1,184 @@
+{
+  "generated_at": "2026-09-24T13:05:16.530851+00:00",
+  "git_sha": "67651b1247952c9af33d87bdceb58a720f2ed4a4",
+  "data_source": "data-service2.0",
+  "dataset": {
+    "dataset_id": "ds-1d-20260924130459-9fda2801",
+    "dataset_hash": "03dd885b17b8a5787e3c083c28ca8799f7bf243ffe1dcfd5f6dec8e7fe234238",
+    "rows": 1334,
+    "universe": [
+      "BANKNIFTY",
+      "NIFTY",
+      "RELIANCE"
+    ],
+    "leakage_validated": true,
+    "pit_status": "PIT_VALIDATED",
+    "feature_schema_version": "fs-2.0.0",
+    "label_schema_version": "ls-2.0.0"
+  },
+  "training": {
+    "model_name": "market_regime",
+    "dataset_id": "ds-1d-20260924130459-9fda2801",
+    "dataset_hash": "03dd885b17b8a5787e3c083c28ca8799f7bf243ffe1dcfd5f6dec8e7fe234238",
+    "champion": "logistic",
+    "champion_version": null,
+    "champion_ic_mean": 0.0,
+    "champion_pbo": 0.6,
+    "champion_net_sharpe": 0.0,
+    "champion_ece": 0.0,
+    "champion_brier": 0.246413,
+    "passed_acceptance": false,
+    "rejection_reason": "IC_BELOW_THRESHOLD",
+    "candidates": [
+      {
+        "name": "logistic",
+        "is_baseline": true,
+        "wf_ic_mean": 0.0,
+        "wf_ic_worst": 0.0,
+        "wf_positive_fraction": 0.0,
+        "wf_net_sharpe": 0.0,
+        "cpcv_ic_mean": -0.016379,
+        "cpcv_pbo": 0.6,
+        "calibration_ece": 0.0,
+        "calibration_fitted": true,
+        "calibration_brier": 0.246413
+      },
+      {
+        "name": "lightgbm",
+        "is_baseline": false,
+        "wf_ic_mean": 0.0,
+        "wf_ic_worst": 0.0,
+        "wf_positive_fraction": 0.0,
+        "wf_net_sharpe": 0.0,
+        "cpcv_ic_mean": 0.07002,
+        "cpcv_pbo": 0.2,
+        "calibration_ece": 0.0,
+        "calibration_fitted": true,
+        "calibration_brier": 0.240206
+      },
+      {
+        "name": "xgboost",
+        "is_baseline": false,
+        "wf_ic_mean": 0.0,
+        "wf_ic_worst": 0.0,
+        "wf_positive_fraction": 0.0,
+        "wf_net_sharpe": 0.0,
+        "cpcv_ic_mean": 0.052109,
+        "cpcv_pbo": 0.2,
+        "calibration_ece": 0.0,
+        "calibration_fitted": true,
+        "calibration_brier": 0.240636
+      }
+    ]
+  },
+  "backtest": {
+    "n_trades": 238,
+    "gross_return": 0.40573497815053394,
+    "net_return": 0.07253497815053395,
+    "ann_return": 0.01486,
+    "sharpe": 0.3658,
+    "sortino": 0.7015,
+    "calmar": 0.1433,
+    "max_drawdown": -0.103672,
+    "profit_factor": 1.1037,
+    "win_rate": 0.4958,
+    "avg_win": 0.006545,
+    "avg_loss": -0.005831,
+    "turnover": 0.1784,
+    "exposure": 0.4674,
+    "var_95": -0.013356,
+    "cvar_95": -0.018325,
+    "cost_bps_round_trip": 14.0
+  },
+  "cost_sensitivity": {
+    "5bps": {
+      "net_return": 0.2867349781505339,
+      "sharpe": 1.3965,
+      "n_trades": 238
+    },
+    "10bps": {
+      "net_return": 0.1677349781505339,
+      "sharpe": 0.8187,
+      "n_trades": 238
+    },
+    "20bps": {
+      "net_return": -0.07026502184946606,
+      "sharpe": -0.288,
+      "n_trades": 238
+    }
+  },
+  "champion_challenger": {
+    "champion_version": null,
+    "shadow_version": null,
+    "shadow_registered": false
+  },
+  "drift": {
+    "max_psi": 2.72181,
+    "severity": "CRITICAL",
+    "action": "BLOCK",
+    "feature_psi": {
+      "ret_1": 0.041658,
+      "ret_5": 0.066936,
+      "ret_10": 0.186357,
+      "ret_20": 0.386456,
+      "log_ret_1": 0.041658,
+      "vol_5": 0.068692,
+      "vol_10": 0.165201,
+      "vol_20": 0.513719,
+      "atr_14_pct": 0.144316,
+      "rel_volume_20": 0.037361,
+      "volume_zscore_20": 0.06602,
+      "vwap_distance_pct": 0.244808,
+      "rsi_14": 0.37466,
+      "macd_hist": 0.045329,
+      "stoch_k_14": 0.15472,
+      "ema_5_20": 0.576466,
+      "ema_10_50": 2.72181,
+      "adx_14": 0.202479,
+      "hl_range_pct": 0.021258,
+      "close_position": 0.031244,
+      "gap_pct": 0.02893,
+      "bb_zscore_20": 0.197036,
+      "skew_20": 0.338156,
+      "kurt_20": 0.202691
+    },
+    "prediction_psi": 0.0,
+    "drifted_features": [
+      "ret_20",
+      "vol_20",
+      "vwap_distance_pct",
+      "rsi_14",
+      "ema_5_20",
+      "ema_10_50",
+      "adx_14",
+      "skew_20",
+      "kurt_20"
+    ]
+  },
+  "paper_trading": {
+    "n_paper_trades": 621,
+    "feedback_summary": {
+      "n_resolved": 1936,
+      "n_with_net_return": 1936,
+      "win_rate": 0.5269,
+      "mean_net_return": 0.000515,
+      "exit_reasons": {
+        "TIME_EXPIRY": 1761,
+        "STOP_HIT": 150,
+        "TARGET_HIT": 25
+      }
+    },
+    "performance_drift": {
+      "n": 100,
+      "rolling_ic": -0.222585,
+      "rolling_brier": 0.277293,
+      "baseline_ic": 0.01,
+      "ic_degradation_pct": 2325.8458,
+      "degraded": true,
+      "action": "TRIGGER_CHALLENGER"
+    }
+  },
+  "explainability": {
+    "sample_reconstruction": "Signal paper-1 for NIFTY @ 2021-01-02T00:00:00+00:00\n  Decision: BUY (confidence=0.17, provenance=trained_model)\n  Data confidence: 0/100; feature_as_of=None\n  Regime: ; agreement_ratio=0.00\n  Models: logistic\n  Expected net edge: 0.0030 (P_target=0.00, P_stop=0.00)\n  Position size: 0.00% of capital\n  Reason codes: none\n  Feature hash: 478b0ad62ece43d5..."
+  }
+}
