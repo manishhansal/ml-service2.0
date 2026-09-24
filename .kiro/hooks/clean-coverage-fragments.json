@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Clean stray coverage fragments",
+      "trigger": "SessionStart",
+      "description": "Deletes orphaned parallel-mode coverage.py data files (.coverage.<host>.<pid>.*) at the start of each session so they don't accumulate.",
+      "action": {
+        "type": "command",
+        "command": "find \"$PWD\" -maxdepth 1 -name '.coverage.*' -type f -delete 2>/dev/null; echo \"Cleaned stray coverage fragment files\""
+      }
+    }
+  ]
+}
