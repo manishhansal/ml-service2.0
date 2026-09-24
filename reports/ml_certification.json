@@ -1,15 +1,16 @@
 {
   "schema_version": "2.1.0",
   "generated_at": "2026-09-24T15:58:57.219737+00:00",
-  "generated_by": "alpha_research_and_forensic_resolution_phase",
+  "generated_by": "fno_universe_restoration_and_broad_cross_sectional_research_phase",
   "code_version": {
     "repository": "ml-service2.0",
-    "git_sha": "a9a452d93e21c58336e4c4222675966bbf7a94f7",
+    "git_sha": "296c0033957f645f837aedea062f09ba437a2f70",
     "service_version": "2.0.0",
-    "note": "git_sha reflects the last committed implementation SHA; the evidence-chain integrity fixes described below are working-tree changes not yet committed."
+    "data_service_image": "data-service:2.1.0 (rebuilt with the fno-universe fix)",
+    "note": "git_sha is the current HEAD; this phase's changes (broad cross-sectional research modules, stale-data guard, forward-paper runner, chaos/latency, and the data-service2.0 fno-universe fix) are working-tree changes not yet committed."
   },
   "certification_status": "RESEARCH_READY",
-  "certification_status_rationale": "RESEARCH_READY. The full lifecycle + evidence-chain integrity are implemented, tested, and exercised on real data. Forensic evidence conflicts are resolved. Real daily + intraday research shows NO cost-surviving edge. Production/shadow remain NOT ELIGIBLE (no verified edge, no forward-paper evidence).",
+  "certification_status_rationale": "RESEARCH_READY. The full lifecycle + evidence-chain integrity are implemented, tested, and exercised on real data. The fno-universe 503 blocker is FIXED, enabling BROAD cross-sectional research on a real 209\u2013217-symbol F&O universe. That research shows a statistically-detectable close-to-close cross-sectional rank IC that does NOT survive realistic next-open execution or costs \u2014 ECONOMICALLY_UNVIABLE, NO cost-surviving edge. Forensic evidence conflicts remain resolved. Production/shadow remain NOT ELIGIBLE (no verified edge, no genuine forward-paper evidence).",
   "data_source_classes": {
     "note": "Every result is tagged with one of these classes so evidence provenance is never ambiguous (mandate \u00a713, \u00a796).",
     "SYNTHETIC": "generated in-process; pipeline/dev evidence ONLY, never edge or profitability.",
@@ -228,10 +229,10 @@
   "research_blockers": [
     {
       "id": "RB-001",
-      "title": "data-service2.0 access",
-      "status": "PARTIALLY_RESOLVED",
-      "impact": "data-service2.0 authenticated access CONFIRMED (VALID_DATA). Daily + intraday 15m/5m research EXECUTED on real data (see alpha_research_runs). Universe expansion / cross-sectional REMAIN BLOCKED by the fno-universe 503 endpoint.",
-      "required": "Execute the bounded research matrix (\u00a798)."
+      "title": "data-service2.0 access + fno-universe endpoint",
+      "status": "RESOLVED",
+      "impact": "data-service2.0 authenticated access CONFIRMED (VALID_DATA). The fno-universe 503 was root-caused and FIXED (cache-only read path with no DB fallback; cold cache after restart). Broad-universe cross-sectional research EXECUTED on 209\u2013217 real F&O symbols across daily + 15m (see alpha_research_runs.cross_sectional). Outcome: ECONOMICALLY_UNVIABLE (no tradeable edge under next-open execution).",
+      "required": "None for research; the broad cross-sectional matrix (\u00a798) has been executed."
     },
     {
       "id": "RB-002",
@@ -250,9 +251,9 @@
     {
       "id": "RB-004",
       "title": "No forward-paper evidence",
-      "impact": "Still no forward-paper evidence. Historical replay is explicitly NOT forward paper. A live signal-at-T / outcome-after-T runner is required before any shadow consideration (\u00a732-34, \u00a765).",
-      "required": "Live real-time forward-paper runner.",
-      "status": "OPEN"
+      "impact": "Forward-paper INFRASTRUCTURE now built (src/analytics/forward_paper.py: immutable append-only ForwardSignal store; resolve_due() gates on wall-clock elapsed time so historical replay cannot masquerade as forward-paper; versioning + no auto-promotion; integrates existing OutcomeResolver/FeedbackStore). But no GENUINE signal-at-T / outcome-after-T trades have accrued yet (requires running forward in wall-clock time). forward_paper status = NOT_RUN. Historical replay is still explicitly NOT forward paper (\u00a796).",
+      "required": "Run the forward-paper runner live over calendar time to accrue >=20 genuine resolved trades (\u00a758) \u2014 only for candidates that pass historical gates (\u00a759). Not applicable now: no candidate passed (cross-sectional is ECONOMICALLY_UNVIABLE).",
+      "status": "INFRASTRUCTURE_READY_EVIDENCE_PENDING"
     }
   ],
   "promotion_decision": {
@@ -260,9 +261,9 @@
     "eligible_for_shadow": false,
     "eligible_for_paper": true,
     "eligible_for_research": true,
-    "reason": "Infrastructure + evidence-chain integrity in place and tested (1198 passed, 90.01% coverage). Real-data research EXECUTED on daily (NO_SIGNAL, zero OOS IC) and intraday 15m (NO_SIGNAL) / 5m (ECONOMICALLY_UNVIABLE: +IC but negative net Sharpe). Forensic conflicts (proxy P&L, calibration divergence, drift) resolved and made explicit. NO cost-surviving edge verified on any tested configuration. Universe-breadth / cross-sectional hypotheses remain untestable (fno-universe 503). Production/shadow remain prohibited; forward-paper evidence still absent.",
+    "reason": "Infrastructure + evidence-chain integrity in place and tested. Real-data research EXECUTED across the full staged matrix: daily 3-symbol (NO_SIGNAL), intraday 15m/5m 3-symbol (NO_SIGNAL / ECONOMICALLY_UNVIABLE), AND \u2014 with the fno-universe 503 now FIXED \u2014 BROAD cross-sectional research on 209\u2013217 real F&O symbols (daily + 15m). The broad daily cross-section shows a real, leakage-clean, independently-reproduced close-to-close rank IC (\u2248 0.19), but it COLLAPSES to \u2248 0.02 under next-open execution and is NEGATIVE net Sharpe (-11 to -14) at every cost level \u2014 a short-horizon reversal / bid-ask-bounce artifact, ECONOMICALLY_UNVIABLE. NO cost-surviving edge verified on any tested configuration. Stale-data blocking closed; LookAheadGuard wired in live inference; chaos fail-closed verified; latency benchmarked. Production/shadow remain prohibited; genuine forward-paper evidence still absent (infrastructure ready, NOT_RUN).",
     "final_decision_level": "A_NO_VERIFIED_EDGE",
-    "next_milestone": "Restore the fno-universe endpoint to test universe-breadth / cross-sectional hypotheses; build the live forward-paper runner. Until then the honest verdict is NO VERIFIED EDGE (Outcome C)."
+    "next_milestone": "Run the forward-paper runner live over calendar time IF and WHEN a candidate passes historical gates. No candidate currently passes (cross-sectional is ECONOMICALLY_UNVIABLE). The honest verdict remains NO VERIFIED EDGE."
   },
   "phase_history": [
     {
@@ -307,7 +308,7 @@
     "base_url": "http://localhost:8200",
     "market_status": "OK",
     "authenticated": true,
-    "fno_universe_endpoint": "DATA_SERVICE_UNAVAILABLE (HTTP 503)",
+    "fno_universe_endpoint": "OK (HTTP 200, VALID_UNIVERSE, 220 symbols) \u2014 fixed in data-service2.0 (DB fallback + startup cache-warm + explicit failure semantics); was DATA_SERVICE_UNAVAILABLE (HTTP 503).",
     "historical_valid": {
       "NIFTY": {
         "1d": 1251,
@@ -386,23 +387,73 @@
     },
     "universe_expansion": {
       "mandate": "\u00a77, \u00a714, \u00a756-RUN2",
-      "status": "NOT_RUN",
-      "reason": "data-service2.0 /v1/instruments/fno-universe returns HTTP 503; the liquid F&O equity universe cannot be sourced programmatically. Recorded as a data-capability blocker, NOT faked (\u00a743, \u00a763)."
+      "status": "RESOLVED",
+      "prior_status": "NOT_RUN (fno-universe HTTP 503)",
+      "resolution": "The fno-universe 503 was root-caused and fixed in data-service2.0 (the endpoint read only a process-local in-memory cache with no DB fallback; the cache was cold after every API restart while a valid ACTIVE snapshot existed in the DB). Added a DB fallback + startup cache-warm + explicit failure semantics (DATABASE_UNAVAILABLE / NO_UNIVERSE / PARTIAL_UNIVERSE / VALID_UNIVERSE). Endpoint now returns HTTP 200.",
+      "coverage_report": "reports/fno_universe_coverage.json",
+      "reported_symbols": 220,
+      "valid_daily_ohlcv_symbols": 217,
+      "median_daily_bars_per_symbol": 2481,
+      "research_gate": "CROSS_SECTIONAL_READY_PREFERRED",
+      "survivorship_classification": "CURRENT_UNIVERSE_ONLY",
+      "survivorship_note": "Membership carries a single open effective_from window (bootstrap), NOT point-in-time historical F&O membership; all results below are SURVIVORSHIP_LIMITED and must not be presented as unbiased historical evidence (\u00a711, \u00a754)."
     },
     "cross_sectional": {
-      "mandate": "\u00a710, \u00a711, \u00a756-RUN2",
-      "status": "NOT_RUN",
-      "reason": "Cross-sectional expected-return ranking needs a broad multi-symbol universe; blocked by the same fno-universe 503. The 3 available symbols (2 indices + 1 stock) are too few for cross-sectional structure."
+      "mandate": "\u00a710, \u00a711, \u00a717-\u00a741, \u00a756-RUN2, \u00a768, \u00a769, \u00a781-\u00a785, \u00a7108",
+      "status": "EXECUTED",
+      "research_state": "ECONOMICALLY_UNVIABLE",
+      "data_source_class": "HISTORICAL_REAL",
+      "survivorship_classification": "CURRENT_UNIVERSE_ONLY (SURVIVORSHIP_LIMITED)",
+      "research_report": "reports/cross_sectional_research.json",
+      "backtest_report": "reports/cross_sectional_backtest.json",
+      "intraday_15m_report": "reports/cross_sectional_research_15m.json",
+      "daily": {
+        "universe_size": 209,
+        "panel_rows": 439086,
+        "n_timestamps": 2512,
+        "median_symbols_per_timestamp": 165,
+        "labels": ["raw", "excess", "residual", "rank"],
+        "feature_sets": ["BASE(24)", "BASE+XS(30)"],
+        "models": ["logistic", "ridge", "lightgbm", "xgboost"],
+        "n_hypotheses_tested": 32,
+        "primary_metric": "cross-sectional Spearman RANK IC (per-timestamp; Pearson IC is outlier-sensitive and used only as a diagnostic, \u00a723/\u00a740/\u00a781)",
+        "best_close_to_close_rank_ic": 0.1922,
+        "best_experiment": "xs-1d-rank-BASE+XS-lightgbm",
+        "leakage_check": "PASS \u2014 null test (shuffle realized within each timestamp) collapses rank IC to \u2248 -0.002; forward-return alignment exact.",
+        "independent_validation": "Rank IC recomputed from 365,153 persisted OOS predictions AGREES EXACTLY with the pipeline value (abs_diff 0.0), \u00a750/\u00a779.",
+        "note": "The close-to-close rank IC (\u2248 0.19) is real, leakage-clean, and reproducible, but it is a short-horizon (1-day) cross-sectional REVERSAL signal (corr(score, ret_1) \u2248 -0.5). Close-to-close P&L is NOT valid economic evidence (\u00a732/\u00a733)."
+      },
+      "real_ohlcv_next_open_backtest": {
+        "mandate": "\u00a732, \u00a733, \u00a751, \u00a782, \u00a784",
+        "pnl_provenance": "REAL_HISTORICAL_OHLCV_NEXT_OPEN",
+        "execution": "signal at close[T] \u2192 ENTER at open[T+1] \u2192 EXIT at open[T+1+holding]; no close-to-close fills, no reconstructed price path.",
+        "ic_decay_next_open_rank_ic": {"h1": 0.021024, "h2": 0.00299, "h3": 0.020331, "h5": 0.018063, "h10": -0.000211, "h20": -0.000853},
+        "net_sharpe_long_short_hold1": -14.0775,
+        "net_sharpe_long_only_hold1": -11.2961,
+        "median_net_sharpe_across_configs": -6.78,
+        "best_net_sharpe_across_configs": 0.14,
+        "cost_sensitivity_net_sharpe": {"5bps": -13.5944, "10bps": -13.8682, "15bps": -14.1417, "20bps": -14.4149, "30bps": -14.9603},
+        "trade_level_audit": "30-trade sample, 0 violations (signal_ts < entry_ts < exit_ts; net <= gross).",
+        "finding": "The close-to-close rank IC of 0.19 COLLAPSES to \u2248 0.02 (noise threshold) under next-open forward returns, and every next-open portfolio configuration has a NEGATIVE gross and net Sharpe at every cost level. The apparent edge was a same-bar close-timing / bid-ask-bounce reversal artifact, not tradeable alpha."
+      },
+      "intraday_15m": {
+        "universe_size": 58,
+        "rank_ic_range": "0.02\u20130.035",
+        "research_state": "ECONOMICALLY_UNVIABLE",
+        "note": "Corroborates daily: no tradeable cross-sectional edge at 15m."
+      },
+      "capacity": "NOT_COMPUTED \u2014 moot for an economically-unviable signal; presenting a capacity curve for a non-tradeable signal would be misleading (\u00a734).",
+      "conclusion": "The central phase question (\u00a7108) is ANSWERED for this universe: a broad, liquid, PIT-safe F&O equity universe contains a statistically-detectable cross-sectional rank IC, but it does NOT survive realistic next-open execution or costs. Statistical significance did NOT convert to economic significance. NO VERIFIED EDGE. This extends the prior 5m 'statistically-interesting-but-economically-unviable' finding to a broad universe."
     },
     "sentinelpulse_ablation": {
-      "mandate": "\u00a715",
+      "mandate": "\u00a715, \u00a743, \u00a745",
       "status": "NOT_RUN",
-      "reason": "Requires a live SentinelPulse service (SENTINEL_PULSE_URL); not validated in this environment. Market-only remains the path; news incremental value must be proven empirically before inclusion."
+      "reason": "Per \u00a743 the news ablation runs only after a market-only baseline is established. The market-only cross-sectional baseline is ECONOMICALLY_UNVIABLE (no tradeable edge to add incremental value to), so an ablation would test whether news improves a non-monetizable signal \u2014 low information value and it would inflate the multiple-testing count (\u00a7100). Deferred, NOT faked. News PIT enforcement (publish_time <= T) already exists in the live pipeline via LookAheadGuard."
     },
     "derivatives_ablation": {
-      "mandate": "\u00a716",
+      "mandate": "\u00a716, \u00a746, \u00a747",
       "status": "NOT_RUN",
-      "reason": "OI is None on index bars and the option-chain endpoint was not confirmed reliable; missing derivatives data must remain missing (no zero-fill, \u00a716, \u00a743)."
+      "reason": "OI is None on index bars and reliable per-symbol derivatives (futures basis/OI/IV) coverage was not established; missing derivatives data must remain missing (no zero-fill, \u00a716, \u00a743, \u00a798). Also deferred for the same reason as news: the market-only baseline is economically unviable."
     }
   }
 }
