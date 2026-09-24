@@ -1,11 +1,12 @@
 {
-  "generated_at": "2026-09-24T13:05:16.530851+00:00",
-  "git_sha": "67651b1247952c9af33d87bdceb58a720f2ed4a4",
-  "data_source": "data-service2.0",
+  "generated_at": "2026-09-24T15:21:51.736047+00:00",
+  "git_sha": "479a86ac4ca979cccf8dced2d1f74555c9ac179a",
+  "data_source_class": "HISTORICAL_REAL",
+  "require_live": true,
   "dataset": {
-    "dataset_id": "ds-1d-20260924130459-9fda2801",
-    "dataset_hash": "03dd885b17b8a5787e3c083c28ca8799f7bf243ffe1dcfd5f6dec8e7fe234238",
-    "rows": 1334,
+    "dataset_id": "ds-1d-20260924152136-46a23d66",
+    "dataset_hash": "4367a3c226a7e790ef34685d75859b1ab7d1a0a1799d66a550dcfeebe3b1ba69",
+    "rows": 1335,
     "universe": [
       "BANKNIFTY",
       "NIFTY",
@@ -18,15 +19,15 @@
   },
   "training": {
     "model_name": "market_regime",
-    "dataset_id": "ds-1d-20260924130459-9fda2801",
-    "dataset_hash": "03dd885b17b8a5787e3c083c28ca8799f7bf243ffe1dcfd5f6dec8e7fe234238",
+    "dataset_id": "ds-1d-20260924152136-46a23d66",
+    "dataset_hash": "4367a3c226a7e790ef34685d75859b1ab7d1a0a1799d66a550dcfeebe3b1ba69",
     "champion": "logistic",
     "champion_version": null,
     "champion_ic_mean": 0.0,
     "champion_pbo": 0.6,
     "champion_net_sharpe": 0.0,
     "champion_ece": 0.0,
-    "champion_brier": 0.246413,
+    "champion_brier": 0.247539,
     "passed_acceptance": false,
     "rejection_reason": "IC_BELOW_THRESHOLD",
     "candidates": [
@@ -37,11 +38,11 @@
         "wf_ic_worst": 0.0,
         "wf_positive_fraction": 0.0,
         "wf_net_sharpe": 0.0,
-        "cpcv_ic_mean": -0.016379,
+        "cpcv_ic_mean": -0.014359,
         "cpcv_pbo": 0.6,
         "calibration_ece": 0.0,
         "calibration_fitted": true,
-        "calibration_brier": 0.246413
+        "calibration_brier": 0.247539
       },
       {
         "name": "lightgbm",
@@ -50,11 +51,11 @@
         "wf_ic_worst": 0.0,
         "wf_positive_fraction": 0.0,
         "wf_net_sharpe": 0.0,
-        "cpcv_ic_mean": 0.07002,
+        "cpcv_ic_mean": 0.067608,
         "cpcv_pbo": 0.2,
         "calibration_ece": 0.0,
         "calibration_fitted": true,
-        "calibration_brier": 0.240206
+        "calibration_brier": 0.239586
       },
       {
         "name": "xgboost",
@@ -63,122 +64,178 @@
         "wf_ic_worst": 0.0,
         "wf_positive_fraction": 0.0,
         "wf_net_sharpe": 0.0,
-        "cpcv_ic_mean": 0.052109,
+        "cpcv_ic_mean": 0.068205,
         "cpcv_pbo": 0.2,
         "calibration_ece": 0.0,
         "calibration_fitted": true,
-        "calibration_brier": 0.240636
+        "calibration_brier": 0.237948
       }
     ]
   },
   "backtest": {
-    "n_trades": 238,
-    "gross_return": 0.40573497815053394,
-    "net_return": 0.07253497815053395,
-    "ann_return": 0.01486,
-    "sharpe": 0.3658,
-    "sortino": 0.7015,
-    "calmar": 0.1433,
-    "max_drawdown": -0.103672,
-    "profit_factor": 1.1037,
-    "win_rate": 0.4958,
-    "avg_win": 0.006545,
-    "avg_loss": -0.005831,
-    "turnover": 0.1784,
-    "exposure": 0.4674,
-    "var_95": -0.013356,
-    "cvar_95": -0.018325,
-    "cost_bps_round_trip": 14.0
+    "n_trades": 236,
+    "gross_return": 0.44904495227915797,
+    "net_return": 0.11864495227915803,
+    "ann_return": 0.023062,
+    "sharpe": 0.5597,
+    "sortino": 1.0698,
+    "calmar": 0.2649,
+    "max_drawdown": -0.087073,
+    "profit_factor": 1.1821,
+    "win_rate": 0.5,
+    "avg_win": 0.006526,
+    "avg_loss": -0.005521,
+    "turnover": 0.1768,
+    "exposure": 0.4835,
+    "var_95": -0.010435,
+    "cvar_95": -0.017171,
+    "cost_bps_round_trip": 14.0,
+    "price_path_note": "Backtest price path reconstructed from realized horizon returns (proxy, not tick-accurate market P&L)."
   },
   "cost_sensitivity": {
     "5bps": {
-      "net_return": 0.2867349781505339,
-      "sharpe": 1.3965,
-      "n_trades": 238
+      "net_return": 0.331044952279158,
+      "sharpe": 1.5728,
+      "n_trades": 236
     },
     "10bps": {
-      "net_return": 0.1677349781505339,
-      "sharpe": 0.8187,
-      "n_trades": 238
+      "net_return": 0.21304495227915798,
+      "sharpe": 1.0051,
+      "n_trades": 236
     },
     "20bps": {
-      "net_return": -0.07026502184946606,
-      "sharpe": -0.288,
-      "n_trades": 238
+      "net_return": -0.022955047720841996,
+      "sharpe": -0.0844,
+      "n_trades": 236
     }
   },
   "champion_challenger": {
     "champion_version": null,
+    "champion_status": "NO_ELIGIBLE_CHAMPION",
+    "champion_status_reason": "IC_BELOW_THRESHOLD",
     "shadow_version": null,
+    "shadow_status": "NO_ELIGIBLE_SHADOW",
+    "shadow_status_reason": "IC_BELOW_THRESHOLD",
     "shadow_registered": false
   },
   "drift": {
-    "max_psi": 2.72181,
+    "max_psi": 4.506978,
     "severity": "CRITICAL",
     "action": "BLOCK",
     "feature_psi": {
-      "ret_1": 0.041658,
-      "ret_5": 0.066936,
-      "ret_10": 0.186357,
-      "ret_20": 0.386456,
-      "log_ret_1": 0.041658,
-      "vol_5": 0.068692,
-      "vol_10": 0.165201,
-      "vol_20": 0.513719,
-      "atr_14_pct": 0.144316,
-      "rel_volume_20": 0.037361,
-      "volume_zscore_20": 0.06602,
-      "vwap_distance_pct": 0.244808,
-      "rsi_14": 0.37466,
-      "macd_hist": 0.045329,
-      "stoch_k_14": 0.15472,
-      "ema_5_20": 0.576466,
-      "ema_10_50": 2.72181,
-      "adx_14": 0.202479,
-      "hl_range_pct": 0.021258,
-      "close_position": 0.031244,
-      "gap_pct": 0.02893,
-      "bb_zscore_20": 0.197036,
-      "skew_20": 0.338156,
-      "kurt_20": 0.202691
+      "ret_1": 0.042896,
+      "ret_5": 0.069234,
+      "ret_10": 0.202369,
+      "ret_20": 0.38942,
+      "log_ret_1": 0.042896,
+      "vol_5": 0.079267,
+      "vol_10": 0.150498,
+      "vol_20": 0.498119,
+      "atr_14_pct": 0.144463,
+      "rel_volume_20": 0.036447,
+      "volume_zscore_20": 0.072295,
+      "vwap_distance_pct": 0.245802,
+      "rsi_14": 0.387668,
+      "macd_hist": 0.045691,
+      "stoch_k_14": 0.166708,
+      "ema_5_20": 0.58607,
+      "ema_10_50": 4.506978,
+      "adx_14": 0.196031,
+      "hl_range_pct": 0.022332,
+      "close_position": 0.03133,
+      "gap_pct": 0.029848,
+      "bb_zscore_20": 0.20825,
+      "skew_20": 0.343586,
+      "kurt_20": 0.192968
     },
     "prediction_psi": 0.0,
     "drifted_features": [
+      "ret_10",
       "ret_20",
       "vol_20",
       "vwap_distance_pct",
       "rsi_14",
       "ema_5_20",
       "ema_10_50",
-      "adx_14",
-      "skew_20",
-      "kurt_20"
+      "bb_zscore_20",
+      "skew_20"
     ]
   },
-  "paper_trading": {
-    "n_paper_trades": 621,
+  "historical_replay": {
+    "data_source_class": "HISTORICAL_REAL",
+    "is_forward_paper": false,
+    "note": "HISTORICAL_REPLAY exercises trace/feedback/drift plumbing with a KNOWN price path. NOT forward-paper evidence and NOT economic proof (mandate \u00a734,\u00a765).",
+    "n_replay_decisions": 642,
+    "n_downgraded_by_evidence_guard": 286,
+    "model_version": "UNVERSIONED_NO_ELIGIBLE_CHAMPION",
     "feedback_summary": {
-      "n_resolved": 1936,
-      "n_with_net_return": 1936,
-      "win_rate": 0.5269,
-      "mean_net_return": 0.000515,
+      "n_resolved": 6523,
+      "n_with_net_return": 6523,
+      "win_rate": 0.5232,
+      "mean_net_return": 0.000354,
       "exit_reasons": {
-        "TIME_EXPIRY": 1761,
-        "STOP_HIT": 150,
-        "TARGET_HIT": 25
+        "TIME_EXPIRY": 6015,
+        "STOP_HIT": 433,
+        "TARGET_HIT": 75
       }
     },
     "performance_drift": {
       "n": 100,
-      "rolling_ic": -0.222585,
-      "rolling_brier": 0.277293,
+      "rolling_ic": -0.201592,
+      "rolling_brier": 0.275093,
       "baseline_ic": 0.01,
-      "ic_degradation_pct": 2325.8458,
+      "ic_degradation_pct": 2115.9201,
       "degraded": true,
       "action": "TRIGGER_CHALLENGER"
     }
   },
+  "forward_paper": {
+    "data_source_class": "FORWARD_PAPER",
+    "status": "NOT_RUN",
+    "reason": "Forward paper trading requires a live data-service2.0 real-time loop (signal at T, outcome strictly after T). Not available in this run."
+  },
+  "independent_metrics": {
+    "note": "Second-opinion metrics recomputed from persisted replay records; the harness does not trust model-emitted metrics blindly.",
+    "replay_pearson_ic": -0.059629,
+    "replay_rank_ic": -0.100843,
+    "replay_brier": 0.272958,
+    "replay_calibration": {
+      "ece": 0.164083,
+      "mce": 0.850237,
+      "n_samples": 642,
+      "n_nonempty_bins": 10,
+      "ece_is_suspicious": false,
+      "suspicious_reason": "",
+      "bin_count": [
+        5,
+        2,
+        6,
+        112,
+        258,
+        186,
+        63,
+        1,
+        1,
+        8
+      ]
+    },
+    "net_accounting": {
+      "n_trades": 642,
+      "n_inconsistent": 0,
+      "max_abs_error": 0.0,
+      "aggregate_gross": 1.671517,
+      "aggregate_cost": 0.642,
+      "aggregate_net": 1.029517,
+      "aggregate_consistent": true
+    },
+    "cross_check_champion_brier": {
+      "reported": 0.247539,
+      "independent": 0.272958,
+      "abs_diff": 0.025419,
+      "agrees": false
+    }
+  },
   "explainability": {
-    "sample_reconstruction": "Signal paper-1 for NIFTY @ 2021-01-02T00:00:00+00:00\n  Decision: BUY (confidence=0.17, provenance=trained_model)\n  Data confidence: 0/100; feature_as_of=None\n  Regime: ; agreement_ratio=0.00\n  Models: logistic\n  Expected net edge: 0.0030 (P_target=0.00, P_stop=0.00)\n  Position size: 0.00% of capital\n  Reason codes: none\n  Feature hash: 478b0ad62ece43d5..."
+    "sample_reconstruction": "Signal replay-1 for NIFTY @ 2021-01-02T00:00:00+00:00\n  Decision: BUY (confidence=0.17, provenance=trained_model)\n  Data confidence: 100/100; feature_as_of=2021-01-01T00:00:00+00:00\n  Regime: replay; agreement_ratio=1.00\n  Models: logistic\n  Calibrated outputs: logistic=0.586\n  Expected net edge: 0.0030 (P_target=0.59, P_stop=0.36)\n  Position size: 1.00% of capital\n  Reason codes: POSITIVE_EXPECTED_EDGE, MODEL_DIRECTION_SUPPORT\n  Feature hash: 3e90111967830005..."
   }
 }

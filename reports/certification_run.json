@@ -1,9 +1,10 @@
 {
-  "generated_at": "2026-09-24T06:39:16.288539+00:00",
-  "git_sha": "67651b1247952c9af33d87bdceb58a720f2ed4a4",
-  "data_source": "SYNTHETIC_FALLBACK",
+  "generated_at": "2026-09-24T14:29:50.763023+00:00",
+  "git_sha": "479a86ac4ca979cccf8dced2d1f74555c9ac179a",
+  "data_source_class": "SYNTHETIC",
+  "require_live": false,
   "dataset": {
-    "dataset_id": "ds-1d-20260924063853-3f1dc0ca",
+    "dataset_id": "ds-1d-20260924142931-0c5a5f95",
     "dataset_hash": "d5b2e09430437227e4b7fd97f037f05f62f6df2c34f701e86a152f5dbb8f5201",
     "rows": 2619,
     "universe": [
@@ -18,7 +19,7 @@
   },
   "training": {
     "model_name": "market_regime",
-    "dataset_id": "ds-1d-20260924063853-3f1dc0ca",
+    "dataset_id": "ds-1d-20260924142931-0c5a5f95",
     "dataset_hash": "d5b2e09430437227e4b7fd97f037f05f62f6df2c34f701e86a152f5dbb8f5201",
     "champion": "logistic",
     "champion_version": null,
@@ -88,7 +89,8 @@
     "exposure": 0.5027,
     "var_95": -0.0054,
     "cvar_95": -0.006249,
-    "cost_bps_round_trip": 14.0
+    "cost_bps_round_trip": 14.0,
+    "price_path_note": "Backtest price path reconstructed from realized horizon returns (proxy, not tick-accurate market P&L)."
   },
   "cost_sensitivity": {
     "5bps": {
@@ -109,7 +111,11 @@
   },
   "champion_challenger": {
     "champion_version": null,
+    "champion_status": "NO_ELIGIBLE_CHAMPION",
+    "champion_status_reason": "NEGATIVE_NET_SHARPE",
     "shadow_version": null,
+    "shadow_status": "NO_ELIGIBLE_SHADOW",
+    "shadow_status_reason": "NEGATIVE_NET_SHARPE",
     "shadow_registered": false
   },
   "drift": {
@@ -156,17 +162,22 @@
       "kurt_20"
     ]
   },
-  "paper_trading": {
-    "n_paper_trades": 1315,
+  "historical_replay": {
+    "data_source_class": "SYNTHETIC",
+    "is_forward_paper": false,
+    "note": "HISTORICAL_REPLAY exercises trace/feedback/drift plumbing with a KNOWN price path. NOT forward-paper evidence and NOT economic proof (mandate \u00a734,\u00a765).",
+    "n_replay_decisions": 1315,
+    "n_downgraded_by_evidence_guard": 636,
+    "model_version": "UNVERSIONED_NO_ELIGIBLE_CHAMPION",
     "feedback_summary": {
-      "n_resolved": 1315,
-      "n_with_net_return": 1315,
-      "win_rate": 0.5163,
-      "mean_net_return": 7.2e-05,
+      "n_resolved": 5881,
+      "n_with_net_return": 5881,
+      "win_rate": 0.5198,
+      "mean_net_return": 0.000218,
       "exit_reasons": {
-        "TIME_EXPIRY": 1237,
-        "STOP_HIT": 67,
-        "TARGET_HIT": 11
+        "TIME_EXPIRY": 5472,
+        "STOP_HIT": 351,
+        "TARGET_HIT": 58
       }
     },
     "performance_drift": {
@@ -179,7 +190,53 @@
       "action": "MONITOR"
     }
   },
+  "forward_paper": {
+    "data_source_class": "FORWARD_PAPER",
+    "status": "NOT_RUN",
+    "reason": "Forward paper trading requires a live data-service2.0 real-time loop (signal at T, outcome strictly after T). Not available in this run."
+  },
+  "independent_metrics": {
+    "note": "Second-opinion metrics recomputed from persisted replay records; the harness does not trust model-emitted metrics blindly.",
+    "replay_pearson_ic": 0.030834,
+    "replay_rank_ic": 0.034884,
+    "replay_brier": 0.260976,
+    "replay_calibration": {
+      "ece": 0.118698,
+      "mce": 0.227795,
+      "n_samples": 1315,
+      "n_nonempty_bins": 6,
+      "ece_is_suspicious": false,
+      "suspicious_reason": "",
+      "bin_count": [
+        0,
+        0,
+        14,
+        327,
+        487,
+        304,
+        174,
+        9,
+        0,
+        0
+      ]
+    },
+    "net_accounting": {
+      "n_trades": 1315,
+      "n_inconsistent": 0,
+      "max_abs_error": 0.0,
+      "aggregate_gross": 1.409396,
+      "aggregate_cost": 1.315,
+      "aggregate_net": 0.094396,
+      "aggregate_consistent": true
+    },
+    "cross_check_champion_brier": {
+      "reported": 0.240284,
+      "independent": 0.260976,
+      "abs_diff": 0.020692,
+      "agrees": false
+    }
+  },
   "explainability": {
-    "sample_reconstruction": "Signal paper-8 for NIFTY @ 2021-01-29T00:00:00+00:00\n  Decision: BUY (confidence=0.12, provenance=trained_model)\n  Data confidence: 0/100; feature_as_of=None\n  Regime: ; agreement_ratio=0.00\n  Models: logistic\n  Expected net edge: -0.0103 (P_target=0.00, P_stop=0.00)\n  Position size: 0.00% of capital\n  Reason codes: none\n  Feature hash: 62c6b04ada879de8..."
+    "sample_reconstruction": "Signal replay-8 for NIFTY @ 2021-01-29T00:00:00+00:00\n  Decision: BUY (confidence=0.12, provenance=trained_model)\n  Data confidence: 80/100; feature_as_of=2021-01-28T00:00:00+00:00\n  Regime: replay; agreement_ratio=1.00\n  Models: logistic\n  Calibrated outputs: logistic=0.558\n  Expected net edge: -0.0103 (P_target=0.56, P_stop=0.39)\n  Position size: 1.00% of capital\n  Reason codes: MODEL_DIRECTION_SUPPORT\n  Feature hash: 20692a98d73bc16b..."
   }
 }
