@@ -191,12 +191,19 @@ class TestPITCorrectness:
             news_client=mock_news_client,
         )
 
-        _vector, report = await pipeline.build_vector("NIFTY", pit_boundary, mode="inference")
+        # Inference mode BLOCKS a PIT violation by raising (P0-008). Data dated
+        # after the boundary must never enter a live feature vector.
+        from src.core.exceptions import PointInTimeViolationError
 
-        # The FeatureQualityReport must be a proper object with a pit_violations_count attribute
-        assert hasattr(report, "pit_violations_count"), (
-            "FeatureQualityReport must have a pit_violations_count field"
+        with pytest.raises(PointInTimeViolationError):
+            await pipeline.build_vector("NIFTY", pit_boundary, mode="inference")
+
+        # Backtest mode instead COUNTS the violation in the quality report.
+        _vector, report = await pipeline.build_vector(
+            "NIFTY", pit_boundary, mode="backtest"
         )
+        assert hasattr(report, "pit_violations_count")
+        assert report.pit_violations_count > 0
 
     @pytest.mark.asyncio
     async def test_source_data_before_pit_boundary_does_not_raise(self) -> None:

@@ -50,6 +50,8 @@ from src.clients.data_service import (
 )
 from src.clients.sentinel_pulse import SentinelPulseClient
 from src.config import settings
+from src.core.exceptions import PointInTimeViolationError
+from src.features.leakage_validator import LookAheadGuard
 from src.features.qlib_engine import QlibFeatureEngine
 from src.logging_config import get_logger
 from src.schemas.base import ImpactDirection, PredictionProvenance
@@ -130,6 +132,7 @@ class FeaturePipeline:
         self._news = news_client
         self._qlib = qlib_engine or QlibFeatureEngine()
         self._cache = cache
+        self._guard = LookAheadGuard()  # P0-008: wired into inference
 
     # ------------------------------------------------------------------
     # Public API
@@ -183,6 +186,9 @@ class FeaturePipeline:
                     pass  # stale / invalid cache — recompute below
 
         # ── Step 2: Fetch market data from data-service2.0 ────────────────────
+        # PIT is strictly enforced in inference mode (blocks on violation);
+        # in backtest mode violations are counted but data still flows.
+        enforce_pit = mode == "inference"
         (
             data_service_available,
             provenance,
@@ -191,11 +197,12 @@ class FeaturePipeline:
             market_data,
             pit_violations,
             data_families_unavailable,
-        ) = await self._fetch_market_data(symbol, timestamp, pit_date)
+            data_as_of,
+        ) = await self._fetch_market_data(symbol, timestamp, pit_date, enforce_pit=enforce_pit)
 
         # ── Step 3: Fetch news context from SentinelPulse ────────────────────
-        sentinel_available, news_fields, news_families_unavailable = (
-            await self._fetch_news_context(symbol)
+        sentinel_available, news_fields, news_families_unavailable, news_as_of = (
+            await self._fetch_news_context(symbol, timestamp, enforce_pit=enforce_pit)
         )
 
         unavailable_families = data_families_unavailable + news_families_unavailable
@@ -213,6 +220,8 @@ class FeaturePipeline:
             symbol=symbol,
             timestamp=timestamp,
             pit_validated=(pit_violations == 0),
+            data_as_of=data_as_of,
+            news_as_of=news_as_of,
             data_confidence_score=confidence_score,
             signal_engine_allowed=(signal_engine_allowed and data_service_available),
             # OHLCV fields from market data (may be None if unavailable)
@@ -314,18 +323,24 @@ class FeaturePipeline:
         symbol: str,
         timestamp: datetime,
         pit_date: str | None,
-    ) -> tuple[bool, PredictionProvenance, int, bool, dict[str, Any], int, list[str]]:
+        enforce_pit: bool = True,
+    ) -> tuple[bool, PredictionProvenance, int, bool, dict[str, Any], int, list[str], datetime | None]:
         """
         Fetch live quote from data-service2.0 and apply quality gates.
+
+        Args:
+            enforce_pit: When True (inference mode), a PIT violation raises
+                         PointInTimeViolationError to block the prediction.
+                         When False (backtest mode), violations are counted only.
 
         Returns:
             (data_service_available, provenance, confidence_score,
              signal_engine_allowed, market_data_dict,
-             pit_violations_count, unavailable_families)
+             pit_violations_count, unavailable_families, data_as_of)
         """
         if self._data is None:
             logger.warning("feature_pipeline_no_data_client", symbol=symbol)
-            return False, PredictionProvenance.UNAVAILABLE, 0, False, {}, 0, ["market_data"]
+            return False, PredictionProvenance.UNAVAILABLE, 0, False, {}, 0, ["market_data"], None
 
         try:
             raw_quote = await self._data.get_live_quote(symbol)
@@ -335,11 +350,11 @@ class FeaturePipeline:
                 symbol=symbol,
                 error=str(exc),
             )
-            return False, PredictionProvenance.UNAVAILABLE, 0, False, {}, 0, ["market_data"]
+            return False, PredictionProvenance.UNAVAILABLE, 0, False, {}, 0, ["market_data"], None
         except SignalEngineNotAllowedError:
             # Quality gate: signalEngineAllowed=false → UNAVAILABLE (Req 1.5)
             logger.warning("feature_pipeline_signal_engine_not_allowed", symbol=symbol)
-            return True, PredictionProvenance.UNAVAILABLE, 0, False, {}, 0, []
+            return True, PredictionProvenance.UNAVAILABLE, 0, False, {}, 0, [], None
         except LowDataConfidenceError as exc:
             # Quality gate: DataConfidenceScore < threshold → INSUFFICIENT_EVIDENCE (Req 1.7)
             logger.warning(
@@ -348,7 +363,7 @@ class FeaturePipeline:
                 error=str(exc),
             )
             # Extract confidence score from the exception message if possible
-            return True, PredictionProvenance.INSUFFICIENT_EVIDENCE, 0, True, {}, 0, []
+            return True, PredictionProvenance.INSUFFICIENT_EVIDENCE, 0, True, {}, 0, [], None
 
         # ── Parse quality metadata ─────────────────────────────────────────────
         metadata: dict[str, Any] = raw_quote.get("metadata") or {}
@@ -361,33 +376,34 @@ class FeaturePipeline:
             signal_engine_val = raw_quote.get("signalEngineAllowed", True)
         signal_engine_allowed = bool(signal_engine_val)
 
-        # ── PIT validation ─────────────────────────────────────────────────────
+        # ── PIT validation (P0-008: LookAheadGuard wired in) ────────────────────
         pit_violations = 0
+        data_as_of: datetime | None = None
         data_as_of_str: str | None = (
             metadata.get("dataAsOf")
             or metadata.get("data_timestamp_ms")
         )
         if isinstance(data_as_of_str, int):
-            # Millisecond epoch — convert to ISO string
-            source_ts = datetime.fromtimestamp(data_as_of_str / 1000, tz=timezone.utc)
-            if source_ts >= timestamp:
-                pit_violations += 1
-                logger.warning(
-                    "pit_violation_source_data_after_boundary",
-                    symbol=symbol,
-                    source_ts=source_ts.isoformat(),
-                    pit_boundary=timestamp.isoformat(),
-                )
+            # Millisecond epoch
+            data_as_of = datetime.fromtimestamp(data_as_of_str / 1000, tz=timezone.utc)
         else:
-            source_ts = _parse_iso(data_as_of_str)
-            if source_ts is not None and source_ts >= timestamp:
+            data_as_of = _parse_iso(data_as_of_str)
+
+        if data_as_of is not None:
+            try:
+                # Strict guard: source_ts must be < pit_boundary.
+                self._guard.check("market_data", data_as_of, timestamp)
+            except PointInTimeViolationError:
                 pit_violations += 1
                 logger.warning(
                     "pit_violation_source_data_after_boundary",
                     symbol=symbol,
-                    source_ts=source_ts.isoformat(),
+                    source_ts=data_as_of.isoformat(),
                     pit_boundary=timestamp.isoformat(),
                 )
+                if enforce_pit:
+                    # Inference mode: a PIT violation blocks the prediction.
+                    raise
 
         # ── Apply quality gates (gates are now re-checked here because the
         #    DataServiceClient may or may not raise — depends on mock vs real) ──
@@ -409,20 +425,27 @@ class FeaturePipeline:
             market_data,
             pit_violations,
             [],
+            data_as_of,
         )
 
     async def _fetch_news_context(
         self,
         symbol: str,
-    ) -> tuple[bool, dict[str, Any], list[str]]:
+        timestamp: datetime | None = None,
+        enforce_pit: bool = True,
+    ) -> tuple[bool, dict[str, Any], list[str], datetime | None]:
         """
         Fetch news context from SentinelPulse with degraded-mode substitution.
 
+        Applies the LookAheadGuard to the news ``as_of`` timestamp: any news
+        item dated at/after the PIT boundary is dropped (news degrades to
+        neutral) rather than leaking future information into the feature vector.
+
         Returns:
-            (sentinel_available, news_fields_dict, unavailable_families)
+            (sentinel_available, news_fields_dict, unavailable_families, news_as_of)
         """
         if self._news is None:
-            return False, _SENTINEL_NEUTRAL.copy(), ["news_context"]
+            return False, _SENTINEL_NEUTRAL.copy(), ["news_context"], None
 
         try:
             news_ctx = await self._news.fetch_news_context(symbol)
@@ -432,11 +455,28 @@ class FeaturePipeline:
                 symbol=symbol,
                 error=str(exc),
             )
-            return False, _SENTINEL_NEUTRAL.copy(), ["news_context"]
+            return False, _SENTINEL_NEUTRAL.copy(), ["news_context"], None
 
         if news_ctx is None:
             # SentinelPulse returned None (unreachable / missing mandatory fields)
-            return False, _SENTINEL_NEUTRAL.copy(), ["news_context"]
+            return False, _SENTINEL_NEUTRAL.copy(), ["news_context"], None
+
+        # ── News PIT guard (P0-008): drop news dated at/after the boundary ────
+        news_as_of = _parse_iso(
+            news_ctx.get("as_of") or news_ctx.get("news_as_of")
+        )
+        if news_as_of is not None and timestamp is not None:
+            try:
+                self._guard.check("news_context", news_as_of, timestamp)
+            except PointInTimeViolationError:
+                logger.warning(
+                    "pit_violation_news_after_boundary",
+                    symbol=symbol,
+                    news_as_of=news_as_of.isoformat(),
+                    pit_boundary=timestamp.isoformat(),
+                )
+                # Never leak future news — degrade to neutral regardless of mode.
+                return False, _SENTINEL_NEUTRAL.copy(), ["news_context"], None
 
         # Parse real values from the response
         sentiment: dict[str, Any] = news_ctx.get("sentiment") or {}
@@ -462,7 +502,7 @@ class FeaturePipeline:
             ),
         }
 
-        return True, news_fields, []
+        return True, news_fields, [], news_as_of
 
     async def _compute_alpha158(
         self,
