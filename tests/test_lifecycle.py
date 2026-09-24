@@ -132,3 +132,47 @@ def test_shadow_comparison_recorded(tmp_path):
     assert result.shadow_beats_champion is True
     history = mgr.get_roles("market_regime").history
     assert any(h["event"] == "shadow_evaluated" for h in history)
+
+
+# ── Explicit no-eligible-model states (mandate §12) ────────────────────────
+
+def test_no_eligible_champion_is_explicit(tmp_path):
+    mgr = _mgr(tmp_path)
+    mgr.record_no_eligible_champion("market_regime", "IC_BELOW_THRESHOLD")
+    role = mgr.get_roles("market_regime")
+    assert role.champion_version is None
+    assert role.champion_status == "NO_ELIGIBLE_CHAMPION"
+    assert role.champion_status_reason == "IC_BELOW_THRESHOLD"
+
+
+def test_no_eligible_shadow_is_explicit(tmp_path):
+    mgr = _mgr(tmp_path)
+    mgr.record_no_eligible_shadow("market_regime", "NEGATIVE_NET_SHARPE")
+    role = mgr.get_roles("market_regime")
+    assert role.shadow_version is None
+    assert role.shadow_status == "NO_ELIGIBLE_SHADOW"
+    assert role.shadow_status_reason == "NEGATIVE_NET_SHARPE"
+
+
+def test_default_status_is_not_evaluated(tmp_path):
+    mgr = _mgr(tmp_path)
+    role = mgr.get_roles("brand_new")
+    assert role.champion_status == "NOT_EVALUATED"
+    assert role.shadow_status == "NOT_EVALUATED"
+
+
+def test_no_eligible_states_persist_and_reload(tmp_path):
+    mgr = _mgr(tmp_path)
+    mgr.record_no_eligible_champion("market_regime", "IC_BELOW_THRESHOLD")
+    reg = ModelRegistry(artifacts_path=tmp_path / "artifacts")
+    mgr2 = ChampionChallengerManager(registry=reg, state_path=tmp_path / "roles.json")
+    role = mgr2.get_roles("market_regime")
+    assert role.champion_status == "NO_ELIGIBLE_CHAMPION"
+    assert role.champion_status_reason == "IC_BELOW_THRESHOLD"
+
+
+def test_shadow_promotion_sets_eligible_status(tmp_path):
+    mgr = _mgr(tmp_path)
+    mgr.register_challenger("market_regime", "1.0.0-a")
+    mgr.promote_to_shadow("market_regime")
+    assert mgr.get_roles("market_regime").shadow_status == "ELIGIBLE"

@@ -1,9 +1,59 @@
 # ML Service Final Certification Report
 **AlphaForge ml-service2.0 — Post-Implementation Certification**
 
-*Report Date: 2026-09-24 (updated after execution/implementation phase)*
-*Certification Status: **RESEARCH_READY** — all P0 blockers closed; no cost-surviving edge verified*
-*git SHA: 67651b1247952c9af33d87bdceb58a720f2ed4a4*
+*Report Date: 2026-09-24 (updated after evidence-chain integrity phase)*
+*Certification Status: **RESEARCH_READY** — infrastructure + evidence-chain integrity in place; NO cost-surviving edge verified*
+*git SHA: 67651b1247952c9af33d87bdceb58a720f2ed4a4 (evidence-chain fixes are uncommitted working-tree changes)*
+
+---
+
+## Evidence-Chain Integrity Phase — What Changed (2026-09-24)
+
+This phase did **not** try to make the model pass. It closed the correctness /
+integrity gaps the LIVE run exposed, and it did so by tracing root causes rather
+than editing numbers. Summary of fixes (details in `reports/ml_certification.json`
+→ `evidence_chain_fixes`):
+
+- **Reconstruction defect fixed at the source.** The live run's broken BUY
+  reconstruction (`data_confidence=0`, `feature_as_of=None`, blank regime,
+  `agreement_ratio=0`, `P_target=0`, `P_stop=0`, `reason_codes=none`) was caused
+  by the certification harness hand-building bare `DecisionTrace` objects that
+  bypassed the populated builder. Now a **DecisionTrace integrity guard**
+  (`src/explainability/decision_trace.py`) downgrades any tradeable BUY/SELL with
+  a missing PIT chain, non-positive/absent expected net edge, degenerate barrier
+  probabilities, zero data confidence, or empty reason codes to **NO_TRADE**
+  (`EVIDENCE_CHAIN_INCOMPLETE`) before it can be persisted (mandate §7–§10).
+- **Positive reason codes.** `MetaDecisionEngine` now attaches structured
+  positive reason codes to tradeable decisions (previously a BUY could carry an
+  empty reason-code list) (§8).
+- **Explicit lifecycle states.** `champion_status` / `shadow_status`
+  (`NO_ELIGIBLE_CHAMPION` / `NO_ELIGIBLE_SHADOW` + reason) replace ambiguous
+  `null` (§12).
+- **Data-source honesty + `--require-live`.** The harness tags every artifact
+  with a `data_source_class` (SYNTHETIC / HISTORICAL_REAL / LIVE_REAL /
+  FORWARD_PAPER) and, under `--require-live`, **hard-fails (exit 2)** when
+  data-service2.0 is unavailable instead of silently using synthetic data
+  (§13, §53, §54, §96).
+- **Replay is not paper.** The in-process loop is relabelled **HISTORICAL_REPLAY**
+  (explicitly not forward-paper evidence); `forward_paper` is `NOT_RUN` with a
+  reason (§34, §65).
+- **Independent metric cross-check.** `src/analytics/independent_metrics.py`
+  recomputes IC / Brier / ECE / net-accounting from persisted records and flags a
+  **suspicious ECE=0** (constant predictions / too few samples / single bin)
+  (§37, §73, §74).
+
+**Test suite correction (§70, §106):** a prior version of this report claimed
+"26 pre-existing API auth/validation tests fail". That is **not reproducible** —
+the suite is green: **1164 passed, 0 failed** (`PYTHONPATH=. python3 -m pytest -q`).
+The only non-passing check is overall coverage at **89.45%** vs the 90% gate. The
+false claim has been removed.
+
+**Research is blocked on data access.** Broad alpha research (universe expansion,
+intraday, cross-sectional, label/feature/news/derivatives ablation, live &
+forward-paper certification) requires an **authenticated, reachable
+data-service2.0**. In this environment `--require-live` exits 2 (HTTP 401 with a
+placeholder key). These phases are **not attempted with fabricated data**; they
+are documented as blockers (`ml_certification.json` → `research_blockers`).
 
 ---
 
@@ -352,10 +402,27 @@ must be answered empirically before news features enter the production path
 
 ---
 
+## Data-Source Honesty Note (§96)
+
+Two runs exist and must not be conflated:
+- **HISTORICAL_REAL** (`reports/certification_run_live.json`): re-run with
+  `--require-live` (exit 0 ⇒ real data actually used) after wiring the
+  data-service2.0 API key from `alpha-forge/.env.local` into a gitignored
+  `ml-service2.0/.env`. Real NSE daily data, 3 symbols, 1,335 rows → **zero OOS
+  IC, PBO 0.6, champion REJECTED (IC_BELOW_THRESHOLD), NO_ELIGIBLE_CHAMPION**.
+  Independent replay IC is **negative** (pearson −0.06, rank −0.10), confirming
+  the finding. This is the binding truth: **NO VERIFIED EDGE**. (Its small
+  positive proxy-backtest is the reconstructed-price-path proxy, not real market
+  P&L, and is inconsistent with the zero/negative IC — do not read it as an
+  edge.) Drift PSI is now 4.5 (CRITICAL/BLOCK); attribution remains OPEN.
+- **SYNTHETIC** (`reports/certification_run.json`): pipeline illustration only —
+  IC 0.042 / PBO 0.067 but **negative net Sharpe (−0.40)**, champion
+  `NO_ELIGIBLE_CHAMPION` (`NEGATIVE_NET_SHARPE`). **Never** evidence of alpha.
+
 ## Certification Decision (Updated)
 
-**CERTIFICATION STATUS: RESEARCH_READY / PAPER_READY.**
-**NOT SHADOW-READY. NOT PRODUCTION-READY.**
+**CERTIFICATION STATUS: RESEARCH_READY.**
+**NOT SHADOW-READY. NOT PRODUCTION-READY. FINAL DECISION LEVEL: A — NO VERIFIED EDGE.**
 
 **P0 blockers — ALL CLOSED:**
 
@@ -390,7 +457,7 @@ when the certification harness is run against live data-service2.0 data.**
 | 5 | `prediction_timestamp` in all prediction schemas | **MET** |
 | 6 | LeakageValidator passing on training datasets | **MET** |
 | 7 | Walk-forward results with worst-window documented | **MET** |
-| 8 | ≥ 20 paper trades with outcome data in feedback loop | **MET** (1,315 paper trades in run) |
+| 8 | ≥ 20 paper trades with outcome data in feedback loop | **NOT MET as economic evidence** — the prior "1,315 paper trades" were HISTORICAL REPLAY of frozen data with a known future price path, not forward paper trades. The feedback/trace/drift plumbing works, but forward-paper evidence (signal-at-T, outcome-after-T) has not been accumulated (§34, §65, §67). |
 | 9 | Drift monitoring with reference distributions | **MET** |
 | 10 | Acceptance criteria in `docs/26_ACCEPTANCE_CRITERIA.md` | 15 PASS / 5 PARTIAL (see `ml_certification.json`) |
 
