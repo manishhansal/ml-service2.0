@@ -51,12 +51,28 @@ class ShadowComparison:
 
 @dataclass
 class RoleState:
-    """Role assignments for a single model family."""
+    """Role assignments for a single model family.
+
+    ``champion_status`` / ``shadow_status`` make the *absence* of a model an
+    explicit, auditable state rather than an ambiguous ``null`` (mandate §12).
+    Valid statuses:
+        NOT_EVALUATED        — no training/selection has run yet.
+        ELIGIBLE             — a version is assigned (see *_version).
+        NO_ELIGIBLE_CHAMPION — training ran but no candidate passed acceptance.
+        NO_ELIGIBLE_SHADOW   — no candidate qualified to receive shadow traffic.
+    ``*_status_reason`` records the machine-readable rejection reason
+    (e.g. IC_BELOW_THRESHOLD, NEGATIVE_NET_SHARPE) so the certification never
+    leaves a bare ``champion_version=null`` with no explanation.
+    """
 
     champion_version: str | None = None
     challenger_version: str | None = None
     shadow_version: str | None = None
     previous_champion_version: str | None = None  # for rollback
+    champion_status: str = "NOT_EVALUATED"
+    champion_status_reason: str = ""
+    shadow_status: str = "NOT_EVALUATED"
+    shadow_status_reason: str = ""
     history: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -136,7 +152,31 @@ class ChampionChallengerManager:
         if role.challenger_version is None:
             raise ValueError(f"No challenger registered for {model_name}.")
         role.shadow_version = role.challenger_version
+        role.shadow_status = "ELIGIBLE"
+        role.shadow_status_reason = ""
         self._record(model_name, "promoted_to_shadow", version=role.shadow_version)
+        self._save_state()
+
+    # ── Explicit "no eligible model" states (mandate §12) ──────────────────
+
+    def record_no_eligible_champion(self, model_name: str, reason: str) -> None:
+        """Record that training/selection ran but produced no promotable champion.
+
+        Makes the empty state explicit and auditable instead of leaving a bare
+        ``champion_version=null``. Does NOT touch any existing champion version.
+        """
+        role = self._role(model_name)
+        role.champion_status = "NO_ELIGIBLE_CHAMPION"
+        role.champion_status_reason = reason
+        self._record(model_name, "no_eligible_champion", reason=reason)
+        self._save_state()
+
+    def record_no_eligible_shadow(self, model_name: str, reason: str) -> None:
+        """Record that no candidate qualified for shadow traffic (explicit state)."""
+        role = self._role(model_name)
+        role.shadow_status = "NO_ELIGIBLE_SHADOW"
+        role.shadow_status_reason = reason
+        self._record(model_name, "no_eligible_shadow", reason=reason)
         self._save_state()
 
     def evaluate_shadow(
@@ -190,7 +230,10 @@ class ChampionChallengerManager:
         # Promote: shadow → champion, old champion retained for rollback.
         role.previous_champion_version = role.champion_version
         role.champion_version = role.shadow_version
+        role.champion_status = "ELIGIBLE"
+        role.champion_status_reason = ""
         role.shadow_version = None
+        role.shadow_status = "NOT_EVALUATED"
         role.challenger_version = None
         self._record(
             model_name, "promoted_to_champion",

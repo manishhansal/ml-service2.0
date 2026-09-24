@@ -294,6 +294,36 @@ class MetaDecisionEngine:
             else:
                 action = "WAIT"
 
+            # ── Structured POSITIVE reason codes (mandate §8) ──────────────
+            # A tradeable decision must explain WHY it trades, not only why it
+            # would abstain. These describe the actual decision path so the
+            # persisted trace reconstructs a complete rationale.
+            if action in ("BUY", "SELL"):
+                if expected_net_edge is not None and expected_net_edge > 0:
+                    reason_codes.append("POSITIVE_EXPECTED_EDGE")
+                if agreement_ratio >= 0.66:
+                    reason_codes.append("MODEL_AGREEMENT")
+                if effective_data_quality >= 0.6:
+                    reason_codes.append("DATA_QUALITY_OK")
+                if regime:
+                    reason_codes.append("REGIME_SUPPORT")
+                if (
+                    news_signal is not None
+                    and int(news_signal.direction) == plurality_direction
+                    and float(news_signal.confidence) > 0.0
+                ):
+                    reason_codes.append("NEWS_SUPPORT")
+                # Guarantee at least one positive code so no directional trade
+                # is ever persisted with an empty rationale.
+                if not any(
+                    c in reason_codes
+                    for c in (
+                        "POSITIVE_EXPECTED_EDGE", "MODEL_AGREEMENT",
+                        "DATA_QUALITY_OK", "REGIME_SUPPORT", "NEWS_SUPPORT",
+                    )
+                ):
+                    reason_codes.append("MODEL_DIRECTION_SUPPORT")
+
         # ── Step 11: Confidence and uncertainty ───────────────────────────────
         #
         # final_confidence = mean_confidence * agreement_ratio (0 when no agreement).

@@ -27,9 +27,13 @@ def test_feature_hash_deterministic():
 
 def test_trace_record_and_reconstruct(tmp_path):
     store = DecisionTraceStore(tmp_path / "traces.jsonl")
+    pred_ts = datetime(2024, 1, 2, tzinfo=UTC)
     trace = DecisionTrace(
         signal_id="sig-1", symbol="NIFTY",
-        prediction_timestamp=datetime(2024, 1, 2, tzinfo=UTC).isoformat(),
+        prediction_timestamp=pred_ts.isoformat(),
+        feature_as_of=(pred_ts - timedelta(minutes=1)).isoformat(),
+        data_as_of=(pred_ts - timedelta(minutes=1)).isoformat(),
+        data_confidence_score=90,
         feature_snapshot={"rsi_14": 60.0, "ret_5": 0.01},
         models_used=["logistic", "lightgbm"],
         action="BUY", confidence=0.62, provenance="trained_model",
@@ -86,6 +90,7 @@ def test_trace_from_meta_output_end_to_end(tmp_path):
     meta = meta.model_copy(update={
         "prediction_timestamp": ts,
         "feature_as_of": ts - timedelta(minutes=1),
+        "data_as_of": ts - timedelta(minutes=1),
     })
     trace = trace_from_meta_output(
         meta, feature_snapshot={"rsi_14": 58.0, "macd_hist": 0.001}, regime="bull",

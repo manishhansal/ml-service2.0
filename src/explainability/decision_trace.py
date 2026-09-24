@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -35,6 +35,36 @@ from typing import Any
 from src.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+# Actions that would deploy (paper or live) capital and therefore require a
+# complete, reconstructable evidence chain before they may be persisted.
+TRADEABLE_ACTIONS: frozenset[str] = frozenset({"BUY", "SELL"})
+
+# Probability floor below which a "target" / "stop" probability is treated as
+# degenerate (i.e. the RiskPredictor never actually produced it). A trained
+# model that emits a directional trade must supply meaningful barrier probs.
+_PROB_EPS = 1e-9
+
+
+def _parse_iso(value: Any) -> datetime | None:
+    """Parse an ISO-8601 string (or accept a datetime) into an aware datetime.
+
+    Returns None on failure. Naive datetimes are assumed UTC so PIT ordering
+    comparisons never raise on tz-mismatch.
+    """
+    if value is None:
+        return None
+    dt: datetime | None = None
+    if isinstance(value, datetime):
+        dt = value
+    elif isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if dt is None:
+        return None
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 @dataclass
@@ -116,6 +146,105 @@ class DecisionTrace:
         lines.append(f"  Feature hash: {self.feature_hash[:16]}...")
         return "\n".join(lines)
 
+    # ── Evidence-chain integrity (mandate §7, §8, §9, §10) ──────────────────
+    def integrity_violations(self) -> list[str]:
+        """Return structured violation codes for a *tradeable* decision.
+
+        A tradeable action (BUY/SELL) must carry a complete, reconstructable
+        evidence chain. Missing point-in-time timestamps, degenerate barrier
+        probabilities, an absent expected-net-edge, or an empty reason-code
+        list all indicate the decision was NOT genuinely produced by the
+        decision engine and MUST NOT be trusted (see mandate §7–§10).
+
+        NO_TRADE / WAIT decisions are non-directional and are exempt from the
+        probability/edge checks, but a persisted decision still needs a
+        prediction_timestamp and at least one reason code to be auditable.
+        """
+        violations: list[str] = []
+        tradeable = self.action in TRADEABLE_ACTIONS
+
+        # Every persisted decision must be timestamped and give a reason.
+        if not self.prediction_timestamp:
+            violations.append("MISSING_PREDICTION_TIMESTAMP")
+        if not self.reason_codes:
+            violations.append("MISSING_REASON_CODES")
+
+        if not tradeable:
+            return violations
+
+        # §7 — mandatory PIT chain for a directional (capital-deploying) signal.
+        if not self.feature_as_of:
+            violations.append("MISSING_FEATURE_AS_OF")
+        if not self.data_as_of:
+            violations.append("MISSING_DATA_AS_OF")
+
+        # §7 — PIT ordering: nothing may be dated after the prediction.
+        for label, ts in (
+            ("FEATURE", self.feature_as_of),
+            ("DATA", self.data_as_of),
+            ("NEWS", self.news_as_of),
+        ):
+            if ts and self.prediction_timestamp and _parse_iso(ts) is not None \
+                    and _parse_iso(self.prediction_timestamp) is not None \
+                    and _parse_iso(ts) > _parse_iso(self.prediction_timestamp):
+                violations.append(f"PIT_ORDER_VIOLATION_{label}_AFTER_PREDICTION")
+
+        # §6 — a directional signal requires known data confidence (>0).
+        if self.data_confidence_score <= 0:
+            violations.append("MISSING_DATA_CONFIDENCE")
+
+        # §9 — barrier probabilities must be real and self-consistent.
+        pt, ps = self.prob_target_hit, self.prob_stop_hit
+        if pt <= _PROB_EPS and ps <= _PROB_EPS:
+            violations.append("DEGENERATE_BARRIER_PROBABILITIES")
+        if not (0.0 <= pt <= 1.0) or not (0.0 <= ps <= 1.0):
+            violations.append("BARRIER_PROBABILITY_OUT_OF_RANGE")
+        if pt + ps > 1.0 + 1e-6:
+            violations.append("BARRIER_PROBABILITY_SUM_EXCEEDS_ONE")
+
+        # §10 — a directional trade must carry a POSITIVE expected net edge.
+        # E[net] <= 0 ⇒ NO_TRADE (unless a documented, independently-validated
+        # alternative policy applies — none does here).
+        if self.expected_net_edge is None:
+            violations.append("MISSING_EXPECTED_NET_EDGE")
+        elif self.expected_net_edge <= 0.0:
+            violations.append("NON_POSITIVE_EXPECTED_NET_EDGE")
+
+        return violations
+
+    def is_evidence_complete(self) -> bool:
+        return not self.integrity_violations()
+
+    def enforce_integrity(self) -> DecisionTrace:
+        """Return a trace safe to persist.
+
+        If a tradeable action fails the evidence-chain checks, it is
+        DOWNGRADED to NO_TRADE with an ``EVIDENCE_CHAIN_INCOMPLETE`` reason
+        code plus the specific violation codes — never silently trusted
+        (mandate §7–§10: missing mandatory evidence ⇒ NO_TRADE). Non-violating
+        traces are returned unchanged.
+        """
+        violations = self.integrity_violations()
+        if not violations:
+            return self
+        if self.action in TRADEABLE_ACTIONS:
+            downgraded_reasons = ["EVIDENCE_CHAIN_INCOMPLETE", *violations]
+            return replace(
+                self,
+                action="NO_TRADE",
+                abstention=True,
+                abstention_reason="EVIDENCE_CHAIN_INCOMPLETE",
+                suggested_position_size_pct=0.0,
+                reason_codes=[*self.reason_codes, *downgraded_reasons]
+                if self.reason_codes else downgraded_reasons,
+            )
+        # Non-tradeable but still missing a reason/timestamp: annotate, keep action.
+        merged = list(self.reason_codes)
+        for v in violations:
+            if v not in merged:
+                merged.append(v)
+        return replace(self, reason_codes=merged)
+
 
 class DecisionTraceStore:
     """Append-only store for decision traces; supports exact reconstruction."""
@@ -124,12 +253,32 @@ class DecisionTraceStore:
         self._path = Path(path)
         self._path.parent.mkdir(parents=True, exist_ok=True)
 
-    def record(self, trace: DecisionTrace) -> None:
+    def record(self, trace: DecisionTrace) -> DecisionTrace:
+        """Persist a decision trace, enforcing evidence-chain integrity.
+
+        A tradeable (BUY/SELL) trace with an incomplete evidence chain is
+        downgraded to NO_TRADE before persistence (mandate §7–§10) so the
+        append-only store can never contain a capital-deploying decision that
+        cannot be fully reconstructed. Returns the (possibly downgraded) trace
+        that was actually written.
+        """
+        original_action = trace.action
+        trace = trace.enforce_integrity()
+        if trace.action != original_action:
+            logger.warning(
+                "decision_trace_downgraded",
+                signal_id=trace.signal_id,
+                original_action=original_action,
+                enforced_action=trace.action,
+                reason="EVIDENCE_CHAIN_INCOMPLETE",
+                violations=trace.reason_codes,
+            )
         if not trace.feature_hash and trace.feature_snapshot:
             trace.feature_hash = DecisionTrace.compute_feature_hash(trace.feature_snapshot)
         with self._path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(trace.to_dict()) + "\n")
         logger.info("decision_trace_recorded", signal_id=trace.signal_id, action=trace.action)
+        return trace
 
     def get(self, signal_id: str) -> DecisionTrace | None:
         if not self._path.exists():
