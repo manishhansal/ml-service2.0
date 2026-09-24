@@ -1,0 +1,47 @@
+{
+  "generated_at": "2026-09-24T17:57:03.253292+00:00",
+  "mandate": "\u00a765",
+  "model": "ridge",
+  "note": "Latency of the ACTUAL trained-model path components (LightGBM on the real cross-sectional panel), not a heuristic. p50/p95/p99 in ms. Feature calc timed per-symbol on real OHLCV; model_load = one fit of the champion-class estimator; inference/calibration/decision timed per single-row prediction; persistence = one append to the OOS store.",
+  "components_ms": {
+    "feature_calculation_per_symbol": {
+      "p50": 6.004,
+      "p95": 9.4305,
+      "p99": 14.9539,
+      "n": 40
+    },
+    "model_load_once_ms": 264.356,
+    "inference_per_row": {
+      "p50": 0.0373,
+      "p95": 0.0663,
+      "p99": 0.2428,
+      "n": 300
+    },
+    "calibration_per_row": {
+      "p50": 0.0226,
+      "p95": 0.0397,
+      "p99": 0.1008,
+      "n": 300
+    },
+    "decision_per_row": {
+      "p50": 0.0001,
+      "p95": 0.0001,
+      "p99": 0.0003,
+      "n": 300
+    },
+    "persistence_per_row": {
+      "p50": 0.02,
+      "p95": 0.0259,
+      "p99": 0.0355,
+      "n": 200
+    }
+  },
+  "end_to_end_per_row_ms": {
+    "p50": 0.0599,
+    "p95": 0.1286,
+    "p99": 0.4351,
+    "n": 300
+  },
+  "timeframe": "1d",
+  "note_intraday": "Intraday (5m/15m/1h) feature-calc latency is dominated by the same per-symbol rolling computations; the per-row inference/calibration/decision path is timeframe-independent."
+}
