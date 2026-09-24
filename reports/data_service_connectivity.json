@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-24T15:44:33.961316+00:00",
+  "generated_at": "2026-09-24T16:40:53.618241+00:00",
   "base_url": "http://localhost:8200",
   "canonical_intervals": [
     "1m",
@@ -21,8 +21,11 @@
       ]
     },
     "fno_universe": {
-      "status": "DATA_SERVICE_UNAVAILABLE",
-      "detail": "data-service2.0 returned 503 for GET /v1/instruments/fno-universe: Server error '503 Service Unavailable' for url 'http://localhost:8200/v1/instruments/fno-universe'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503"
+      "status": "OK",
+      "keys": [
+        "data",
+        "metadata"
+      ]
     },
     "historical": {
       "NIFTY": {
