@@ -74,13 +74,21 @@ import pandas as pd
 
 from src.analytics import independent_metrics as im
 from src.backtest.engine import BacktestEngine, CostModel, cost_sensitivity_analysis
+from src.backtest.provenance import (
+    assert_not_economic_evidence,
+    classify_backtest,
+)
 from src.data.dataset_builder import DatasetBuilder
 from src.data.feedback import FeedbackStore, OutcomeResolver
 from src.data.labels import LabelConfig
 from src.explainability.decision_trace import DecisionTrace, DecisionTraceStore
 from src.models.estimators import build_estimator
 from src.monitoring.performance_drift import PerformanceDriftTracker
-from src.monitoring.reference import DriftGate, ReferenceDistributionStore
+from src.monitoring.reference import (
+    DriftGate,
+    ReferenceDistributionStore,
+    attribute_drift,
+)
 from src.registry.lifecycle import ChampionChallengerManager
 from src.registry.registry import ModelRegistry
 from src.schemas.meta import FeedbackRecord
@@ -224,9 +232,28 @@ def run(symbols: list[str], out_path: Path, require_live: bool = False) -> dict:
     bt = BacktestEngine(CostModel()).run(bt_frame, signals)
     cost_sens = cost_sensitivity_analysis(bt_frame, signals, bps_levels=(5, 10, 20))
 
+    # Classify this backtest's P&L provenance and ENFORCE the invariant
+    # PROXY_BACKTEST != REAL_MARKET_PNL (mandate §2.1). The price path is
+    # reconstructed from realized (forward) label returns and the signals are
+    # in-sample fit-and-predict, so this is a RECONSTRUCTED_PROXY that is
+    # forbidden as shadow/production economic evidence.
+    bt_provenance = classify_backtest(
+        price_path_reconstructed=True,
+        in_sample_signals=True,
+        real_ohlcv=False,
+    )
+
     # ── Champion / challenger / shadow — explicit states (mandate §12) ─────
     lifecycle = ChampionChallengerManager(registry=registry, state_path=root / "roles.json")
     shadow_registered = False
+    # Eligibility must NEVER consume proxy backtest P&L. The decision below keys
+    # only on report.passed_acceptance (walk-forward OOS IC / CPCV PBO /
+    # walk-forward net Sharpe / calibration ECE). This assertion makes that
+    # invariant explicit: if the proxy backtest were ever (mis)classified as
+    # economic evidence, the run fails loudly instead of silently qualifying a
+    # model on future-contaminated P&L (mandate §2.1, §63).
+    if bt_provenance.is_economic_evidence:  # pragma: no cover - defensive
+        assert_not_economic_evidence(bt_provenance)
     if report.passed_acceptance and report.champion_version:
         lifecycle.register_challenger("market_regime", report.champion_version)
         lifecycle.promote_to_shadow("market_regime")
@@ -244,7 +271,13 @@ def run(symbols: list[str], out_path: Path, require_live: bool = False) -> dict:
         frame[feature_cols], scores,
     )
     ref_store.save(ref)
-    drift = DriftGate().evaluate(ref, frame[feature_cols].tail(200))
+    current_window = frame[feature_cols].tail(200)
+    drift = DriftGate().evaluate(ref, current_window)
+    # Attribute the drift verdict (mandate §26): a CRITICAL PSI here is compared
+    # against a stationarity self-test on the reference's own early-vs-late halves
+    # to distinguish a construction artifact / non-stationarity from a genuinely
+    # different live population. The operational threshold is left intact (§50).
+    drift_attribution = attribute_drift(ref, current_window)
 
     # ── HISTORICAL REPLAY loop -> feedback (NOT forward paper) ─────────────
     # This exercises the trace/feedback/drift plumbing and enforces the
@@ -350,12 +383,31 @@ def run(symbols: list[str], out_path: Path, require_live: bool = False) -> dict:
     independent = {
         "note": "Second-opinion metrics recomputed from persisted replay records; "
                 "the harness does not trust model-emitted metrics blindly.",
+        "authoritative_layer": "INDEPENDENT",
+        "authority_note": (
+            "For verification, the INDEPENDENT recomputation is authoritative over "
+            "model-emitted metrics (mandate §25, §51). A divergence between the "
+            "reported champion Brier and this independent Brier is EXPECTED by "
+            "construction, not a bug: (1) the reported Brier is computed on "
+            "CALIBRATED probabilities over the held-out last-20% tail with outcome "
+            "encoding label>0; (2) the independent Brier is computed on RAW "
+            "in-sample champion scores over only the traded (signal!=0) replay rows "
+            "with outcome encoding realized_return>0. Different sample, different "
+            "prediction object, different label encoding. The independent value is "
+            "the one used for cross-checking; the reported value is retained for "
+            "traceability."
+        ),
         "replay_pearson_ic": indep_ic,
         "replay_rank_ic": indep_rank_ic,
         "replay_brier": indep_brier,
         "replay_calibration": indep_cal,
         "net_accounting": indep_net,
-        "cross_check_champion_brier": im.compare(report.champion_brier, indep_brier),
+        "cross_check_champion_brier": {
+            **im.compare(report.champion_brier, indep_brier),
+            "divergence_is_expected_by_construction": True,
+            "reported_basis": "calibrated preds, held-out last-20% tail, outcome=label>0",
+            "independent_basis": "raw in-sample scores, traded (signal!=0) rows, outcome=realized_return>0",
+        },
     }
 
     # ── Assemble certification evidence ────────────────────────────────────
@@ -377,8 +429,13 @@ def run(symbols: list[str], out_path: Path, require_live: bool = False) -> dict:
         "training": report.to_dict(),
         "backtest": {
             **bt.to_dict(),
+            **bt_provenance.to_dict(),
             "price_path_note": "Backtest price path reconstructed from realized horizon "
                                "returns (proxy, not tick-accurate market P&L).",
+            "consumed_by_eligibility_gates": False,
+            "eligibility_note": "Proxy P&L is reported-only; NO shadow/production gate "
+                                "reads it. Eligibility keys on walk-forward OOS IC / CPCV "
+                                "PBO / walk-forward net Sharpe / calibration ECE only.",
         },
         "cost_sensitivity": {
             k: {m: v.get(m) for m in ("net_return", "sharpe", "n_trades")}
@@ -393,7 +450,10 @@ def run(symbols: list[str], out_path: Path, require_live: bool = False) -> dict:
             "shadow_status_reason": roles.shadow_status_reason,
             "shadow_registered": shadow_registered,
         },
-        "drift": drift.to_dict(),
+        "drift": {
+            **drift.to_dict(),
+            "attribution": drift_attribution.to_dict(),
+        },
         "historical_replay": {
             "data_source_class": DataSourceClass.HISTORICAL_REAL if is_real else DataSourceClass.SYNTHETIC,
             "is_forward_paper": False,

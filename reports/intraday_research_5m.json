@@ -1,0 +1,90 @@
+{
+  "generated_at": "2026-09-24T15:56:06.110292+00:00",
+  "git_sha": "a9a452d93e21c58336e4c4222675966bbf7a94f7",
+  "data_source_class": "HISTORICAL_REAL",
+  "interval": "5m",
+  "label_horizon_bars": 12,
+  "dataset": {
+    "dataset_id": "ds-5m-20260924155545-82c208d4",
+    "dataset_hash": "ea20015875a77b79da20df24d90c2dc886e69f5a87d703f6940a700795c61b79",
+    "rows": 8650,
+    "universe": [
+      "BANKNIFTY",
+      "NIFTY",
+      "RELIANCE"
+    ],
+    "timeframe": "5m",
+    "date_start": "2026-03-30 05:55:00+00:00",
+    "date_end": "2026-09-17 09:40:00+00:00",
+    "pit_status": "PIT_VALIDATED",
+    "leakage_validated": true,
+    "feature_schema_version": "fs-2.0.0",
+    "label_schema_version": "ls-2.0.0"
+  },
+  "training": {
+    "model_name": "intraday_5m",
+    "dataset_id": "ds-5m-20260924155545-82c208d4",
+    "dataset_hash": "ea20015875a77b79da20df24d90c2dc886e69f5a87d703f6940a700795c61b79",
+    "champion": "logistic",
+    "champion_version": null,
+    "champion_ic_mean": 0.062737,
+    "champion_pbo": 0.0,
+    "champion_net_sharpe": -3.0429,
+    "champion_ece": 0.0,
+    "champion_brier": 0.242442,
+    "passed_acceptance": false,
+    "rejection_reason": "NEGATIVE_NET_SHARPE",
+    "candidates": [
+      {
+        "name": "logistic",
+        "is_baseline": true,
+        "wf_ic_mean": 0.062737,
+        "wf_ic_worst": -0.150893,
+        "wf_positive_fraction": 0.6667,
+        "wf_net_sharpe": -3.0429,
+        "cpcv_ic_mean": 0.072313,
+        "cpcv_pbo": 0.0,
+        "calibration_ece": 0.0,
+        "calibration_fitted": true,
+        "calibration_brier": 0.242442
+      },
+      {
+        "name": "lightgbm",
+        "is_baseline": false,
+        "wf_ic_mean": 0.024645,
+        "wf_ic_worst": -0.078958,
+        "wf_positive_fraction": 0.5,
+        "wf_net_sharpe": -3.1034,
+        "cpcv_ic_mean": 0.033306,
+        "cpcv_pbo": 0.1333,
+        "calibration_ece": 0.0,
+        "calibration_fitted": true,
+        "calibration_brier": 0.244157
+      },
+      {
+        "name": "xgboost",
+        "is_baseline": false,
+        "wf_ic_mean": 0.014405,
+        "wf_ic_worst": -0.085642,
+        "wf_positive_fraction": 0.3333,
+        "wf_net_sharpe": -3.3451,
+        "cpcv_ic_mean": 0.040202,
+        "cpcv_pbo": 0.1333,
+        "calibration_ece": 0.0,
+        "calibration_fitted": true,
+        "calibration_brier": 0.243951
+      }
+    ]
+  },
+  "research_state": "ECONOMICALLY_UNVIABLE",
+  "acceptance": {
+    "min_ic": 0.02,
+    "max_pbo": 0.5,
+    "champion_ic_mean": 0.062737,
+    "champion_pbo": 0.0,
+    "champion_net_sharpe": -3.0429,
+    "passed_acceptance": false,
+    "rejection_reason": "NEGATIVE_NET_SHARPE"
+  },
+  "note": "Real intraday walk-forward OOS research using the SAME PIT-safe pipeline as the daily certification. Proxy backtest NOT used; only walk-forward OOS IC / CPCV PBO decide the research state. A negative result (NO_SIGNAL) is a valid, reported outcome (mandate \u00a747)."
+}
