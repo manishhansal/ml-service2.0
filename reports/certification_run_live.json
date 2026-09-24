@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-09-24T15:21:51.736047+00:00",
-  "git_sha": "479a86ac4ca979cccf8dced2d1f74555c9ac179a",
+  "generated_at": "2026-09-24T15:51:54.161065+00:00",
+  "git_sha": "a9a452d93e21c58336e4c4222675966bbf7a94f7",
   "data_source_class": "HISTORICAL_REAL",
   "require_live": true,
   "dataset": {
-    "dataset_id": "ds-1d-20260924152136-46a23d66",
+    "dataset_id": "ds-1d-20260924155135-13d0e77d",
     "dataset_hash": "4367a3c226a7e790ef34685d75859b1ab7d1a0a1799d66a550dcfeebe3b1ba69",
     "rows": 1335,
     "universe": [
@@ -19,7 +19,7 @@
   },
   "training": {
     "model_name": "market_regime",
-    "dataset_id": "ds-1d-20260924152136-46a23d66",
+    "dataset_id": "ds-1d-20260924155135-13d0e77d",
     "dataset_hash": "4367a3c226a7e790ef34685d75859b1ab7d1a0a1799d66a550dcfeebe3b1ba69",
     "champion": "logistic",
     "champion_version": null,
@@ -90,7 +90,15 @@
     "var_95": -0.010435,
     "cvar_95": -0.017171,
     "cost_bps_round_trip": 14.0,
-    "price_path_note": "Backtest price path reconstructed from realized horizon returns (proxy, not tick-accurate market P&L)."
+    "pnl_provenance": "RECONSTRUCTED_PROXY",
+    "price_path_reconstructed": true,
+    "in_sample_signals": true,
+    "is_economic_evidence": false,
+    "provenance_reason": "Price path reconstructed from realized (forward) label returns; P&L is a pipeline-illustration proxy, NOT tick-accurate market P&L. Forbidden as shadow/production economic evidence (mandate \u00a72.1).",
+    "invariant": "PROXY_BACKTEST != REAL_MARKET_PNL",
+    "price_path_note": "Backtest price path reconstructed from realized horizon returns (proxy, not tick-accurate market P&L).",
+    "consumed_by_eligibility_gates": false,
+    "eligibility_note": "Proxy P&L is reported-only; NO shadow/production gate reads it. Eligibility keys on walk-forward OOS IC / CPCV PBO / walk-forward net Sharpe / calibration ECE only."
   },
   "cost_sensitivity": {
     "5bps": {
@@ -159,7 +167,186 @@
       "ema_10_50",
       "bb_zscore_20",
       "skew_20"
-    ]
+    ],
+    "attribution": {
+      "max_psi": 4.506978,
+      "severity": "CRITICAL",
+      "self_test_max_psi": 0.391491,
+      "self_test_severity": "HIGH",
+      "likely_construction_artifact": true,
+      "classification": "CONSTRUCTION_ARTIFACT_OR_NONSTATIONARITY",
+      "note": "Reference's own early-vs-late split already exceeds HIGH PSI on the same features. The CRITICAL live PSI is attributable to feature non-stationarity + tail-vs-full-history binning, not a genuinely different live universe. Threshold left intact (mandate \u00a750).",
+      "per_feature": {
+        "ret_1": {
+          "live_psi": 0.042896,
+          "live_severity": "LOW",
+          "self_test_psi": 0.020861,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "ret_5": {
+          "live_psi": 0.069234,
+          "live_severity": "LOW",
+          "self_test_psi": 0.048894,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "ret_10": {
+          "live_psi": 0.202369,
+          "live_severity": "MEDIUM",
+          "self_test_psi": 0.067779,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "ret_20": {
+          "live_psi": 0.38942,
+          "live_severity": "HIGH",
+          "self_test_psi": 0.221639,
+          "self_test_severity": "MEDIUM",
+          "artifact_suspected": false
+        },
+        "log_ret_1": {
+          "live_psi": 0.042896,
+          "live_severity": "LOW",
+          "self_test_psi": 0.020861,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "vol_5": {
+          "live_psi": 0.079267,
+          "live_severity": "LOW",
+          "self_test_psi": 0.033146,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "vol_10": {
+          "live_psi": 0.150498,
+          "live_severity": "LOW",
+          "self_test_psi": 0.148329,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "vol_20": {
+          "live_psi": 0.498119,
+          "live_severity": "CRITICAL",
+          "self_test_psi": 0.203179,
+          "self_test_severity": "MEDIUM",
+          "artifact_suspected": false
+        },
+        "atr_14_pct": {
+          "live_psi": 0.144463,
+          "live_severity": "LOW",
+          "self_test_psi": 0.391491,
+          "self_test_severity": "HIGH",
+          "artifact_suspected": false
+        },
+        "rel_volume_20": {
+          "live_psi": 0.036447,
+          "live_severity": "LOW",
+          "self_test_psi": 0.053498,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "volume_zscore_20": {
+          "live_psi": 0.072295,
+          "live_severity": "LOW",
+          "self_test_psi": 0.039694,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "vwap_distance_pct": {
+          "live_psi": 0.245802,
+          "live_severity": "MEDIUM",
+          "self_test_psi": 0.102189,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "rsi_14": {
+          "live_psi": 0.387668,
+          "live_severity": "HIGH",
+          "self_test_psi": 0.084343,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "macd_hist": {
+          "live_psi": 0.045691,
+          "live_severity": "LOW",
+          "self_test_psi": 0.036843,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "stoch_k_14": {
+          "live_psi": 0.166708,
+          "live_severity": "LOW",
+          "self_test_psi": 0.035149,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "ema_5_20": {
+          "live_psi": 0.58607,
+          "live_severity": "CRITICAL",
+          "self_test_psi": 0.143018,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "ema_10_50": {
+          "live_psi": 4.506978,
+          "live_severity": "CRITICAL",
+          "self_test_psi": 0.255356,
+          "self_test_severity": "HIGH",
+          "artifact_suspected": true
+        },
+        "adx_14": {
+          "live_psi": 0.196031,
+          "live_severity": "LOW",
+          "self_test_psi": 0.116698,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "hl_range_pct": {
+          "live_psi": 0.022332,
+          "live_severity": "LOW",
+          "self_test_psi": 0.042072,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "close_position": {
+          "live_psi": 0.03133,
+          "live_severity": "LOW",
+          "self_test_psi": 0.021074,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "gap_pct": {
+          "live_psi": 0.029848,
+          "live_severity": "LOW",
+          "self_test_psi": 0.073771,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "bb_zscore_20": {
+          "live_psi": 0.20825,
+          "live_severity": "MEDIUM",
+          "self_test_psi": 0.071352,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "skew_20": {
+          "live_psi": 0.343586,
+          "live_severity": "HIGH",
+          "self_test_psi": 0.185342,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        },
+        "kurt_20": {
+          "live_psi": 0.192968,
+          "live_severity": "LOW",
+          "self_test_psi": 0.062269,
+          "self_test_severity": "LOW",
+          "artifact_suspected": false
+        }
+      }
+    }
   },
   "historical_replay": {
     "data_source_class": "HISTORICAL_REAL",
@@ -169,14 +356,14 @@
     "n_downgraded_by_evidence_guard": 286,
     "model_version": "UNVERSIONED_NO_ELIGIBLE_CHAMPION",
     "feedback_summary": {
-      "n_resolved": 6523,
-      "n_with_net_return": 6523,
-      "win_rate": 0.5232,
-      "mean_net_return": 0.000354,
+      "n_resolved": 7165,
+      "n_with_net_return": 7165,
+      "win_rate": 0.526,
+      "mean_net_return": 0.000466,
       "exit_reasons": {
-        "TIME_EXPIRY": 6015,
-        "STOP_HIT": 433,
-        "TARGET_HIT": 75
+        "TIME_EXPIRY": 6558,
+        "STOP_HIT": 515,
+        "TARGET_HIT": 92
       }
     },
     "performance_drift": {
@@ -196,6 +383,8 @@
   },
   "independent_metrics": {
     "note": "Second-opinion metrics recomputed from persisted replay records; the harness does not trust model-emitted metrics blindly.",
+    "authoritative_layer": "INDEPENDENT",
+    "authority_note": "For verification, the INDEPENDENT recomputation is authoritative over model-emitted metrics (mandate \u00a725, \u00a751). A divergence between the reported champion Brier and this independent Brier is EXPECTED by construction, not a bug: (1) the reported Brier is computed on CALIBRATED probabilities over the held-out last-20% tail with outcome encoding label>0; (2) the independent Brier is computed on RAW in-sample champion scores over only the traded (signal!=0) replay rows with outcome encoding realized_return>0. Different sample, different prediction object, different label encoding. The independent value is the one used for cross-checking; the reported value is retained for traceability.",
     "replay_pearson_ic": -0.059629,
     "replay_rank_ic": -0.100843,
     "replay_brier": 0.272958,
@@ -232,7 +421,10 @@
       "reported": 0.247539,
       "independent": 0.272958,
       "abs_diff": 0.025419,
-      "agrees": false
+      "agrees": false,
+      "divergence_is_expected_by_construction": true,
+      "reported_basis": "calibrated preds, held-out last-20% tail, outcome=label>0",
+      "independent_basis": "raw in-sample scores, traded (signal!=0) rows, outcome=realized_return>0"
     }
   },
   "explainability": {

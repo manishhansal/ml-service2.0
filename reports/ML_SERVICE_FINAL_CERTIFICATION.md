@@ -472,3 +472,101 @@ data-service2.0 data is the next research step.
 *Updated by: ml-service2.0 execution/implementation phase*
 *Machine-readable evidence: `reports/ml_certification.json`*
 *Re-run evidence: `PYTHONPATH=. python3 scripts/run_certification.py` (uses live data-service2.0 when reachable, else clearly-labelled synthetic fallback)*
+
+
+---
+
+# Alpha-Research & Forensic-Resolution Phase (appended 2026-09-24)
+
+*This section is appended to the existing report (mandate §53–§55). It does not
+erase or restate prior evidence — the negative baseline, rejected champion, and
+prior phase remain above and in `ml_certification.json → phase_history`. It
+records what changed since the evidence-chain phase.*
+
+## Verified baseline corrections
+
+Two claims carried in from the prior phase were **not reproducible** and are corrected:
+
+- **Test suite / coverage.** Current state is **1198 passed, 0 failed, 90.01%
+  coverage** — at/above the 90% gate. (Prior report: 1164 passed, 89.45%.) The
+  gate was closed with meaningful tests only (see below), not padding.
+- **data-service2.0 access.** The prior report assumed `--require-live` exits 2
+  on HTTP 401. That is **not** the current state: data-service2.0 is **reachable
+  and authenticated** at `http://localhost:8200`; `--require-live` succeeds
+  (`HISTORICAL_REAL`, exit 0). Evidence: `reports/data_service_connectivity.json`.
+
+The working tree was already clean and the evidence-chain fixes were **already
+committed** (`9b18640`), so the "commit the evidence-chain fixes" step in the
+mandate was a no-op — there was nothing uncommitted to freeze.
+
+## Forensic resolution of the three evidence conflicts
+
+| Conflict | Root cause (traced, file/line) | Resolution | Threshold changed? |
+|---|---|---|---|
+| **Proxy backtest vs zero IC (§2.1)** | Harness builds `close = 100·Π(1+realized_return/5)` from the **forward** triple-barrier label and uses **in-sample** fit-and-predict signals. Both future-contaminated. | New `src/backtest/provenance.py` classifies it `RECONSTRUCTED_PROXY` / `is_economic_evidence=False`; artifact stamped `consumed_by_eligibility_gates=False` + invariant `PROXY_BACKTEST != REAL_MARKET_PNL`. **Audit confirms no shadow/production gate consumes proxy P&L.** | No |
+| **Calibration Brier discrepancy (§25)** | Reported Brier = calibrated preds on held-out last-20% tail (outcome `label>0`); independent Brier = raw in-sample scores on traded rows (outcome `realized_return>0`). Different sample/preds/encoding. | Independent layer declared **authoritative**; harness annotates the cross-check `divergence_is_expected_by_construction=True`. | No |
+| **Drift PSI ≈ 4.51 CRITICAL (§26)** | Current sample is `frame.tail(200)` — a chronological tail of the **same** frame that built the reference — through equal-frequency bins + eps clamp; inflates PSI on non-stationary features. | New `attribute_drift()` stationarity self-test: reference early-vs-late `self_test_max_psi ≈ 0.39` (already HIGH) ⇒ classified `CONSTRUCTION_ARTIFACT_OR_NONSTATIONARITY`. **Threshold left intact (§50).** | No |
+
+## Real-data research executed (mandate §29 staged search)
+
+All runs use the **same PIT-safe pipeline** (DatasetBuilder → feature factory →
+triple-barrier labels → walk-forward OOS IC + CPCV PBO) so results are directly
+comparable and cannot smuggle in a weaker validation regime. The proxy backtest
+is **not** used to decide any research state.
+
+| Run | Data | Rows | OOS IC | PBO | Net Sharpe | Research state |
+|---|---|---|---|---|---|---|
+| Daily (NIFTY/BANKNIFTY/RELIANCE) | HISTORICAL_REAL | 1,335 | 0.000 | 0.60 | (rejected) | **NO_SIGNAL** |
+| Intraday 15m (same 3) | HISTORICAL_REAL | 2,866 | −0.071 | 0.80 | −2.91 | **NO_SIGNAL** |
+| Intraday 5m (same 3) | HISTORICAL_REAL | (5m depth) | **+0.063** | **0.00** | **−3.04** | **ECONOMICALLY_UNVIABLE** |
+
+Independent replay cross-check on the daily run: Pearson IC **−0.0596**, Rank IC
+**−0.1008**, Brier **0.273** — confirms the finding.
+
+**Diagnosis of the mandate §65 hypotheses (why the baseline has no edge):**
+
+- **D — timeframe resolution:** TESTED. 15m is negative; 5m shows a small
+  positive OOS IC with zero PBO but it is **destroyed by transaction costs**.
+- **F — turnover/cost:** This is the operative killer at 5m — a statistically
+  detectable directional signal that does **not** survive realistic costs.
+- **C — universe breadth / H — cross-sectional structure:** **UNTESTABLE** here —
+  the `fno-universe` endpoint returns HTTP 503, so the liquid F&O equity universe
+  cannot be sourced. Recorded as a data-capability blocker, **not** faked.
+- **I — news / derivatives:** NOT RUN (no live SentinelPulse; index OI is null,
+  option-chain reliability unconfirmed). Missing data kept missing.
+
+## Meaningful tests added (coverage → 90.01%)
+
+- `tests/test_backtest_provenance.py` (10) — the `PROXY_BACKTEST != REAL_MARKET_PNL` invariant.
+- `tests/test_drift_attribution.py` (8) — artifact vs genuine drift + edge cases.
+- `tests/test_base_ml_model.py` (11) — `BaseMLModel` contract + `is_production_ready` safety gate (module was 0% covered).
+- `tests/test_intraday_research_state.py` (5) — the research-state classifier, locking the policy that the cost gate is decisive over statistics.
+
+## New tooling (research, not certification duplicates)
+
+- `scripts/verify_data_service.py` — explicit connectivity taxonomy
+  (`UNAVAILABLE / AUTH_FAILED / SYMBOL_NOT_SUPPORTED / TIMEFRAME_NOT_SUPPORTED /
+  NO_DATA / PARTIAL_DATA / VALID_DATA`); never falls back to synthetic.
+- `scripts/run_intraday_research.py` — real-data-only intraday research (exit 2 if
+  unavailable); reuses the daily walk-forward pipeline.
+- `src/backtest/provenance.py`, `src/monitoring/reference.py::attribute_drift` — the enforcement/diagnostic primitives above.
+
+## Updated status
+
+**CERTIFICATION STATUS: RESEARCH_READY (unchanged).**
+**FINAL DECISION LEVEL: A — NO VERIFIED EDGE (Outcome C).**
+
+| Gate | Status |
+|---|---|
+| `champion_status` | `NO_ELIGIBLE_CHAMPION` |
+| `shadow_status` | `NO_ELIGIBLE_SHADOW` |
+| Production | **NOT ELIGIBLE** |
+| Shadow | **NOT ELIGIBLE** |
+| Paper / Research | ELIGIBLE |
+
+**Remaining blockers to any edge claim:** (1) `fno-universe` 503 blocks universe
+breadth and cross-sectional structure — the most likely places an edge could
+exist and the ones we could not test; (2) no forward-paper evidence (signal-at-T /
+outcome-after-T) has been accumulated; historical replay does not count. Both must
+be closed before the question "does AlphaForge contain a defensible edge?" can move
+past **NO VERIFIED EDGE** on the current evidence.
