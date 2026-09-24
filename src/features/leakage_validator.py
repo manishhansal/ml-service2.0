@@ -192,3 +192,81 @@ class LeakageValidator:
             n_windows_checked=self.max_window - self.min_window + 1,
         )
         return None
+
+
+# ── LookAheadGuard — Phase 3 implementation ────────────────────────────────────
+
+from datetime import datetime
+from src.core.exceptions import PointInTimeViolationError  # noqa: E402
+
+
+class LookAheadGuard:
+    """
+    Timestamp-level Point-In-Time guard for feature vector assembly.
+
+    Enforces the strict rule: every source datum used to build a feature
+    vector at time T must have a ``source_ts`` that is STRICTLY LESS THAN
+    the ``pit_boundary``.  Any datum with ``source_ts >= pit_boundary``
+    constitutes look-ahead bias and must be rejected.
+
+    Usage::
+
+        guard = LookAheadGuard()
+        # Clean: source_ts < pit_boundary → returns None
+        guard.check("close", past_ts, pit_boundary)
+
+        # Violation: source_ts >= pit_boundary → raises PointInTimeViolationError
+        guard.check("india_vix", future_ts, pit_boundary)
+
+    Requirements: Req 2.6, Req 2.7
+    """
+
+    def check(
+        self,
+        feature_name: str,
+        source_ts: datetime,
+        pit_boundary: datetime,
+    ) -> None:
+        """
+        Assert that *source_ts* is strictly before *pit_boundary*.
+
+        Args:
+            feature_name:  Name of the feature or data field being checked.
+                           Included in the exception message for diagnostics.
+            source_ts:     UTC timestamp of the source data point.
+            pit_boundary:  The PIT boundary — the timestamp at which the
+                           feature vector is being assembled.  All source
+                           data must predate this point.
+
+        Returns:
+            ``None`` when ``source_ts < pit_boundary`` (no violation).
+
+        Raises:
+            PointInTimeViolationError: When ``source_ts >= pit_boundary``.
+                The exception carries ``feature_name``, ``source_ts_iso``,
+                and ``pit_boundary_iso`` for structured audit logging.
+        """
+        # Normalise both timestamps to the same tzinfo representation so
+        # comparison is always valid regardless of tz-aware/naive mismatch.
+        # If one is tz-aware and the other naive we use total_seconds() delta.
+        try:
+            violation = source_ts >= pit_boundary
+        except TypeError:
+            # Mixed aware/naive — convert both to UTC epoch for comparison
+            import calendar
+
+            def _to_epoch(dt: datetime) -> float:
+                if dt.tzinfo is not None:
+                    return dt.timestamp()
+                return calendar.timegm(dt.timetuple()) + dt.microsecond / 1e6
+
+            violation = _to_epoch(source_ts) >= _to_epoch(pit_boundary)
+
+        if violation:
+            raise PointInTimeViolationError(
+                feature_name=feature_name,
+                source_ts_iso=source_ts.isoformat(),
+                pit_boundary_iso=pit_boundary.isoformat(),
+            )
+
+        return None

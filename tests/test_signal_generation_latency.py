@@ -155,15 +155,36 @@ def _compute_p95(latencies: list[float]) -> float:
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def latency_client():
-    """TestClient for latency tests."""
+    """Session-scoped TestClient for latency tests — warmed up across all endpoints."""
     import os
     os.environ["ML_SERVICE_API_KEY"] = "test-key-for-testing"
     os.environ["DATA_SERVICE_API_KEY"] = "test-data-key"
     from src.main import app
     from fastapi.testclient import TestClient
     with TestClient(app, raise_server_exceptions=False) as client:
+        # Warm up every measured endpoint so that first-call JIT / import
+        # overhead does not contaminate the p95 latency measurements.
+        _warmup_endpoints = [
+            ("POST", "/v2/predict/regime",        _REGIME_PAYLOAD),
+            ("POST", "/v2/predict/strategy",      _STRATEGY_PAYLOAD),
+            ("POST", "/v2/predict/risk",          _RISK_PAYLOAD),
+            ("POST", "/v2/predict/execution",     _EXECUTION_PAYLOAD),
+            ("POST", "/v2/predict/price-regime",  _PRICE_REGIME_PAYLOAD),
+            ("POST", "/v2/predict/iv-regime",     _IV_REGIME_PAYLOAD),
+            ("POST", "/v2/meta/decide",           {"symbol": "NIFTY", "regime": "bull", "force_refresh_news": False}),
+            ("POST", "/v2/predict/portfolio-v2",  _PORTFOLIO_V2_PAYLOAD),
+            ("POST", "/v2/analytics/greeks",      _GREEKS_PAYLOAD),
+            ("POST", "/v2/analytics/gex",         _GEX_PAYLOAD),
+            ("POST", "/v2/analytics/vpin",        _VPIN_PAYLOAD),
+            ("POST", "/v2/analytics/vol-surface", _VOL_SURFACE_PAYLOAD),
+        ]
+        _headers = {"X-API-KEY": "test-key-for-testing"}
+        # 5 warm-up calls per endpoint to stabilise module-level caches
+        for _ in range(5):
+            for method, path, payload in _warmup_endpoints:
+                client.post(path, json=payload, headers=_headers)
         yield client
 
 
@@ -226,7 +247,6 @@ class TestSingleSymbolEndpointLatency:
             "Check for blocking I/O in stub handler."
         )
 
-    @pytest.mark.skip(reason="TDD RED: Enable once Phase 4 model implementations are complete")
     @pytest.mark.parametrize("path,payload", SINGLE_SYMBOL_ENDPOINTS)
     def test_endpoint_p95_latency_sla(
         self,
@@ -236,10 +256,11 @@ class TestSingleSymbolEndpointLatency:
     ) -> None:
         """
         Req 16.1: Single-symbol endpoints must respond within 50ms p95.
-
-        TDD RED: This test is skipped until Phase 4 models are implemented.
-        Unskip this test (remove the @pytest.mark.skip) after Phase 4 deployment.
         """
+        # 5 local warm-up calls before taking measurements
+        for _ in range(5):
+            _measure_latency_ms(latency_client, "POST", path, payload)
+
         latencies = [
             _measure_latency_ms(latency_client, "POST", path, payload)
             for _ in range(100)
@@ -295,7 +316,6 @@ class TestBatchRankingLatency:
         latency = _measure_latency_ms(latency_client, "POST", "/v2/predict/rankings", payload)
         assert latency < 1000, f"Batch ranking stub latency={latency:.1f}ms > 1s"
 
-    @pytest.mark.skip(reason="TDD RED: Enable once Phase 4 StockRanker is implemented")
     def test_batch_ranking_200_symbols_p95_sla(self, latency_client) -> None:
         """
         Req 16.2: Batch ranking for 200 symbols must respond within 200ms p95.
@@ -331,7 +351,6 @@ class TestMetaDecisionLatency:
         )
         assert r.status_code != 404
 
-    @pytest.mark.skip(reason="TDD RED: Enable once Phase 10 MetaDecisionEngine is implemented")
     def test_meta_decide_p95_latency_sla(self, latency_client) -> None:
         """
         Req 16.3: Meta-decision must respond within 150ms p95 with cached news context.
@@ -360,7 +379,6 @@ class TestPortfolioOptimizationLatency:
         )
         assert r.status_code != 404
 
-    @pytest.mark.skip(reason="TDD RED: Enable once Phase 4 PortfolioOptimizer is implemented")
     def test_portfolio_50_assets_p95_latency_sla(self, latency_client) -> None:
         """
         Req 16.4: Portfolio optimization for 50 assets must respond within 500ms p95.
@@ -400,7 +418,6 @@ class TestAnalyticsEndpointLatency:
         )
         assert r.status_code != 404
 
-    @pytest.mark.skip(reason="TDD RED: Enable once Phase 5 analytics implementations are complete")
     @pytest.mark.parametrize("path,payload", ANALYTICS_ENDPOINTS)
     def test_analytics_p95_latency_sla(
         self,
@@ -410,9 +427,12 @@ class TestAnalyticsEndpointLatency:
     ) -> None:
         """
         Req 16.5: Analytics endpoints must respond within 100ms p95.
-
-        TDD RED: Enable after Phase 5 analytics implementation.
         """
+        # 5 local warm-up calls to flush any GC / code-cache pressure
+        # accumulated during the full test run, before taking measurements.
+        for _ in range(5):
+            _measure_latency_ms(latency_client, "POST", path, payload)
+
         latencies = [
             _measure_latency_ms(latency_client, "POST", path, payload)
             for _ in range(50)
