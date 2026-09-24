@@ -132,6 +132,41 @@ class PointInTimeViolationError(MLServiceError):
         self.pit_boundary_iso = pit_boundary_iso
 
 
+# ── Stale market data ───────────────────────────────────────────────────────
+
+
+class StaleDataError(MLServiceError):
+    """Raised when the freshest available market datum is too old to trade on.
+
+    Distinct from a PIT violation (data from the *future*): stale data is data
+    from too far in the *past*. Trading on stale quotes risks acting on a price
+    that no longer reflects the market. The maximum allowed staleness is
+    timeframe-specific (a 5m strategy tolerates far less staleness than a daily
+    one) — see :class:`src.features.stale_guard.StaleDataGuard` (mandate §62).
+
+    Attributes:
+        timeframe:        The strategy timeframe (e.g. ``"5m"``, ``"1d"``).
+        age_seconds:      Age of the freshest datum, in seconds.
+        max_age_seconds:  The maximum allowed staleness for this timeframe.
+    """
+
+    def __init__(
+        self,
+        timeframe: str,
+        age_seconds: float,
+        max_age_seconds: float,
+        code: str = "STALE_001",
+    ) -> None:
+        message = (
+            f"STALE_MARKET_DATA: freshest datum for timeframe '{timeframe}' is "
+            f"{age_seconds:.1f}s old (max allowed {max_age_seconds:.1f}s). NO_TRADE."
+        )
+        super().__init__(message, code=code)
+        self.timeframe = timeframe
+        self.age_seconds = age_seconds
+        self.max_age_seconds = max_age_seconds
+
+
 class LookAheadBiasError(PointInTimeViolationError):
     """Forward-looking correlation detected in a feature matrix.
 

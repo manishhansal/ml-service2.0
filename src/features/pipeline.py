@@ -133,6 +133,11 @@ class FeaturePipeline:
         self._qlib = qlib_engine or QlibFeatureEngine()
         self._cache = cache
         self._guard = LookAheadGuard()  # P0-008: wired into inference
+        # Timeframe-specific stale-data blocking (mandate §62), wired into the
+        # inference path so a too-old quote yields NO_TRADE rather than a
+        # decision on a price that no longer reflects the market.
+        from src.features.stale_guard import StaleDataGuard  # noqa: PLC0415
+        self._stale_guard = StaleDataGuard()
 
     # ------------------------------------------------------------------
     # Public API
@@ -144,6 +149,7 @@ class FeaturePipeline:
         timestamp: datetime,
         mode: Literal["inference", "backtest"] = "inference",
         pit_date: str | None = None,
+        timeframe: str | None = None,
     ) -> tuple[FeatureVector, FeatureQualityReport]:
         """
         Build a PIT-correct feature vector for *symbol* at *timestamp*.
@@ -198,7 +204,9 @@ class FeaturePipeline:
             pit_violations,
             data_families_unavailable,
             data_as_of,
-        ) = await self._fetch_market_data(symbol, timestamp, pit_date, enforce_pit=enforce_pit)
+        ) = await self._fetch_market_data(
+            symbol, timestamp, pit_date, enforce_pit=enforce_pit, timeframe=timeframe
+        )
 
         # ── Step 3: Fetch news context from SentinelPulse ────────────────────
         sentinel_available, news_fields, news_families_unavailable, news_as_of = (
@@ -324,6 +332,7 @@ class FeaturePipeline:
         timestamp: datetime,
         pit_date: str | None,
         enforce_pit: bool = True,
+        timeframe: str | None = None,
     ) -> tuple[bool, PredictionProvenance, int, bool, dict[str, Any], int, list[str], datetime | None]:
         """
         Fetch live quote from data-service2.0 and apply quality gates.
@@ -404,6 +413,15 @@ class FeaturePipeline:
                 if enforce_pit:
                     # Inference mode: a PIT violation blocks the prediction.
                     raise
+
+            # ── Stale-data blocking (mandate §62) ──────────────────────────
+            # In inference mode with a known timeframe, block a decision on a
+            # quote that is too old for the strategy's timeframe. This raises
+            # StaleDataError (NO_TRADE) — distinct from a PIT violation.
+            if enforce_pit and timeframe is not None:
+                # Only apply when the datum is in the past (age >= 0); future-
+                # dated data is handled by the PIT guard above.
+                self._stale_guard.check(timeframe, data_as_of, timestamp)
 
         # ── Apply quality gates (gates are now re-checked here because the
         #    DataServiceClient may or may not raise — depends on mock vs real) ──
