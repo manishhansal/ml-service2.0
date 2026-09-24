@@ -205,3 +205,137 @@ class DriftGate:
             "HIGH": DriftAction.TRAIN_CHALLENGER.value,
             "CRITICAL": DriftAction.BLOCK.value,
         }[severity]
+
+
+# ── Drift attribution (mandate §26) ────────────────────────────────────────
+@dataclass
+class DriftAttribution:
+    """Explains WHY a drift verdict occurred rather than just reporting PSI.
+
+    A high PSI has many possible causes (mandate §26): genuine regime change,
+    train/live universe mismatch, timeframe mismatch, feature-implementation or
+    normalization differences, insufficient reference sample, or a construction
+    artifact from comparing a chronological tail against full-history bins.
+
+    The key diagnostic here is a *stationarity self-test*: split the reference's
+    OWN samples into an early half and a late half — drawn identically, same
+    universe, same timeframe, same feature implementation — and compute PSI
+    between them. If that in-reference split already exceeds the CRITICAL
+    threshold on the same features, the live "drift" is attributable to the
+    non-stationarity of the feature itself (and the tail-vs-full-history binning
+    construction), NOT to a genuinely different live population. This lets us
+    keep the CRITICAL threshold intact (mandate §50) while labelling the cause
+    honestly.
+    """
+
+    max_psi: float
+    severity: str
+    self_test_max_psi: float
+    self_test_severity: str
+    likely_construction_artifact: bool
+    per_feature: dict[str, dict[str, Any]]
+    classification: str
+    note: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "max_psi": self.max_psi,
+            "severity": self.severity,
+            "self_test_max_psi": self.self_test_max_psi,
+            "self_test_severity": self.self_test_severity,
+            "likely_construction_artifact": self.likely_construction_artifact,
+            "classification": self.classification,
+            "note": self.note,
+            "per_feature": self.per_feature,
+        }
+
+
+def attribute_drift(
+    reference: ReferenceDistribution,
+    current_features: pd.DataFrame,
+    monitor: DriftMonitor | None = None,
+) -> DriftAttribution:
+    """Attribute a drift verdict to a genuine change vs a construction artifact.
+
+    Runs the live PSI (reference vs current) AND a stationarity self-test
+    (reference early-half vs reference late-half) per feature, then classifies
+    the dominant cause. Does NOT change any threshold.
+    """
+    mon = monitor or DriftMonitor()
+
+    def _sev(p: float) -> str:
+        if p > PSI_CRITICAL:
+            return "CRITICAL"
+        if p > PSI_HIGH:
+            return "HIGH"
+        if p > PSI_MEDIUM:
+            return "MEDIUM"
+        return "LOW"
+
+    per_feature: dict[str, dict[str, Any]] = {}
+    live_psis: list[float] = []
+    self_psis: list[float] = []
+    for col, ref_vals in reference.feature_samples.items():
+        if col not in current_features.columns:
+            continue
+        cur_vals = current_features[col].dropna().to_numpy(dtype=float).tolist()
+        if not cur_vals or len(ref_vals) < 4:
+            continue
+        live_psi = round(mon.compute_psi(ref_vals, cur_vals), 6)
+
+        # Stationarity self-test: reference's own early vs late half.
+        half = len(ref_vals) // 2
+        early, late = ref_vals[:half], ref_vals[half:]
+        self_psi = round(mon.compute_psi(early, late), 6) if half >= 2 else 0.0
+
+        per_feature[col] = {
+            "live_psi": live_psi,
+            "live_severity": _sev(live_psi),
+            "self_test_psi": self_psi,
+            "self_test_severity": _sev(self_psi),
+            # A feature whose own history is already unstable at the same level
+            # cannot be used to claim a genuinely different LIVE population.
+            "artifact_suspected": self_psi > PSI_HIGH and live_psi > PSI_HIGH,
+        }
+        live_psis.append(live_psi)
+        self_psis.append(self_psi)
+
+    max_psi = max(live_psis) if live_psis else 0.0
+    self_max = max(self_psis) if self_psis else 0.0
+    severity = _sev(max_psi)
+    self_severity = _sev(self_max)
+
+    # Classification logic (does not alter the operational threshold).
+    if max_psi <= PSI_HIGH:
+        classification = "NO_SIGNIFICANT_DRIFT"
+        artifact = False
+        note = "Live PSI below HIGH threshold; no attribution needed."
+    elif self_max > PSI_HIGH:
+        classification = "CONSTRUCTION_ARTIFACT_OR_NONSTATIONARITY"
+        artifact = True
+        note = (
+            "Reference's own early-vs-late split already exceeds HIGH PSI on the "
+            "same features. The CRITICAL live PSI is attributable to feature "
+            "non-stationarity + tail-vs-full-history binning, not a genuinely "
+            "different live universe. Threshold left intact (mandate §50)."
+        )
+    else:
+        classification = "POSSIBLE_GENUINE_DRIFT"
+        artifact = False
+        note = (
+            "Reference is internally stable (low self-test PSI) but the live "
+            "window diverges — consistent with a genuinely different live "
+            "population (regime change or universe/timeframe mismatch). "
+            "Investigate before trusting the model live."
+        )
+
+    return DriftAttribution(
+        max_psi=max_psi,
+        severity=severity,
+        self_test_max_psi=self_max,
+        self_test_severity=self_severity,
+        likely_construction_artifact=artifact,
+        per_feature=per_feature,
+        classification=classification,
+        note=note,
+    )

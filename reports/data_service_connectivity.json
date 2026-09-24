@@ -1,0 +1,76 @@
+{
+  "generated_at": "2026-09-24T15:44:33.961316+00:00",
+  "base_url": "http://localhost:8200",
+  "canonical_intervals": [
+    "1m",
+    "5m",
+    "10m",
+    "15m",
+    "30m",
+    "1h",
+    "1d",
+    "1w",
+    "1M"
+  ],
+  "checks": {
+    "market_status": {
+      "status": "OK",
+      "keys": [
+        "data",
+        "metadata"
+      ]
+    },
+    "fno_universe": {
+      "status": "DATA_SERVICE_UNAVAILABLE",
+      "detail": "data-service2.0 returned 503 for GET /v1/instruments/fno-universe: Server error '503 Service Unavailable' for url 'http://localhost:8200/v1/instruments/fno-universe'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503"
+    },
+    "historical": {
+      "NIFTY": {
+        "1d": {
+          "status": "VALID_DATA",
+          "n_bars": 1251
+        },
+        "15m": {
+          "status": "VALID_DATA",
+          "n_bars": 2975
+        },
+        "5m": {
+          "status": "VALID_DATA",
+          "n_bars": 8925
+        }
+      },
+      "BANKNIFTY": {
+        "1d": {
+          "status": "VALID_DATA",
+          "n_bars": 1263
+        },
+        "15m": {
+          "status": "VALID_DATA",
+          "n_bars": 2975
+        },
+        "5m": {
+          "status": "VALID_DATA",
+          "n_bars": 8925
+        }
+      },
+      "RELIANCE": {
+        "1d": {
+          "status": "VALID_DATA",
+          "n_bars": 1286
+        },
+        "15m": {
+          "status": "VALID_DATA",
+          "n_bars": 2912
+        },
+        "5m": {
+          "status": "VALID_DATA",
+          "n_bars": 8696
+        }
+      }
+    },
+    "interval_3m_ban": {
+      "status": "ENFORCED"
+    }
+  },
+  "overall": "VALID_DATA"
+}
