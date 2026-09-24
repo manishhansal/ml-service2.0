@@ -30,6 +30,10 @@ class FeatureVector(BaseSchema):
     timestamp: datetime  # UTC — the PIT boundary: all source data must be < this
     pit_validated: bool = False  # True only when LeakageValidator has signed off
 
+    # ── PIT provenance chain (P0-005) ─────────────────────────────────────────
+    data_as_of: datetime | None = None  # latest market-data source timestamp used
+    news_as_of: datetime | None = None  # latest news source timestamp used
+
     # ── Data quality gates from data-service2.0 ───────────────────────────────
     data_confidence_score: int = Field(default=0, ge=0, le=100)
     signal_engine_allowed: bool = False

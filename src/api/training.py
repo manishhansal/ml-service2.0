@@ -16,13 +16,20 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
+from src.data.feedback import FeedbackStore
+from src.schemas.meta import FeedbackRecord
 from src.schemas.registry import TrainingConfig, TrainingRunStatus
 from src.training.pipeline import TrainingPipeline
 
 router = APIRouter(tags=["training"])
+
+# Append-only feedback store (Phase Q). Path is configurable via settings-like
+# default; kept alongside the audit log for co-location.
+_feedback_store = FeedbackStore(Path("./artifacts/feedback.jsonl"))
 
 # In-memory registry of submitted training runs (keyed by run_id).
 # Populated by POST /training/run; queried by GET /training/status/{run_id}.
@@ -70,3 +77,29 @@ async def training_status(run_id: str) -> TrainingRunStatus:
             detail=f"Training run {run_id} not found",
         )
     return status
+
+
+@router.post("/train/feedback")
+async def train_feedback(record: FeedbackRecord) -> dict:
+    """Ingest a trade-outcome feedback record from AlphaForge (Phase Q).
+
+    The record is appended to the immutable feedback store and enters the
+    self-learning loop. Feedback is never modified once written.
+
+    POST /train/feedback
+    """
+    _feedback_store.append(record)
+    return {
+        "accepted": True,
+        "signal_id": record.signal_id,
+        "total_feedback_records": _feedback_store.count(),
+    }
+
+
+@router.get("/train/feedback/summary")
+async def train_feedback_summary() -> dict:
+    """Return an aggregate summary of collected feedback (Phase 67).
+
+    GET /train/feedback/summary
+    """
+    return _feedback_store.summary()

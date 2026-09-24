@@ -444,7 +444,11 @@ class TestFeaturePipelinePITEndToEnd:
         mock_news.fetch_news_context.return_value = None
 
         pipeline = FeaturePipeline(data_client=mock_data, news_client=mock_news)
-        _vector, report = await pipeline.build_vector("NIFTY", _PIT_BOUNDARY)
+        # Backtest mode COUNTS violations (does not block). Inference mode BLOCKS
+        # by raising PointInTimeViolationError — see test_pit_wiring.py.
+        _vector, report = await pipeline.build_vector(
+            "NIFTY", _PIT_BOUNDARY, mode="backtest"
+        )
 
         assert report.pit_violations_count > 0, (
             "Expected at least 1 PIT violation when source data is after PIT boundary."
@@ -465,7 +469,10 @@ class TestFeaturePipelinePITEndToEnd:
         mock_news.fetch_news_context.return_value = None
 
         pipeline = FeaturePipeline(data_client=mock_data, news_client=mock_news)
-        _vector, report = await pipeline.build_vector("NIFTY", _PIT_BOUNDARY)
+        # Backtest mode counts the violation; inference mode blocks it.
+        _vector, report = await pipeline.build_vector(
+            "NIFTY", _PIT_BOUNDARY, mode="backtest"
+        )
 
         assert report.pit_violations_count > 0, (
             "Source data at EXACTLY the PIT boundary must be flagged as a violation "
