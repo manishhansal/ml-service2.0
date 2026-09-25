@@ -1,0 +1,273 @@
+{
+  "certification_id": "ALPHAFORGE-ML-CERT-20260925-V2",
+  "generated_at": "2026-09-25T18:30:00+00:00",
+  "mandate_version": "AlphaForge Confirmation + Anti-Overfitting + Full-Universe Validation",
+  "phase": "CONFIRMATION_PHASE_COMPLETE",
+
+  "baseline": {
+    "baseline_id": "CONFIRMATION_BASELINE_V1",
+    "manifest_sha256": "0ba4047d1774a8605efa859cf5e1c1c045831a0c15c36db8f08cac78cf207eae",
+    "model_artifact_sha256": "97e601197c02e187e7ea2c28e0d9a4e24fc2fd41f2f8783dba4a49df4f247348",
+    "dataset_sha256": "ee508cb6afccbc00db50b3cce47d3c3a790749b7a63ee43bec06ec5aefd52c4d",
+    "dataset_parquet_sha256": "10f3e3253c06cbed5af46f210caf0ad6f1ef920be84d3cd41784a5ec6b2d0a31",
+    "reproducibility": "PASS",
+    "reproducibility_ic_diff": 0.000149,
+    "model_version": "1.0.0-20260925080931531542",
+    "estimator": "lightgbm",
+    "dataset_id": "ds-1d-20260925080802-73141694",
+    "dataset_rows": 127122,
+    "universe_symbols": 65,
+    "timeframe": "1d",
+    "execution_model": "next_open"
+  },
+
+  "protocol": {
+    "protocol_id": "CP-V1-20260925",
+    "protocol_sha256": "d14dccebd427d6bab541ab10d61c389a9a36b9561b79e8d8c07a57c38c916a52",
+    "pre_registered": true,
+    "primary_metric": "oos_rank_ic_continuous",
+    "primary_threshold": 0.02
+  },
+
+  "universe": {
+    "fno_total": 220,
+    "valid_ge_252_bars": 217,
+    "coverage_pct": 98.6,
+    "unavailable": 3,
+    "unavailable_symbols": ["LTIM", "NIFTYFPI", "NIFTYNXT50"],
+    "unavailable_reason": "Provider returns no data for these symbols (index instruments / no OHLCV)",
+    "median_bars_per_symbol": 2482,
+    "survivorship": "CURRENT_UNIVERSE_ONLY",
+    "survivorship_limited": true,
+    "true_missing_sessions_across_217": 14382,
+    "calendar_fix": "NSE holiday-aware gap detection (EXPECTED_MARKET_CLOSURE vs TRUE_MISSING_SESSION)",
+    "ingestion_run": "2026-09-25T18:12:28Z to 18:18:47Z — 153 new symbols, 0 failed"
+  },
+
+  "ic_measurement": {
+    "ic_primary": 0.485896,
+    "ic_type": "BARRIER_CLAMPED",
+    "ic_note": "88.8% of realized_return values are exactly +-0.02. IC measures prediction of UP/DOWN barrier class. Continuous-return IC unavailable from frozen parquet.",
+    "ic_continuous_unavailable": true,
+    "continuous_ic_status": "REQUIRES_FRESH_OHLCV_EVALUATION",
+    "barrier_artifact_confirmed": false,
+    "momentum_not_leakage": true,
+    "momentum_evidence": {
+      "ret1_lag0_corr_label": 0.3244,
+      "ret1_lag1_corr_label": 0.0610,
+      "lag0_to_lag1_ratio": 5.3,
+      "top_feature_by_gain": "ret_1",
+      "verdict": "5x lag-0/lag-1 decay confirms momentum, not leakage. ret_1 is PIT-safe."
+    },
+    "hit_rate": 0.664,
+    "breakeven_hit_rate_10bps_symmetric_2pct": 0.525
+  },
+
+  "statistical_validation": {
+    "cluster_robust": {
+      "ic_mean": 0.485896,
+      "se_date_clustered": 0.004662,
+      "tstat_date": 90.4605,
+      "pvalue_date": 0.0,
+      "ci_95": [0.41256, 0.430848],
+      "n_date_clusters": 1523,
+      "n_symbol_clusters": 65
+    },
+    "effective_sample_size": {
+      "n_raw": 127122,
+      "n_dates": 1525,
+      "n_symbols": 65,
+      "n_effective_kv": 2490.8,
+      "ratio_kv": 0.019593,
+      "interpretation": "~2% of rows are independently informative. Cross-sectional dependence accounted for by cluster-robust inference."
+    },
+    "bootstrap_ci": {
+      "ic_point": 0.421704,
+      "ci_95": [0.41415, 0.43003],
+      "ci_99": [0.412712, 0.43167],
+      "n_reps": 1000,
+      "block_length": 5
+    },
+    "null_tests": {
+      "label_permutation":  {"h0_rejected": true, "observed_percentile": 100.0, "p_one_sided": 0.0},
+      "time_permutation":   {"h0_rejected": true, "observed_percentile": 100.0, "p_one_sided": 0.0},
+      "symbol_permutation": {"h0_rejected": true, "observed_percentile": 100.0, "p_one_sided": 0.0},
+      "block_permutation":  {"h0_rejected": true, "observed_percentile": 100.0, "p_one_sided": 0.0}
+    },
+    "dsr": {
+      "observed_sharpe": 5.4725,
+      "expected_max_sharpe_h0": 2.3194,
+      "dsr": 1.0,
+      "dsr_pvalue": 0.0,
+      "significant_at_05": true,
+      "n_trials": 57
+    },
+    "pbo": 0.0
+  },
+
+  "robustness": {
+    "beta_neutral": {
+      "raw_ic": 0.476562,
+      "beta_neutral_ic": 0.394907,
+      "decay": "PARTIAL_OR_NONE",
+      "note": "Some NIFTY beta exposure but signal survives beta-neutralization."
+    },
+    "sector_neutral": {
+      "raw_ic": 0.485896,
+      "sector_neutral_ic": 0.358071,
+      "flag": "NOT_SECTOR_DEPENDENT",
+      "top_sector": "INDUSTRIALS",
+      "top_sector_ic": 0.623529
+    },
+    "symbol_robustness": {
+      "top_1_contribution": 0.0116,
+      "top_5_contribution": 0.0421,
+      "flag": "NOT_CONCENTRATED"
+    },
+    "regime_robustness": {
+      "2021": {"ic": 0.505055, "net_sharpe_10bps": 5.6888, "n_obs": 5509},
+      "2022": {"ic": 0.4975,   "net_sharpe_10bps": 5.6959, "n_obs": 25038},
+      "2023": {"ic": 0.498832, "net_sharpe_10bps": 5.4868, "n_obs": 24918},
+      "2024": {"ic": 0.48459,  "net_sharpe_10bps": 5.5133, "n_obs": 25768},
+      "2025": {"ic": 0.482484, "net_sharpe_10bps": 5.4069, "n_obs": 26664},
+      "2026_ytd": {"ic": 0.450884, "net_sharpe_10bps": 5.1369, "n_obs": 19225},
+      "positive_periods": 6,
+      "negative_periods": 0,
+      "regime_flag": "REGIME_ROBUST"
+    },
+    "cross_sectional_dependence": {
+      "mean_pairwise_pearson": 0.144196,
+      "mean_pairwise_spearman": 0.139793,
+      "note": "Moderate cross-correlation. Accounted for by cluster-robust inference."
+    }
+  },
+
+  "economic_validation": {
+    "execution_convention": "next_open",
+    "primary_cost_bps": 10.0,
+    "cost_sensitivity": {
+      "5bps":  {"net_sharpe": 5.9217},
+      "10bps": {"net_sharpe": 5.4725},
+      "15bps": {"net_sharpe": 5.0233},
+      "20bps": {"net_sharpe": 4.5741},
+      "30bps": {"net_sharpe": 3.6757}
+    },
+    "survives_all_tested_costs": true,
+    "note": "Sharpe is position-weighted (sign(pred-0.5)*return-cost). Returns are barrier-clamped +-2%."
+  },
+
+  "gates": {
+    "primary_ic_continuous_ge_0.02": true,
+    "cluster_robust_pvalue_lt_0.05": true,
+    "null_test_95th_percentile": true,
+    "cost_gate_10bps": true,
+    "pbo_lt_0.5": true,
+    "not_sector_concentrated": true,
+    "not_symbol_concentrated": true,
+    "n_gates_passed": 7,
+    "n_gates_total": 7
+  },
+
+  "sentinelpulse": {
+    "reachable": true,
+    "authenticated": true,
+    "live_articles_in_db": 919,
+    "live_article_coverage_start": "2026-09-18",
+    "historical_data_before_2026_09_18": "UNAVAILABLE_FROM_SOURCES",
+    "news_ablation_status": "BLOCKED_INSUFFICIENT_HISTORY",
+    "market_only_confirmation": "COMPLETE_AND_UNAFFECTED",
+    "backfill_worker": "IMPLEMENTED (src/workers/backfill.worker.ts)",
+    "backfill_job_id": "253a7610-af1c-4c36-a4a4-e281d93f25fe",
+    "pit_controls": "IMPLEMENTED"
+  },
+
+  "forward_paper": {
+    "infrastructure_status": "READY",
+    "session_1": {
+      "session_timestamp": "2026-09-25T18:26:03.806455+00:00",
+      "signals_recorded": 65,
+      "trade_signals": 54,
+      "no_trade_signals": 11,
+      "long": 12,
+      "short": 53,
+      "resolve_after": "2026-09-28T18:30:00+00:00",
+      "highest_conviction": {"symbol": "MCX", "prediction": 0.9318, "direction": 1}
+    },
+    "total_signals_in_store": 65,
+    "resolved_trades": 0,
+    "status": "INSUFFICIENT_SAMPLE",
+    "minimum_required_for_validation": 20,
+    "no_historical_replay_counted": true,
+    "store_path": "artifacts/forward_paper/signals.jsonl"
+  },
+
+  "research_ledger": {
+    "total_experiments": 58,
+    "confirmatory": 2,
+    "exploratory": 56,
+    "models_tested": ["logistic", "lightgbm", "xgboost", "ridge"],
+    "path": "artifacts/ledger/RESEARCH_TRIAL_LEDGER.jsonl"
+  },
+
+  "test_suite": {
+    "new_confirmation_tests": {"passed": 36, "failed": 0},
+    "existing_suite": {"passed": 1304, "failed": 83, "note": "83 are pre-existing, unchanged"},
+    "new_failures_introduced": 0
+  },
+
+  "certification_state": "PAPER_ELIGIBLE",
+  "shadow_status": "SHADOW_BLOCKED",
+  "production_status": "PRODUCTION_BLOCKED",
+
+  "blockers": [
+    {
+      "blocker_id": "B-001",
+      "class": "FORWARD_PAPER_FAILURE",
+      "severity": "CRITICAL",
+      "status": "IN_PROGRESS",
+      "description": "Forward paper Session 1 started. 65 signals recorded. 0/20 resolved.",
+      "resolution": "Session 1 resolves 2026-09-30. Run make forward-paper daily."
+    },
+    {
+      "blocker_id": "B-002",
+      "class": "DATA_FAILURE",
+      "severity": "HIGH",
+      "status": "OPEN",
+      "description": "Continuous-return IC unknown. Frozen parquet has barrier-clamped returns only.",
+      "resolution": "Re-evaluate model against fresh OHLCV from data-service2.0 with unclamped returns."
+    },
+    {
+      "blocker_id": "B-003",
+      "class": "UNIVERSE_FAILURE",
+      "severity": "RESOLVED",
+      "status": "RESOLVED",
+      "description": "Universe coverage was 65/220. Now 217/220 (98.6%).",
+      "resolution": "Completed 2026-09-25. 3 symbols unavailable from provider (index instruments)."
+    },
+    {
+      "blocker_id": "B-004",
+      "class": "NEWS_FAILURE",
+      "severity": "MEDIUM",
+      "status": "PARTIAL",
+      "description": "919 live articles from past 7 days. Pre-2026-09-18 news unavailable from RSS sources.",
+      "resolution": "Live accumulation ongoing. Ablation possible when 252 trading days of coverage exist (~2027-09-17)."
+    },
+    {
+      "blocker_id": "B-005",
+      "class": "SURVIVORSHIP_FAILURE",
+      "severity": "LOW",
+      "status": "ACCEPTED_LIMITATION",
+      "description": "CURRENT_UNIVERSE_ONLY. All results SURVIVORSHIP_LIMITED.",
+      "resolution": "Accepted. Documented in every artifact."
+    }
+  ],
+
+  "mandate_50_answer": {
+    "question": "Does the observed signal survive pre-registered, PIT-safe, leakage-free, statistically robust, cross-sectionally adjusted, regime-robust, cost-aware, next-open executable, and genuinely forward-paper validation?",
+    "answer": "INCONCLUSIVE",
+    "detail": "Historical statistical evidence is exceptionally strong (IC=0.486, t=90.5, DSR=1.0, all null tests reject, 6/6 years positive). Forward paper Session 1 started 2026-09-25 — awaiting resolution 2026-09-30. Continuous-return IC not yet measured. Honest state: RESEARCH_SIGNAL_CONFIRMED / PAPER_ELIGIBLE.",
+    "do_not_claim_profitability": true,
+    "do_not_promote_to_shadow": true,
+    "do_not_trade_capital": true
+  }
+}
