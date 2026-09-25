@@ -117,3 +117,43 @@ class AbstentionPolicy:
             n_available_models=int(context_dict.get("n_available_models", 7)),
         )
         return self.check(ctx)
+
+
+# ── Backward-compatibility alias ──────────────────────────────────────────────
+# Some test files and the existing meta_model.py import AbstentionDecision
+# rather than AbstentionResult. Both names refer to the same dataclass.
+AbstentionDecision = AbstentionResult
+
+# Also export AbstentionInputs as an alias for AbstentionContext
+AbstentionInputs = AbstentionContext
+
+
+# AbstentionKind — classifies the reason for abstention
+from enum import Enum
+
+
+class AbstentionKind(str, Enum):
+    """Reason for a MetaDecisionEngine abstention."""
+
+    LOW_AGREEMENT = "low_agreement"
+    LOW_DATA_QUALITY = "low_data_quality"
+    HIGH_UNCERTAINTY = "high_uncertainty"
+    STALE_DATA = "stale_data"
+    MODEL_UNAVAILABLE = "model_unavailable"
+    REGIME_MISMATCH = "regime_mismatch"
+    CALIBRATION_MISSING = "calibration_missing"
+    MANUAL_OVERRIDE = "manual_override"
+
+
+# AbstentionThresholds — configuration for AbstentionPolicy
+from dataclasses import dataclass as _dc2
+
+
+@_dc2
+class AbstentionThresholds:
+    """Configurable thresholds for the AbstentionPolicy."""
+
+    min_agreement_ratio: float = 0.5
+    min_data_quality: float = 0.6
+    max_uncertainty: float = 0.35
+    max_stale_seconds: float = 3600.0

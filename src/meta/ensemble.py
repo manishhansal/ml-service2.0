@@ -20,6 +20,18 @@ logger = get_logger(__name__)
 MIN_WEIGHT = 0.05
 MAX_WEIGHT = 0.40
 
+# Canonical list of the seven AlphaForge model identifiers.
+# Used by build_default_registry() and test suites to enumerate expected models.
+MODEL_NAMES: list[str] = [
+    "regime",
+    "ranker",
+    "strategy",
+    "risk",
+    "price_forecaster",
+    "iv_classifier",
+    "quant_engine",
+]
+
 
 class EnsembleWeighter:
     """
@@ -209,3 +221,34 @@ class EnsembleWeighter:
             w[idx] = min(max(float(w[idx]), MIN_WEIGHT), MAX_WEIGHT)
 
         return w
+
+
+# ── Minimal data classes for meta_model.py compatibility ──────────────────────
+from dataclasses import dataclass as _dc3, field as _field3
+from typing import Any
+
+
+@_dc3
+class ModelSignal:
+    """Single model's signal output fed into the ensemble."""
+
+    model_id: str
+    action: str          # "BUY" | "SELL" | "WAIT" | "NO_TRADE"
+    confidence: float
+    direction: int       # 1=bullish, -1=bearish, 0=neutral
+    provenance: str      # "trained_model" | "heuristic" | "unavailable"
+    ic_score: float = 0.0
+    metadata: dict = _field3(default_factory=dict)
+
+
+@_dc3
+class EnsembleResult:
+    """Aggregated ensemble output from EnsembleWeighter."""
+
+    weighted_direction: float    # weighted sum of directions
+    weighted_confidence: float   # weighted average confidence
+    agreement_ratio: float       # fraction of models agreeing on plurality direction
+    weights: dict = _field3(default_factory=dict)
+    contributing_models: list = _field3(default_factory=list)
+    excluded_models: list = _field3(default_factory=list)
+    metadata: dict = _field3(default_factory=dict)
