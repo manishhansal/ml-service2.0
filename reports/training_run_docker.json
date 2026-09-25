@@ -1,0 +1,393 @@
+{
+  "phase": "data_hardening_docker_training_alphaforge_integration",
+  "execution_environment": "DOCKER",
+  "docker_image": "sha256:f2a1fd2cc809635e18e16946cfc56d7156e21572b004c8a42a584bffa0c12cd2",
+  "python_version": "3.11.16",
+  "started_at": "2026-09-24T19:36:57.316242+00:00",
+  "timeframe": "1d",
+  "symbols_requested": [
+    "NIFTY",
+    "BANKNIFTY",
+    "RELIANCE",
+    "HDFCBANK",
+    "ICICIBANK",
+    "INFY",
+    "TCS",
+    "SBIN",
+    "AXISBANK",
+    "KOTAKBANK"
+  ],
+  "survivorship": "CURRENT_UNIVERSE_ONLY",
+  "execution_model": "next_open",
+  "training_readiness": {
+    "training_ready": true,
+    "mode": "READY",
+    "news_status": "EVIDENCE_PENDING",
+    "blockers": [],
+    "warnings": [
+      "SENTINELPULSE_UNREACHABLE: fetch_market_context returned None."
+    ],
+    "gates": [
+      {
+        "gate": "DATA_SERVICE_REACHABLE",
+        "status": "PASS"
+      },
+      {
+        "gate": "DATA_SERVICE_AUTH",
+        "status": "PASS"
+      },
+      {
+        "gate": "UNIVERSE_AVAILABLE",
+        "status": "PASS",
+        "details": {
+          "universe_size": 220,
+          "requested_found": 9
+        }
+      },
+      {
+        "gate": "MARKET_HISTORY_SUFFICIENT",
+        "status": "PASS",
+        "details": {
+          "max_bars_found": 1286,
+          "required": 252
+        }
+      },
+      {
+        "gate": "SENTINELPULSE_AVAILABLE",
+        "status": "WARN",
+        "reason": "SENTINELPULSE_UNREACHABLE: fetch_market_context returned None."
+      },
+      {
+        "gate": "FEATURE_SCHEMA_VALID",
+        "status": "PASS",
+        "details": {
+          "feature_count": 24,
+          "schema_version": "fs-2.0.0"
+        }
+      },
+      {
+        "gate": "LABEL_SCHEMA_VALID",
+        "status": "PASS",
+        "details": {
+          "default_execution_model": "next_open",
+          "schema_version": "ls-2.0.0"
+        }
+      },
+      {
+        "gate": "TRAINING_DEPS_AVAILABLE",
+        "status": "PASS"
+      },
+      {
+        "gate": "PROVENANCE_AVAILABLE",
+        "status": "PASS",
+        "details": {
+          "git_sha": "unknown",
+          "docker_image": "sha256:f2a1fd2cc809635e18e16946cfc56d7156e21572b004c8a42a584bffa0c12cd2"
+        }
+      }
+    ],
+    "checked_at": "2026-09-24T19:36:58.502758+00:00",
+    "git_sha": "unknown",
+    "docker_image": "sha256:f2a1fd2cc809635e18e16946cfc56d7156e21572b004c8a42a584bffa0c12cd2",
+    "python_version": "3.11.16"
+  },
+  "dataset": {
+    "ingestion": {
+      "output_dir": "/app/data/1d",
+      "symbols_ingested": [
+        "NIFTY",
+        "BANKNIFTY",
+        "RELIANCE",
+        "HDFCBANK",
+        "ICICIBANK",
+        "INFY",
+        "TCS",
+        "SBIN",
+        "AXISBANK",
+        "KOTAKBANK"
+      ],
+      "symbols_failed": [],
+      "total_rows": 12659,
+      "reports": [
+        {
+          "symbol": "NIFTY",
+          "interval": "1d",
+          "rows_raw": 1251,
+          "rows_clean": 1251,
+          "duplicates_dropped": 0,
+          "ohlc_violations": 0,
+          "negative_volume": 0,
+          "chronology_violations": 0,
+          "gaps_detected": 313,
+          "first_ts": "2021-09-19T18:30:00+00:00",
+          "last_ts": "2026-09-22T18:30:00+00:00"
+        },
+        {
+          "symbol": "BANKNIFTY",
+          "interval": "1d",
+          "rows_raw": 1263,
+          "rows_clean": 1263,
+          "duplicates_dropped": 0,
+          "ohlc_violations": 0,
+          "negative_volume": 0,
+          "chronology_violations": 0,
+          "gaps_detected": 312,
+          "first_ts": "2021-09-19T18:30:00+00:00",
+          "last_ts": "2026-09-22T18:30:00+00:00"
+        },
+        {
+          "symbol": "RELIANCE",
+          "interval": "1d",
+          "rows_raw": 1286,
+          "rows_clean": 1286,
+          "duplicates_dropped": 0,
+          "ohlc_violations": 0,
+          "negative_volume": 0,
+          "chronology_violations": 0,
+          "gaps_detected": 307,
+          "first_ts": "2021-09-19T18:30:00+00:00",
+          "last_ts": "2026-09-22T18:30:00+00:00"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "interval": "1d",
+          "rows_raw": 1279,
+          "rows_clean": 1279,
+          "duplicates_dropped": 0,
+          "ohlc_violations": 0,
+          "negative_volume": 0,
+          "chronology_violations": 0,
+          "gaps_detected": 307,
+          "first_ts": "2021-09-19T18:30:00+00:00",
+          "last_ts": "2026-09-22T18:30:00+00:00"
+        },
+        {
+          "symbol": "ICICIBANK",
+          "interval": "1d",
+          "rows_raw": 1252,
+          "rows_clean": 1252,
+          "duplicates_dropped": 0,
+          "ohlc_violations": 0,
+          "negative_volume": 0,
+          "chronology_violations": 0,
+          "gaps_detected": 313,
+          "first_ts": "2021-09-19T18:30:00+00:00",
+          "last_ts": "2026-09-22T18:30:00+00:00"
+        },
+        {
+          "symbol": "INFY",
+          "interval": "1d",
+          "rows_raw": 1260,
+          "rows_clean": 1260,
+          "duplicates_dropped": 0,
+          "ohlc_violations": 0,
+          "negative_volume": 0,
+          "chronology_violations": 0,
+          "gaps_detected": 312,
+          "first_ts": "2021-09-19T18:30:00+00:00",
+          "last_ts": "2026-09-22T18:30:00+00:00"
+        },
+        {
+          "symbol": "TCS",
+          "interval": "1d",
+          "rows_raw": 1309,
+          "rows_clean": 1309,
+          "duplicates_dropped": 0,
+          "ohlc_violations": 0,
+          "negative_volume": 0,
+          "chronology_violations": 0,
+          "gaps_detected": 303,
+          "first_ts": "2021-09-19T18:30:00+00:00",
+          "last_ts": "2026-09-22T18:30:00+00:00"
+        },
+        {
+          "symbol": "SBIN",
+          "interval": "1d",
+          "rows_raw": 1261,
+          "rows_clean": 1261,
+          "duplicates_dropped": 0,
+          "ohlc_violations": 0,
+          "negative_volume": 0,
+          "chronology_violations": 0,
+          "gaps_detected": 312,
+          "first_ts": "2021-09-19T18:30:00+00:00",
+          "last_ts": "2026-09-22T18:30:00+00:00"
+        },
+        {
+          "symbol": "AXISBANK",
+          "interval": "1d",
+          "rows_raw": 1252,
+          "rows_clean": 1252,
+          "duplicates_dropped": 0,
+          "ohlc_violations": 0,
+          "negative_volume": 0,
+          "chronology_violations": 0,
+          "gaps_detected": 313,
+          "first_ts": "2021-09-19T18:30:00+00:00",
+          "last_ts": "2026-09-22T18:30:00+00:00"
+        },
+        {
+          "symbol": "KOTAKBANK",
+          "interval": "1d",
+          "rows_raw": 1246,
+          "rows_clean": 1246,
+          "duplicates_dropped": 0,
+          "ohlc_violations": 0,
+          "negative_volume": 0,
+          "chronology_violations": 0,
+          "gaps_detected": 65,
+          "first_ts": "2021-09-20T03:45:00+00:00",
+          "last_ts": "2026-09-24T03:45:00+00:00"
+        }
+      ]
+    },
+    "execution_model": "next_open",
+    "market_source": "data-service2.0",
+    "news_source": "DISABLED",
+    "dataset_id": "ds-1d-20260924193703-9f56607d",
+    "dataset_hash": "85276eec83d4fcfb2bd9d0c700009135c79bcfdd6b1a5a020e597d6faab47021",
+    "code_sha": "unknown",
+    "feature_schema_version": "fs-2.0.0",
+    "label_schema_version": "ls-2.0.0",
+    "universe": [
+      "AXISBANK",
+      "BANKNIFTY",
+      "HDFCBANK",
+      "ICICIBANK",
+      "INFY",
+      "KOTAKBANK",
+      "NIFTY",
+      "RELIANCE",
+      "SBIN",
+      "TCS"
+    ],
+    "timeframe": "1d",
+    "date_start": "2021-10-26 18:30:00+00:00",
+    "date_end": "2026-09-23 03:45:00+00:00",
+    "row_count": 9993,
+    "feature_count": 24,
+    "label_config": {
+      "label_type": "triple_barrier",
+      "horizon": 5,
+      "upper_barrier_pct": 0.02,
+      "lower_barrier_pct": 0.02,
+      "vol_window": 20,
+      "vol_multiplier": 1.5,
+      "cost_bps": 10.0,
+      "return_threshold": 0.0,
+      "execution_model": "next_open"
+    },
+    "missingness": {
+      "ret_1": 0.0,
+      "ret_5": 0.0,
+      "ret_10": 0.0,
+      "ret_20": 0.0,
+      "log_ret_1": 0.0,
+      "vol_5": 0.0,
+      "vol_10": 0.0,
+      "vol_20": 0.0,
+      "atr_14_pct": 0.0,
+      "rel_volume_20": 0.0,
+      "volume_zscore_20": 0.0,
+      "vwap_distance_pct": 0.0,
+      "rsi_14": 0.0,
+      "macd_hist": 0.0,
+      "stoch_k_14": 0.0,
+      "ema_5_20": 0.0,
+      "ema_10_50": 0.0,
+      "adx_14": 0.0,
+      "hl_range_pct": 0.0,
+      "close_position": 0.0,
+      "gap_pct": 0.0,
+      "bb_zscore_20": 0.0,
+      "skew_20": 0.0,
+      "kurt_20": 0.0
+    },
+    "label_quality": {
+      "n_resolved": 9993,
+      "n_total": 9993,
+      "resolved_fraction": 1.0,
+      "class_balance_positive": 0.4981,
+      "label_autocorrelation_lag1": 0.215,
+      "outcome_distribution": {
+        "STOP_HIT": 4059,
+        "TARGET_HIT": 3983,
+        "TIME_EXPIRY": 1951
+      },
+      "mean_realized_return": -9e-05
+    },
+    "leakage_validated": true,
+    "pit_status": "PIT_VALIDATED",
+    "created_at": "2026-09-24T19:37:03.146526+00:00",
+    "universe_hash": "fab35e060aba35cf003946982423269b9b76e5446b46239e9e5ed0c6f86a67e0",
+    "docker_image": "sha256:f2a1fd2cc809635e18e16946cfc56d7156e21572b004c8a42a584bffa0c12cd2",
+    "survivorship": "CURRENT_UNIVERSE_ONLY",
+    "is_economic_evidence": true
+  },
+  "training": {
+    "model_name": "market_regime_1d",
+    "dataset_id": "ds-1d-20260924193703-9f56607d",
+    "dataset_hash": "85276eec83d4fcfb2bd9d0c700009135c79bcfdd6b1a5a020e597d6faab47021",
+    "champion": "logistic",
+    "champion_version": null,
+    "champion_ic_mean": 0.012365,
+    "champion_pbo": 0.3333,
+    "champion_net_sharpe": -0.84,
+    "champion_ece": 0.0,
+    "champion_brier": 0.249,
+    "passed_acceptance": false,
+    "rejection_reason": "IC_BELOW_THRESHOLD",
+    "candidates": [
+      {
+        "name": "logistic",
+        "is_baseline": true,
+        "wf_ic_mean": 0.012365,
+        "wf_ic_worst": -0.073221,
+        "wf_positive_fraction": 0.6,
+        "wf_net_sharpe": -0.84,
+        "cpcv_ic_mean": 0.017242,
+        "cpcv_pbo": 0.3333,
+        "calibration_ece": 0.0,
+        "calibration_fitted": true,
+        "calibration_brier": 0.249
+      },
+      {
+        "name": "lightgbm",
+        "is_baseline": false,
+        "wf_ic_mean": 0.013989,
+        "wf_ic_worst": -0.013282,
+        "wf_positive_fraction": 0.4,
+        "wf_net_sharpe": -0.631,
+        "cpcv_ic_mean": 0.010512,
+        "cpcv_pbo": 0.4,
+        "calibration_ece": 0.0,
+        "calibration_fitted": true,
+        "calibration_brier": 0.247433
+      },
+      {
+        "name": "xgboost",
+        "is_baseline": false,
+        "wf_ic_mean": 0.004702,
+        "wf_ic_worst": -0.033575,
+        "wf_positive_fraction": 0.4,
+        "wf_net_sharpe": -0.8284,
+        "cpcv_ic_mean": 0.007191,
+        "cpcv_pbo": 0.4,
+        "calibration_ece": 0.0,
+        "calibration_fitted": true,
+        "calibration_brier": 0.24713
+      }
+    ]
+  },
+  "promotion": {
+    "status": "NO_ELIGIBLE_CHAMPION",
+    "reason": "IC_BELOW_THRESHOLD",
+    "champion_version": null,
+    "passed_acceptance": false,
+    "ic_mean": 0.012365,
+    "pbo": 0.3333,
+    "net_sharpe": -0.84,
+    "ece": 0.0
+  },
+  "completed_at": "2026-09-24T19:37:21.855774+00:00"
+}
