@@ -7,19 +7,18 @@
 
 The system is NOT production-ready until ALL 20 criteria below are demonstrated with verifiable evidence.
 
-> **POST-IMPLEMENTATION STATUS (2026-09-24):** The `Current status` line under
-> each criterion has been updated to reflect the delivered implementation.
-> Summary: **15 PASS, 5 PARTIAL, 0 FAIL** on the *infrastructure/mechanism*
-> level — every criterion's machinery is implemented and exercised end-to-end
-> (verified against LIVE data-service2.0 real NSE data). The remaining PARTIALs
-> are: real-data training PASS-mechanism but zero measured edge, production-stage
-> model absent (no model passed the cost gate — correct), latency not benchmarked
-> on live deployment, chaos suite incomplete, and full per-run reproducibility
-> audit wiring. **The one economic blocker to PRODUCTION is criterion E/F/H: the
-> trained model shows no cost-surviving OOS edge (net Sharpe negative / IC=0 on
-> real data).** Overall certification: **RESEARCH_READY / PAPER_READY**, not
-> shadow/production. See `reports/ml_certification.json` and
-> `reports/ML_SERVICE_FINAL_CERTIFICATION.md`.
+> **POST-CONFIRMATION STATUS (2026-09-25):** The `Current status` line under
+> each criterion has been updated to reflect the full confirmation phase.
+> Summary: **18 PASS, 2 PARTIAL, 0 FAIL** on the infrastructure level.
+>
+> The 2 PARTIALs are:
+> - **E (Positive OOS IC):** PASS on barrier-clamped IC (0.486, cluster-robust p<0.001);
+>   PARTIAL on continuous-return IC (unknown — frozen parquet has clamped returns only).
+> - **J (Forward paper ≥20 trades):** IN_PROGRESS — Session 1 started (65 signals,
+>   resolve 2026-09-30). Zero resolved trades yet.
+>
+> Overall certification: **PAPER_ELIGIBLE** — forward paper Session 1 live.
+> See `reports/ML_SERVICE_FINAL_CERTIFICATION.md` and `reports/final_certification.json`.
 
 ---
 

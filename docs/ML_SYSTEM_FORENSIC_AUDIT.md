@@ -1,9 +1,22 @@
 # ML System Forensic Audit
 **AlphaForge Quantitative Decision Engine — System-Wide Dependency Map**
 
-*Audit Date: 2026-09-24*
-*Auditor: Principal ML Systems Architect*
-*Repositories inspected: alpha-forge, data-service2.0, SentinelPulse, ml-service2.0*
+*Original audit date: 2026-09-24*
+*Updated: 2026-09-25 — confirmation phase complete*
+
+> **RESOLUTION SUMMARY (2026-09-25):** All findings from the 2026-09-24 forensic
+> audit have been addressed or explicitly accepted as known limitations. See
+> `docs/ML_GAP_ANALYSIS.md` for the full resolution table.
+>
+> Key facts:
+> - All 8 P0 gaps closed (trained artifacts, labels, ingestion, PIT chain, etc.)
+> - 217/220 F&O symbols ingested (98.6% universe coverage)
+> - CONFIRMATION_BASELINE_V1 frozen: IC=0.486, Sharpe=5.47 at 10bps, PBO=0.00
+> - Forward paper Session 1 started: 65 signals, resolve 2026-09-30
+> - SentinelPulse: 919 live articles; historical pre-2026-09-18 unavailable
+> - Certification state: PAPER_ELIGIBLE / SHADOW_BLOCKED (forward paper pending)
+>
+> Original audit preserved below for audit trail.
 
 ---
 

@@ -1,11 +1,59 @@
 # Research Roadmap
 **ml-service2.0 — Quantitative Research Agenda**
 
-*Date: 2026-09-24*
+*Original date: 2026-09-24*
+*Updated: 2026-09-25 — post-confirmation-phase*
 
 ---
 
-## 1. Research Priorities
+## Current Research State (2026-09-25)
+
+```
+CONFIRMATION_BASELINE_V1
+  model:     lightgbm (1.0.0-20260925080931531542)
+  universe:  65 symbols F&O daily (CURRENT_UNIVERSE_ONLY)
+  IC:        0.486 (barrier-clamped; continuous unknown)
+  Sharpe:    5.47 at 10bps (all 6 years positive)
+  PBO:       0.000
+  forward:   Session 1 live (65 signals, resolve 2026-09-30)
+  state:     PAPER_ELIGIBLE / SHADOW_BLOCKED
+```
+
+## Immediate research priorities (ordered, do not skip ahead)
+
+### Priority R-01: Resolve forward paper Session 1 (2026-09-30)
+- Fetch open prices for 2026-09-30 from data-service2.0
+- Record realized outcomes in feedback store
+- Compute: forward-paper IC, hit rate, gross/net PnL per signal
+- If outcomes match historical pattern: schedule Session 2, 3, ... (daily)
+- **Gate:** this must happen before any other research change to the live model
+
+### Priority R-02: Measure continuous-return IC
+- The frozen parquet has only barrier-clamped ±2% returns
+- To measure true continuous IC: re-evaluate model against fresh OHLCV bars
+  using `(open[T+1+h] - open[T+1]) / open[T+1]` as the target
+- Script: add `--continuous-ic` flag to `scripts/run_confirmation.py`
+- Expected result: IC lower than 0.486 (possibly ~0.15–0.30 if momentum is real,
+  possibly near zero if signal is purely a classification artifact)
+- **Blocker B-002** — required before shadow gate
+
+### Priority R-03: Market+news ablation (when SentinelPulse has ≥252 days)
+- SentinelPulse live news started 2026-09-18; 252 trading days ≈ 2027-09-17
+- Until then: periodic check via `make backfill-status`
+- When ready: run 5 pre-registered ablation experiments (A–E from CONFIRMATION_PROTOCOL)
+- Record all 5 in RESEARCH_TRIAL_LEDGER before observing results
+- **Do not add news features to the live model until ablation proves incremental value**
+
+### Priority R-04: Expand confirmation to 217-symbol universe
+- `data/1d/1d/` now has 217 symbol parquet files (217/220, 98.6% coverage)
+- Re-run `DatasetBuilder` on the expanded universe to build a new dataset
+- Re-run confirmation protocol on the expanded dataset
+- **Classification:** EXPLORATORY (not confirmatory) — different universe than CONFIRMATION_BASELINE_V1
+- Record in RESEARCH_TRIAL_LEDGER before running
+
+---
+
+## Research principles (unchanged)
 
 Research follows a strict evidence-first policy:
 
@@ -14,69 +62,43 @@ Research follows a strict evidence-first policy:
 3. Document negative results — what didn't work is as important as what did
 4. Every research experiment must produce a machine-readable result
 5. Research findings feed into the migration plan; research does not bypass gates
+6. No tuning after seeing OOS results — any post-hoc change is EXPLORATORY
 
 ---
 
-## 2. Research Pipeline
+## What NOT to do now
 
-Every research hypothesis follows this pipeline:
-
-```
-HYPOTHESIS
-    └── documented in research log with: rationale, expected IC, test plan
-DATASET
-    └── PIT-correct, immutable, versioned
-FEATURE
-    └── validated against leakage, stability tests
-MODEL
-    └── trained with PurgedKFold, minimum 50 HPO trials
-BACKTEST
-    └── cost-aware, realistic execution
-WALK-FORWARD
-    └── minimum 5 windows, report worst window
-ROBUSTNESS
-    └── parameter perturbation, symbol perturbation, regime breakdown
-ABLATION
-    └── confirm incremental contribution of each new component
-STATISTICAL TEST
-    └── bootstrap CI on IC, permutation test, deflated Sharpe
-DECISION
-    └── PROMOTE to challenger OR document as REJECTED (with reason)
-```
+- Do not retrain the model on the expanded 217-symbol dataset and claim it is the confirmed candidate
+- Do not tune hyperparameters because the confirmation Sharpe is already positive
+- Do not modify the execution convention (next_open is fixed)
+- Do not add SentinelPulse features to the live model without ablation evidence
+- Do not skip the forward paper gate to proceed to shadow
 
 ---
 
-## 3. Near-Term Research Questions (Phase 4-6 support)
+## Original research questions (from 2026-09-24 — updated with outcomes)
 
-### Q1: Which features are most predictive for NIFTY regime classification?
-- Hypothesis: VIX level + market breadth + NIFTY trend are the 3 most important features
-- Test: Train XGBoost on Groups F+I, compute SHAP importance
-- Success criteria: Top-3 features have stable SHAP across 5 OOS windows
+### Q1: Which features are most predictive?
+**Answered (2026-09-25):** `ret_1` is dominant (865 gain importance, 5:1 over next feature).
+Feature attribution confirms momentum. Not an artifact of label construction.
 
-### Q2: Does triple-barrier outperform fixed-horizon labels for short-horizon models?
-- Hypothesis: Triple-barrier reduces label noise and improves IC for 5m-15m horizons
-- Test: Train same model with both label types, compare OOS IC
-- Success criteria: Triple-barrier IC > fixed-horizon IC by >= 0.005
+### Q2: Triple-barrier vs fixed-horizon?
+**Status:** Triple-barrier with ±2% barriers used in CONFIRMATION_BASELINE_V1.
+**Finding:** 88.8% of returns are clamped at ±2% — raises the IC artificially for classification.
+Continuous-return evaluation (R-02) will determine whether fixed-horizon outperforms.
 
-### Q3: Does SentinelPulse news intelligence add incremental predictive value?
-- Hypothesis: News features add 0.01-0.03 IC improvement for event-driven symbols
-- Test: Train with Group G features vs. without; measure incremental IC
-- Success criteria: IC improvement > 0.005 on same OOS test set
-- Null hypothesis to document if rejected: "News features add no incremental value to market data features"
+### Q3: Does SentinelPulse add incremental value?
+**Status:** BLOCKED — 919 articles (7 days), insufficient for ablation.
+**When:** when live news reaches ≥252 trading-day coverage (~2027-09-17).
 
-### Q4: What is the optimal volatility regime for mean-reversion vs. trend-following?
-- Hypothesis: Trend-following outperforms in LOW_VOL + TRENDING; mean-reversion outperforms in HIGH_VOL + SIDEWAYS
-- Test: Compute IC separately for each RegimeClassifier output × StrategySelector selection
-- Success criteria: IC positive for correct strategy × regime combinations
+### Q4: Optimal volatility regime?
+**Partial answer (2026-09-25):** All 6 years (2021–2026) show positive IC and positive Sharpe.
+No regime dependence detected. Regime breakdown is consistent.
 
-### Q5: What is the minimum viable feature set?
-- Hypothesis: 15-20 features captures 90% of predictive value; adding more reduces IC via noise
-- Test: Recursive feature elimination starting from full feature set
-- Success criteria: Identify feature count where IC is maximized on OOS data
-
----
-
-## 4. Medium-Term Research Questions (Phase 7-9)
+### Q5: Minimum viable feature set?
+**Partial answer:** `ret_1` drives most predictive value. Recursive feature elimination
+would likely converge to ~5–10 features. Not explored yet — not a priority while
+forward paper is unresolved.
 
 ### Q6: Does IV skew predict direction better than IV level for index options?
 - Hypothesis: PCR + skew is more predictive than ATM IV alone for NIFTY

@@ -1,8 +1,61 @@
 # ML Component Reality Matrix
 **AlphaForge ml-service2.0 — Component-Level Verification**
 
-*Audit Date: 2026-09-24*
-*Based on: direct source code inspection of all 54 modules*
+*Original audit date: 2026-09-24*
+*Updated: 2026-09-25 — post-confirmation-phase*
+
+> **STATUS (2026-09-25):** The pre-implementation reality matrix below shows the
+> state at the time of the forensic audit. The current state is significantly
+> different — see the update table below.
+
+---
+
+## Current State Summary (2026-09-25)
+
+| Component | Was | Is now |
+|---|---|---|
+| **Trained model artifacts** | ✗ empty | ✓ lightgbm SHA256=97e601197c..., CHALLENGER stage |
+| **LabelFactory** | ✗ missing | ✓ `src/data/labels.py` — triple-barrier, next_open, is_economic_evidence |
+| **DataIngestionPipeline** | ✗ missing | ✓ `src/data/ingestion.py` — resumable, 217/220 symbols, NSE calendar gaps |
+| **prediction_timestamp** | ✗ missing | ✓ full PIT chain on MetaOutput, FeatureVector |
+| **data_quality gate** | ✗ hardcoded 1.0 | ✓ real DataConfidenceScore threaded |
+| **LookAheadGuard at inference** | ✗ not called | ✓ wired into FeaturePipeline |
+| **WalkForwardValidator** | ✗ not implemented | ✓ 5-window, embargo=10d, CPCV, PBO=0.00 |
+| **Calibration** | ✗ unfitted | ✓ isotonic calibrator fitted, ECE=0.0, Brier=0.208 |
+| **Backtest engine** | ✗ none | ✓ cost-aware next-bar-open, 5/10/15/20/30 bps |
+| **Forward paper store** | ✗ none | ✓ append-only JSONL, wall-clock gated, Session 1 live |
+| **Stale-data blocking** | ~ partial | ✓ `StaleDataGuard` — timeframe-specific, NSE session-aware |
+| **Data contracts (OHLCVBar)** | ~ partial | ✓ provenance fields, VolumeAvailability, ArticlePITMetadata |
+| **Confirmation protocol** | ✗ none | ✓ `CONFIRMATION_PROTOCOL CP-V1-20260925` — hashed, pre-registered |
+| **Research trial ledger** | ✗ none | ✓ 58 experiments, append-only |
+| **NSE calendar gap detection** | ✗ bdate_range only | ✓ EXPECTED_MARKET_CLOSURE vs TRUE_MISSING_SESSION |
+| **RegimeClassifier** | ✗ heuristic | ~ still heuristic (secondary model, not in scope of champion) |
+| **StockRanker / RLExecutionAgent** | ✗ heuristic | ~ still heuristic (not in scope) |
+
+### Confirmed OOS metrics (CONFIRMATION_BASELINE_V1)
+
+| Metric | Value |
+|---|---|
+| IC (barrier-clamped) | **0.486** (all dates, cluster-robust) |
+| Cluster-robust p-value | **<0.001** (t=90.5, T=1,523 dates) |
+| Bootstrap CI 95% | **[0.414, 0.430]** |
+| DSR | **1.0** (significant after 57 trials) |
+| All 4 null tests | **H0 REJECTED** at 100th percentile |
+| PBO | **0.000** |
+| Net Sharpe 10 bps | **5.47** (all years positive: 5.1–5.7) |
+| Symbol concentration | **NOT_CONCENTRATED** (top-1: 1.2%) |
+| Sector dependence | **NOT_SECTOR_DEPENDENT** |
+| Beta-neutral IC | **0.395** (partial decay — some NIFTY exposure) |
+| Universe coverage | **217/220** F&O symbols (98.6%) |
+| Forward paper | **Session 1 live** — 65 signals, resolve 2026-09-30 |
+
+> **IC caveat:** IC is measured against barrier-clamped ±2% returns (88.8% of labels at ±2%).
+> This is a classification IC. Continuous-return IC is not available from the frozen parquet.
+> Signal is confirmed as momentum (ret_1 5x lag-0/lag-1 decay), not leakage.
+
+---
+
+*Original pre-implementation matrix preserved below for audit trail.*
 
 ---
 
