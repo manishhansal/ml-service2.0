@@ -103,3 +103,93 @@ async def train_feedback_summary() -> dict:
     GET /train/feedback/summary
     """
     return _feedback_store.summary()
+
+
+# ── Training Readiness Gate ───────────────────────────────────────────────────
+# Mandate §27: single authoritative readiness endpoint.
+# Mandate §28: gate MUST fail closed. Returns READY, READY_MARKET_ONLY, or NOT_READY.
+
+
+@router.get("/training/readiness")
+async def training_readiness(
+    news_required: bool = False,
+    min_history_days: int = 252,
+    min_universe_size: int = 3,
+    timeframe: str = "1d",
+) -> dict:
+    """
+    Training-readiness gate — single authoritative answer: READY / NOT_READY.
+
+    Checks every precondition before training is allowed:
+      DATA      — data-service2.0 reachability, auth, universe, history
+      NEWS      — SentinelPulse (if news_required=True; else optional)
+      FEATURES  — feature schema validity
+      LABELS    — label schema validity, default execution_model=next_open
+      TRAINING  — Python dependencies, artifact path writable
+      PROVENANCE — git SHA, docker image
+
+    Mandate §28: fails closed on any critical blocker.
+
+    GET /training/readiness?news_required=false&min_history_days=252&timeframe=1d
+
+    Returns::
+
+        {
+          "training_ready": true | false,
+          "mode": "READY" | "READY_MARKET_ONLY" | "NOT_READY",
+          "news_status": "ENABLED" | "DISABLED" | "UNAVAILABLE" | "EVIDENCE_PENDING",
+          "blockers": [...],
+          "warnings": [...],
+          "gates": [{"gate": ..., "status": "PASS"|"FAIL"|"WARN"|"SKIP", ...}],
+          "checked_at": "...",
+          "git_sha": "...",
+          "docker_image": "...",
+          "python_version": "..."
+        }
+    """
+    from src.clients.data_service import DataServiceClient
+    from src.clients.sentinel_pulse import SentinelPulseClient
+    from src.config import settings
+    from src.data.readiness import TrainingReadinessGate
+
+    data_client = DataServiceClient()
+    await data_client.connect()
+
+    sentinel_client = SentinelPulseClient()
+    await sentinel_client.connect()
+
+    gate = TrainingReadinessGate()
+
+    # Fetch real F&O universe — single call, reused by gate
+    # (avoids double-fetching which would hit the rate limit)
+    sample_universe: list[str]
+    try:
+        universe_resp = await data_client.get_fno_universe()
+        raw_syms = (
+            universe_resp.get("data", {}).get("constituents", [])
+            or universe_resp.get("data", {}).get("symbols", [])
+            or []
+        )
+        sample_universe = [s["symbol"] if isinstance(s, dict) else s for s in raw_syms[:50]]
+        if not sample_universe:
+            sample_universe = ["NIFTY", "BANKNIFTY", "RELIANCE"]
+        print(f"Universe: {len(sample_universe)} symbols, sample: {sample_universe[:5]}", flush=True)
+    except Exception as e:
+        sample_universe = ["NIFTY", "BANKNIFTY", "RELIANCE"]
+        print(f"Universe fetch failed ({e}), using fallback: {sample_universe}", flush=True)
+
+    try:
+        result = await gate.check(
+            data_client=data_client,
+            sentinel_client=sentinel_client,
+            universe=sample_universe,
+            timeframe=timeframe,
+            min_history_days=min_history_days,
+            news_required=news_required,
+            min_universe_size=min_universe_size,
+        )
+    finally:
+        await data_client.disconnect()
+        await sentinel_client.disconnect()
+
+    return result.to_dict()

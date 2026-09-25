@@ -32,10 +32,12 @@ services:
       - MLFLOW_TRACKING_URI=http://mlflow-test:5000
       - DEPLOYMENT_MODE=research
       - LOG_LEVEL=WARNING
+      - DOCKER_IMAGE_DIGEST=test-ci-image
     depends_on:
       - redis-test
       - mock-data-service
       - mock-sentinel-pulse
+      - mlflow-test
     command: pytest tests/ -v --cov=src --cov-fail-under=90
 
   # ── Redis (test-isolated) ─────────────────────────────────────────────────────
@@ -57,3 +59,14 @@ services:
     command: --port 8080 --root-dir /home/wiremock
     volumes:
       - ./tests/wiremock/sentinel-pulse:/home/wiremock
+
+  # ── MLflow (test-isolated) ───────────────────────────────────────────────────
+  mlflow-test:
+    image: python:3.11-slim
+    command: >
+      sh -c "pip install mlflow==2.19.0 &&
+             mlflow server --host 0.0.0.0 --port 5000
+             --backend-store-uri sqlite:///mlruns/mlflow.db
+             --default-artifact-root /mlruns/artifacts"
+    volumes:
+      - /tmp/mlflow-test:/mlruns

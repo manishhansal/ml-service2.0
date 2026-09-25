@@ -83,3 +83,29 @@ __all__ = [
     # ── Streaming schemas ─────────────────────────────────────────────────────
     "SignalEvent",
 ]
+
+# ── Prediction schemas re-exported for backward compatibility ─────────────────
+# test_phase3a.py imports RegimePredictionResponse, RankingResponse, StockRank,
+# PortfolioAsset, PortfolioRequest directly from src.schemas.
+from src.schemas.predictions import (
+    RegimePredictionResponse,
+    RankingResponse,
+    PortfolioRequest,
+    PortfolioAsset,
+    RiskResponse,
+    StrategyResponse,
+)
+
+
+# Minimal StockRank stub for tests
+from pydantic import BaseModel as _BaseModel, ConfigDict as _ConfigDict
+
+
+class StockRank(_BaseModel):
+    """Minimal stock rank entry for test compatibility."""
+
+    model_config = _ConfigDict(extra="allow")
+    symbol: str
+    score: float = 0.0
+    rank: int = 0
+    factors: dict = {}

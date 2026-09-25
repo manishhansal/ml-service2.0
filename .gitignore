@@ -102,3 +102,7 @@ logs/
 
 # ── qlib ──────────────────────────────────────────────────────────────────────
 qlib_data/
+
+# ── Training Data Cache ───────────────────────────────────────────────────────
+# Local parquet cache written by the Docker training pipeline — not committed
+data/
