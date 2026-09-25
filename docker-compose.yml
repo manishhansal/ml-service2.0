@@ -20,9 +20,11 @@ services:
 
   # ── ml-service ──────────────────────────────────────────────────────────────
   ml-service:
-    build:
-      context: .
-      target: dev
+    # Use the pre-built test-hardened image which has all dependencies installed.
+    # Source is bind-mounted for live reload without a full rebuild.
+    # To rebuild: docker build -f Dockerfile.test -t ml-service2:test-hardened .
+    image: ml-service2:test-hardened
+    container_name: ml-service2-api
     ports:
       - "8100:8100"
     environment:
@@ -30,31 +32,41 @@ services:
       - DATA_SERVICE_API_KEY=${DATA_SERVICE_API_KEY:-dev-data-key}
       - DATA_SERVICE_2_URL=${DATA_SERVICE_2_URL:-http://host.docker.internal:8200}
       - SENTINEL_PULSE_URL=${SENTINEL_PULSE_URL:-http://host.docker.internal:3001}
+      - SENTINEL_PULSE_API_KEY=${SENTINEL_PULSE_API_KEY:-}
       - REDIS_URL=redis://redis:6379
       - MLFLOW_TRACKING_URI=http://mlflow:5000
-      - DEPLOYMENT_MODE=research
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-research}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DOCKER_IMAGE_DIGEST=${DOCKER_IMAGE_DIGEST:-dev-local}
     volumes:
-      # Hot-reload: source and test trees are bind-mounted so uvicorn --reload
-      # picks up changes without a container rebuild.
+      # Hot-reload: source bind-mounted so changes are picked up without rebuild
       - ./src:/app/src
       - ./tests:/app/tests
-      # Persist model artifacts across container restarts
+      # Persist trained model artifacts across restarts
       - ./artifacts:/app/artifacts
     depends_on:
       redis:
         condition: service_healthy
+      mlflow:
+        condition: service_healthy
     command: uvicorn src.main:app --host 0.0.0.0 --port 8100 --reload
-    # Allow the container to reach services on the host machine
-    # (e.g. data-service2.0 at host.docker.internal:8200)
+    healthcheck:
+      # Use python3 since curl is not installed in the test-hardened image
+      test: ["CMD", "python3", "-c",
+             "import urllib.request,json; r=urllib.request.urlopen('http://localhost:8100/health',timeout=5); d=json.loads(r.read()); exit(0 if d.get('status')=='healthy' else 1)"]
+      interval: 15s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+    # Allow reaching host services (data-service2.0, SentinelPulse)
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
   # ── Redis ────────────────────────────────────────────────────────────────────
+  # Internal only — no host port binding (6379 is used by alpha-forge-redis).
+  # ml-service connects via REDIS_URL=redis://redis:6379 on the compose network.
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -62,8 +74,9 @@ services:
       retries: 5
 
   # ── MLflow ───────────────────────────────────────────────────────────────────
-  # Tracking server with a local SQLite backend and filesystem artifact store.
-  # Data is persisted in ./mlruns on the host.
+  # Internal only — no host port binding (avoid conflicts with other stacks).
+  # Access via MLFLOW_TRACKING_URI=http://mlflow:5000 from inside ml-service.
+  # To open the UI from the host: docker compose port mlflow 5000
   mlflow:
     image: python:3.11-slim
     command: >
@@ -71,7 +84,11 @@ services:
              mlflow server --host 0.0.0.0 --port 5000
              --backend-store-uri sqlite:///mlruns/mlflow.db
              --default-artifact-root /mlruns/artifacts"
-    ports:
-      - "5000:5000"
     volumes:
       - ./mlruns:/mlruns
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
