@@ -1,0 +1,311 @@
+{
+  "phase": "extended_research_matrix",
+  "execution_environment": "DOCKER",
+  "docker_image": "sha256:024b1bc7b3fd2258d16349df2b04371e350aa6af8e117b661a92c7708e380e90",
+  "python_version": "3.11.16",
+  "started_at": "2026-09-25T07:46:32.706114+00:00",
+  "interval": "1d",
+  "max_symbols": 47,
+  "survivorship": "CURRENT_UNIVERSE_ONLY",
+  "note": "Extended research matrix: Stage A (triple-barrier broad), Stage B (excess-return vs NIFTY), Stage C (cross-sectional rank). Mandate \u00a764: no threshold changes, negative results preserved.",
+  "training_readiness": {
+    "training_ready": true,
+    "mode": "READY",
+    "news_status": "EVIDENCE_PENDING",
+    "blockers": [],
+    "warnings": [
+      "SENTINELPULSE_CONNECTED_BUT_NO_TRAINING_SAMPLES: news_status=EVIDENCE_PENDING. SentinelPulse is reachable and authenticated but has no processed training samples in its database. News ingestion pipeline may not have run yet."
+    ],
+    "gates": [
+      {
+        "gate": "DATA_SERVICE_REACHABLE",
+        "status": "PASS"
+      },
+      {
+        "gate": "DATA_SERVICE_AUTH",
+        "status": "PASS"
+      },
+      {
+        "gate": "UNIVERSE_AVAILABLE",
+        "status": "PASS",
+        "details": {
+          "universe_size": 220,
+          "requested_found": 4
+        }
+      },
+      {
+        "gate": "MARKET_HISTORY_SUFFICIENT",
+        "status": "PASS",
+        "details": {
+          "bars_found": 1251,
+          "required": 252,
+          "symbol": "NIFTY"
+        }
+      },
+      {
+        "gate": "SENTINELPULSE_AVAILABLE",
+        "status": "WARN",
+        "reason": "SENTINELPULSE_CONNECTED_BUT_NO_TRAINING_SAMPLES: news_status=EVIDENCE_PENDING. SentinelPulse is reachable and authenticated but has no processed training samples in its database. News ingestion pipeline may not have run yet.",
+        "details": {
+          "sample_count": 0
+        }
+      },
+      {
+        "gate": "FEATURE_SCHEMA_VALID",
+        "status": "PASS",
+        "details": {
+          "feature_count": 24,
+          "schema_version": "fs-2.0.0"
+        }
+      },
+      {
+        "gate": "LABEL_SCHEMA_VALID",
+        "status": "PASS",
+        "details": {
+          "default_execution_model": "next_open",
+          "schema_version": "ls-2.0.0"
+        }
+      },
+      {
+        "gate": "TRAINING_DEPS_AVAILABLE",
+        "status": "PASS"
+      },
+      {
+        "gate": "PROVENANCE_AVAILABLE",
+        "status": "PASS",
+        "details": {
+          "git_sha": "unknown",
+          "docker_image": "sha256:024b1bc7b3fd2258d16349df2b04371e350aa6af8e117b661a92c7708e380e90"
+        }
+      }
+    ],
+    "checked_at": "2026-09-25T07:46:38.227378+00:00",
+    "git_sha": "unknown",
+    "docker_image": "sha256:024b1bc7b3fd2258d16349df2b04371e350aa6af8e117b661a92c7708e380e90",
+    "python_version": "3.11.16"
+  },
+  "universe": {
+    "symbols": [
+      "NIFTY",
+      "360ONE",
+      "ABB",
+      "ABCAPITAL",
+      "ADANIENSOL",
+      "ADANIENT",
+      "ADANIGREEN",
+      "ADANIPORTS",
+      "ADANIPOWER",
+      "ALKEM",
+      "AMBER",
+      "AMBUJACEM",
+      "ANGELONE",
+      "APLAPOLLO",
+      "APOLLOHOSP",
+      "ASHOKLEY",
+      "ASIANPAINT",
+      "ASTRAL",
+      "ATHERENERG",
+      "AUBANK",
+      "AUROPHARMA",
+      "AXISBANK",
+      "BAJAJ-AUTO",
+      "BAJAJFINSV",
+      "BAJAJHLDNG",
+      "BAJFINANCE",
+      "BANDHANBNK",
+      "BANKBARODA",
+      "BANKINDIA",
+      "BANKNIFTY",
+      "BDL",
+      "BEL",
+      "BHARATFORG",
+      "BHARTIARTL",
+      "BHEL",
+      "BIOCON",
+      "BLUESTARCO",
+      "BOSCHLTD",
+      "BPCL",
+      "BRITANNIA",
+      "BSE",
+      "CAMS",
+      "CANBK",
+      "CDSL",
+      "CGPOWER",
+      "CHOLAFIN",
+      "CIPLA",
+      "COALINDIA"
+    ],
+    "count": 48
+  },
+  "stage_a": {
+    "stage": "A",
+    "label_type": "triple_barrier",
+    "execution_model": "next_open",
+    "symbols": 22,
+    "rows": 41284,
+    "dataset_id": "ds-1d-20260925074713-09eb9cfa",
+    "dataset_hash": "84f9294b293ffcc01c416a7abc9f70583f0d918cfb2b21102c0b4302ded903a3",
+    "champion": "lightgbm",
+    "ic_mean": 0.427255,
+    "pbo": 0.0,
+    "net_sharpe": 3.6764,
+    "passed_acceptance": true,
+    "rejection_reason": "",
+    "candidates": [
+      {
+        "name": "logistic",
+        "is_baseline": true,
+        "wf_ic_mean": 0.373469,
+        "wf_ic_worst": 0.344836,
+        "wf_positive_fraction": 1.0,
+        "wf_net_sharpe": 3.5111,
+        "cpcv_ic_mean": 0.362579,
+        "cpcv_pbo": 0.0,
+        "calibration_ece": 0.0,
+        "calibration_fitted": true,
+        "calibration_brier": 0.220901
+      },
+      {
+        "name": "lightgbm",
+        "is_baseline": false,
+        "wf_ic_mean": 0.427255,
+        "wf_ic_worst": 0.398243,
+        "wf_positive_fraction": 1.0,
+        "wf_net_sharpe": 3.6764,
+        "cpcv_ic_mean": 0.402458,
+        "cpcv_pbo": 0.0,
+        "calibration_ece": 0.0,
+        "calibration_fitted": true,
+        "calibration_brier": 0.208684
+      },
+      {
+        "name": "xgboost",
+        "is_baseline": false,
+        "wf_ic_mean": 0.425155,
+        "wf_ic_worst": 0.40793,
+        "wf_positive_fraction": 1.0,
+        "wf_net_sharpe": 3.7551,
+        "cpcv_ic_mean": 0.396454,
+        "cpcv_pbo": 0.0,
+        "calibration_ece": 0.0,
+        "calibration_fitted": true,
+        "calibration_brier": 0.210444
+      }
+    ],
+    "is_economic_evidence": true
+  },
+  "stage_b": {
+    "stage": "B",
+    "label_type": "excess_return_vs_nifty",
+    "execution_model": "next_open",
+    "symbols": 22,
+    "rows": 41179,
+    "champion": "logistic",
+    "ic_mean": 0.302964,
+    "pbo": 0.0,
+    "net_sharpe": 2.0095,
+    "passed_acceptance": true,
+    "rejection_reason": "",
+    "candidates": [
+      {
+        "name": "logistic",
+        "wf_ic_mean": 0.302964,
+        "wf_net_sharpe": 2.0095,
+        "cpcv_pbo": 0.0,
+        "accepted": true
+      },
+      {
+        "name": "lightgbm",
+        "wf_ic_mean": 0.274734,
+        "wf_net_sharpe": 1.9672,
+        "cpcv_pbo": 0.0,
+        "accepted": true
+      },
+      {
+        "name": "xgboost",
+        "wf_ic_mean": 0.291402,
+        "wf_net_sharpe": 2.0878,
+        "cpcv_pbo": 0.0,
+        "accepted": true
+      }
+    ],
+    "is_economic_evidence": true
+  },
+  "stage_c": {
+    "stage": "C",
+    "label_type": "crosssectional_rank",
+    "execution_model": "next_open",
+    "symbols": 22,
+    "rows": 33426,
+    "champion": "logistic",
+    "ic_mean": 0.304427,
+    "pbo": 0.0,
+    "net_sharpe": 2.6281,
+    "passed_acceptance": true,
+    "rejection_reason": "",
+    "candidates": [
+      {
+        "name": "logistic",
+        "wf_ic_mean": 0.304427,
+        "wf_ic_worst": 0.279751,
+        "wf_positive_fraction": 1.0,
+        "wf_net_sharpe": 2.6281,
+        "cpcv_pbo": 0.0,
+        "accepted": true
+      },
+      {
+        "name": "lightgbm",
+        "wf_ic_mean": 0.279957,
+        "wf_ic_worst": 0.261015,
+        "wf_positive_fraction": 1.0,
+        "wf_net_sharpe": 2.4661,
+        "cpcv_pbo": 0.0,
+        "accepted": true
+      },
+      {
+        "name": "xgboost",
+        "wf_ic_mean": 0.294621,
+        "wf_ic_worst": 0.275344,
+        "wf_positive_fraction": 1.0,
+        "wf_net_sharpe": 2.5967,
+        "cpcv_pbo": 0.0,
+        "accepted": true
+      }
+    ],
+    "is_economic_evidence": true
+  },
+  "final": {
+    "status": "ELIGIBLE_CANDIDATE",
+    "champion_stage": "A",
+    "champion_ic": 0.427255,
+    "best_ic_seen": 0.427255,
+    "best_stage": "A",
+    "stages_run": [
+      "A",
+      "B",
+      "C"
+    ],
+    "stages_accepted": [
+      "A",
+      "B",
+      "C"
+    ],
+    "note": "ELIGIBLE_CANDIDATE based on statistical gates. Honest IC against continuous next-open returns is 0.29 (not 0.43). Sharpe 2.26 is strong but requires forward-paper validation. Production/shadow NOT eligible until forward-paper evidence accrues.",
+    "honest_ic": 0.2861,
+    "honest_sharpe": 2.255,
+    "ic_is_inflated_by_barrier": true
+  },
+  "completed_at": "2026-09-25T07:49:19.048659+00:00",
+  "ic_artifact_analysis": {
+    "stage_a_ic_against_barrier_returns": 0.3735,
+    "stage_a_ic_against_continuous_next_open_returns": 0.2861,
+    "stage_a_barrier_fraction": 0.894,
+    "stage_a_sharpe_continuous": 2.255,
+    "note": "Stage A IC (0.37-0.43) is inflated because 89.4% of realized_returns are exactly at the +/-2% triple-barrier boundary. Against continuous next-open returns (uncapped), the IC is 0.29 with Sharpe=2.26. Stage B (excess_return vs NIFTY) and Stage C (cross-sectional rank) use continuous returns directly: IC 0.30-0.31. All three stages show consistent positive IC across all 5 OOS walk-forward windows (positive_fraction=1.0), which is unusual and requires forward-paper validation to confirm it is not an artifact of the 22-symbol universe or the in-sample period characteristics (2021-2026).",
+    "correct_ic_for_champion_selection": 0.2861,
+    "all_windows_positive": true,
+    "consistent_across_windows": true,
+    "mandate_requirement": "Forward-paper validation required before shadow/production eligibility. The finding is statistically interesting. Economic validity requires live validation against actual fills."
+  },
+  "analysis_timestamp": "2026-09-25T07:57:59.120795+00:00"
+}

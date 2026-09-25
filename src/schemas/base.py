@@ -156,3 +156,24 @@ class BaseSchema(BaseModel):
     """
 
     model_config = ConfigDict(strict=True, frozen=True)
+
+
+# ── resolve_action helper (used by tests and MetaDecisionEngine) ──────────────
+
+def resolve_action(
+    provenance: "PredictionProvenance",
+    proposed_action: str,
+    deployment_mode: "DeploymentMode",
+) -> "tuple[str, PredictionProvenance]":
+    """Resolve a proposed trading action against deployment-mode constraints.
+
+    In VALIDATED_ML_ONLY mode, any non-trained-model provenance is downgraded
+    to NO_TRADE with INSUFFICIENT_EVIDENCE provenance.
+
+    Returns:
+        (action, effective_provenance) tuple.
+    """
+    if deployment_mode == DeploymentMode.VALIDATED_ML_ONLY:
+        if provenance != PredictionProvenance.TRAINED_MODEL:
+            return "NO_TRADE", PredictionProvenance.INSUFFICIENT_EVIDENCE
+    return proposed_action, provenance

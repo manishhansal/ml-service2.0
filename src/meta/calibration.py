@@ -336,3 +336,184 @@ class ConfidenceDecomposer:
             data_quality_factor=data_quality_factor,
             regime_confidence_factor=regime_confidence_factor,
         )
+
+
+# ── CalibrationStore (Phase 3F requirements) ──────────────────────────────────
+# A simple, standalone calibrator store that wraps sklearn Platt/isotonic
+# calibration and provides the contract expected by test_phase3f.
+
+from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
+
+
+@dataclass
+class CalibrationQuality:
+    """Quality metrics produced by CalibrationStore.fit().
+
+    Supports both the new API (used by CalibrationStore.fit()) and the
+    legacy test API (CalibrationQuality(model_name=..., calibrator_kind=..., ...)).
+
+    eval_is_oos: True when the evaluation set was held out from the fit set.
+    brier:       Brier score on the evaluation set (new API).
+    brier_score: Alias for legacy compatibility.
+    ece:         Expected Calibration Error on the evaluation set.
+    mce:         Maximum Calibration Error (optional legacy field).
+    """
+
+    model_id: str = ""
+    model_name: str = ""       # legacy field name
+    kind: str = ""
+    calibrator_kind: str = ""  # legacy field name
+    eval_is_oos: bool = False
+    brier: float = 0.0
+    brier_score: float = 0.0   # legacy field name
+    ece: float = 0.0
+    mce: float = 0.0           # legacy field
+    n_samples: int = 0         # legacy field
+    is_fitted: bool = True     # legacy field
+
+
+class CalibrationStore:
+    """Standalone multi-model calibration store.
+
+    Wraps sklearn's Platt scaling (LogisticRegression on raw scores) and
+    isotonic regression calibration. Unknown models degrade gracefully to
+    0.5 (neutral), never clipping the raw score.
+
+    Usage::
+
+        store = CalibrationStore()
+        quality = store.fit("regime", raw_scores, labels, kind="platt",
+                            eval_scores=eval_s, eval_labels=eval_l)
+        p = store.calibrate("regime", 0.8)   # calibrated probability
+        # Unknown model → 0.5 (not clip(0.8))
+        q = store.calibrate("unknown", 0.8)  # 0.5
+    """
+
+    def __init__(self) -> None:
+        self._calibrators: dict[str, Any] = {}
+        self._quality: dict[str, CalibrationQuality] = {}
+
+    def fit(
+        self,
+        model_id: str,
+        raw_scores: "np.ndarray",
+        labels: "np.ndarray",
+        kind: str = "platt",
+        eval_scores: "np.ndarray | None" = None,
+        eval_labels: "np.ndarray | None" = None,
+    ) -> CalibrationQuality:
+        """Fit a calibrator for ``model_id``.
+
+        Args:
+            model_id:    Unique identifier for this model's calibrator.
+            raw_scores:  1-D array of raw model output scores.
+            labels:      1-D binary label array (0/1 floats).
+            kind:        "platt" (logistic) or "isotonic".
+            eval_scores: Optional held-out scores for quality evaluation.
+            eval_labels: Optional held-out labels for quality evaluation.
+
+        Returns:
+            CalibrationQuality with eval_is_oos=True iff eval_scores supplied.
+        """
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.isotonic import IsotonicRegression
+        from sklearn.calibration import calibration_curve
+
+        X = np.array(raw_scores, dtype=float).reshape(-1, 1)
+        y = np.array(labels, dtype=float)
+
+        if kind == "platt":
+            clf = LogisticRegression(C=1e10, solver="lbfgs", max_iter=1000)
+            clf.fit(X, y)
+            calibrator = clf
+        else:
+            ir = IsotonicRegression(out_of_bounds="clip")
+            ir.fit(X.ravel(), y)
+            calibrator = ir
+
+        self._calibrators[model_id] = (kind, calibrator)
+
+        # Evaluate on eval set (if provided) or fall back to train set
+        eval_is_oos = eval_scores is not None and eval_labels is not None
+
+        # Validation: eval_scores without eval_labels is an error
+        if eval_scores is not None and eval_labels is None:
+            raise ValueError(
+                "eval_labels must be provided when eval_scores is given. "
+                "Providing eval_scores without eval_labels would give misleading quality metrics."
+            )
+        if eval_is_oos:
+            e_scores = np.array(eval_scores, dtype=float)
+            e_labels = np.array(eval_labels, dtype=float)
+        else:
+            e_scores = np.array(raw_scores, dtype=float)
+            e_labels = y
+
+        # Get calibrated probabilities for evaluation
+        cal_probs = self._apply(kind, calibrator, e_scores)
+
+        brier = float(np.mean((cal_probs - e_labels) ** 2))
+        # Simple ECE with 10 bins
+        bins = np.linspace(0, 1, 11)
+        ece = 0.0
+        for i in range(len(bins) - 1):
+            mask = (cal_probs >= bins[i]) & (cal_probs < bins[i + 1])
+            if mask.sum() > 0:
+                bin_conf = float(cal_probs[mask].mean())
+                bin_acc  = float(e_labels[mask].mean())
+                ece += (mask.sum() / len(cal_probs)) * abs(bin_conf - bin_acc)
+
+        quality = CalibrationQuality(
+            model_id=model_id,
+            model_name=model_id,
+            kind=kind,
+            calibrator_kind=kind,
+            eval_is_oos=eval_is_oos,
+            brier=brier,
+            brier_score=brier,
+            ece=ece,
+            n_samples=len(e_labels),
+            is_fitted=True,
+        )
+        self._quality[model_id] = quality
+        return quality
+
+    @staticmethod
+    def _apply(kind: str, calibrator: Any, scores: "np.ndarray") -> "np.ndarray":
+        X = scores.reshape(-1, 1)
+        if kind == "platt":
+            return calibrator.predict_proba(X)[:, 1]
+        else:
+            return calibrator.predict(scores)
+
+    def calibrate(self, model_id: str, raw_score: float) -> float:
+        """Return the calibrated probability for one score.
+
+        If the model has no fitted calibrator, returns 0.5 (neutral).
+        Never clips the raw score — unknown model → 0.5, not clip(raw).
+        """
+        if model_id not in self._calibrators:
+            return 0.5
+        kind, cal = self._calibrators[model_id]
+        probs = self._apply(kind, cal, np.array([raw_score], dtype=float))
+        return float(np.clip(probs[0], 0.0, 1.0))
+
+    def calibrate_batch(
+        self, model_id: str, raw_scores: "np.ndarray"
+    ) -> "np.ndarray":
+        """Return calibrated probabilities for an array of scores.
+
+        If the model has no fitted calibrator, returns an array of 0.5.
+        Never clips the raw score — unknown model → 0.5, not clip(raw).
+        """
+        if model_id not in self._calibrators:
+            return np.full(len(raw_scores), 0.5)
+        kind, cal = self._calibrators[model_id]
+        probs = self._apply(kind, cal, np.array(raw_scores, dtype=float))
+        return np.clip(probs, 0.0, 1.0)
+
+    def has_calibrator(self, model_id: str) -> bool:
+        return model_id in self._calibrators

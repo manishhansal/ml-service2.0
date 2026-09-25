@@ -31,7 +31,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Full development image: production + dev extras (pytest, hypothesis, ruff …)
 # Used by docker-compose.yml and docker-compose.test.yml
 FROM base AS dev
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 RUN pip install --no-cache-dir -e ".[dev]"
 COPY . .
 
@@ -39,7 +39,7 @@ COPY . .
 # Builds a relocatable wheel that the production stage installs without
 # needing build-essential or the full source tree.
 FROM base AS builder
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 # Install hatchling (build backend declared in pyproject.toml)
 RUN pip install --no-cache-dir hatchling
 COPY src/ ./src/

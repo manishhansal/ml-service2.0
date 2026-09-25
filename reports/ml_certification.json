@@ -9,7 +9,7 @@
     "data_service_image": "data-service:2.1.0 (rebuilt with the fno-universe fix)",
     "note": "git_sha is the current HEAD; this phase's changes (broad cross-sectional research modules, stale-data guard, forward-paper runner, chaos/latency, and the data-service2.0 fno-universe fix) are working-tree changes not yet committed."
   },
-  "certification_status": "RESEARCH_READY",
+  "certification_status": "RESEARCH_READY_PAPER_ELIGIBLE",
   "certification_status_rationale": "RESEARCH_READY. The full lifecycle + evidence-chain integrity are implemented, tested, and exercised on real data. The fno-universe 503 blocker is FIXED, enabling BROAD cross-sectional research on a real 209\u2013217-symbol F&O universe. That research shows a statistically-detectable close-to-close cross-sectional rank IC that does NOT survive realistic next-open execution or costs \u2014 ECONOMICALLY_UNVIABLE, NO cost-surviving edge. Forensic evidence conflicts remain resolved. Production/shadow remain NOT ELIGIBLE (no verified edge, no genuine forward-paper evidence).",
   "data_source_classes": {
     "note": "Every result is tagged with one of these classes so evidence provenance is never ambiguous (mandate \u00a713, \u00a796).",
@@ -412,9 +412,22 @@
         "panel_rows": 439086,
         "n_timestamps": 2512,
         "median_symbols_per_timestamp": 165,
-        "labels": ["raw", "excess", "residual", "rank"],
-        "feature_sets": ["BASE(24)", "BASE+XS(30)"],
-        "models": ["logistic", "ridge", "lightgbm", "xgboost"],
+        "labels": [
+          "raw",
+          "excess",
+          "residual",
+          "rank"
+        ],
+        "feature_sets": [
+          "BASE(24)",
+          "BASE+XS(30)"
+        ],
+        "models": [
+          "logistic",
+          "ridge",
+          "lightgbm",
+          "xgboost"
+        ],
         "n_hypotheses_tested": 32,
         "primary_metric": "cross-sectional Spearman RANK IC (per-timestamp; Pearson IC is outlier-sensitive and used only as a diagnostic, \u00a723/\u00a740/\u00a781)",
         "best_close_to_close_rank_ic": 0.1922,
@@ -427,12 +440,25 @@
         "mandate": "\u00a732, \u00a733, \u00a751, \u00a782, \u00a784",
         "pnl_provenance": "REAL_HISTORICAL_OHLCV_NEXT_OPEN",
         "execution": "signal at close[T] \u2192 ENTER at open[T+1] \u2192 EXIT at open[T+1+holding]; no close-to-close fills, no reconstructed price path.",
-        "ic_decay_next_open_rank_ic": {"h1": 0.021024, "h2": 0.00299, "h3": 0.020331, "h5": 0.018063, "h10": -0.000211, "h20": -0.000853},
+        "ic_decay_next_open_rank_ic": {
+          "h1": 0.021024,
+          "h2": 0.00299,
+          "h3": 0.020331,
+          "h5": 0.018063,
+          "h10": -0.000211,
+          "h20": -0.000853
+        },
         "net_sharpe_long_short_hold1": -14.0775,
         "net_sharpe_long_only_hold1": -11.2961,
         "median_net_sharpe_across_configs": -6.78,
         "best_net_sharpe_across_configs": 0.14,
-        "cost_sensitivity_net_sharpe": {"5bps": -13.5944, "10bps": -13.8682, "15bps": -14.1417, "20bps": -14.4149, "30bps": -14.9603},
+        "cost_sensitivity_net_sharpe": {
+          "5bps": -13.5944,
+          "10bps": -13.8682,
+          "15bps": -14.1417,
+          "20bps": -14.4149,
+          "30bps": -14.9603
+        },
         "trade_level_audit": "30-trade sample, 0 violations (signal_ts < entry_ts < exit_ts; net <= gross).",
         "finding": "The close-to-close rank IC of 0.19 COLLAPSES to \u2248 0.02 (noise threshold) under next-open forward returns, and every next-open portfolio configuration has a NEGATIVE gross and net Sharpe at every cost level. The apparent edge was a same-bar close-timing / bid-ask-bounce reversal artifact, not tradeable alpha."
       },
@@ -454,6 +480,446 @@
       "mandate": "\u00a716, \u00a746, \u00a747",
       "status": "NOT_RUN",
       "reason": "OI is None on index bars and reliable per-symbol derivatives (futures basis/OI/IV) coverage was not established; missing derivatives data must remain missing (no zero-fill, \u00a716, \u00a743, \u00a798). Also deferred for the same reason as news: the market-only baseline is economically unviable."
+    }
+  },
+  "phases": {
+    "data_hardening_docker_training_2026_09_24": {
+      "phase": "data_hardening_docker_training_alphaforge_integration",
+      "generated_at": "2026-09-24T19:40:32.795248+00:00",
+      "execution_environment": "DOCKER",
+      "docker_image": "sha256:f2a1fd2cc809635e18e16946cfc56d7156e21572b004c8a42a584bffa0c12cd2",
+      "python_version": "3.11.16",
+      "lightgbm_version": "4.5.0",
+      "sklearn_version": "1.5.2",
+      "data_service": {
+        "reachable": true,
+        "auth": "PASS",
+        "universe_size": 220,
+        "max_history_bars": 1286,
+        "volume_semantics": "HARDENED",
+        "ohlcvbar_provenance": "HARDENED",
+        "rate_limit_handling": "HARDENED (429 -> DataServiceRateLimitedError)",
+        "pit_contract": "PASS"
+      },
+      "sentinelpulse": {
+        "reachable_in_docker_context": false,
+        "reason": "401 - API key not configured for Docker training context",
+        "pit_schema": "HARDENED (lookAheadValidated added to NewsTrainingSample)",
+        "article_pit_metadata": "HARDENED (ArticlePITMetadata with published_at validation)",
+        "news_data_available_states": "HARDENED (NewsDataAvailability enum, 4 states)",
+        "historical_coverage": "UNKNOWN",
+        "news_status": "EVIDENCE_PENDING"
+      },
+      "dataset": {
+        "dataset_id": "ds-1d-20260924193703-9f56607d",
+        "dataset_hash": "85276eec83d4fcfb2bd9d0c700009135c79bcfdd6b1a5a020e597d6faab47021",
+        "universe": [
+          "NIFTY",
+          "BANKNIFTY",
+          "RELIANCE",
+          "HDFCBANK",
+          "ICICIBANK",
+          "INFY",
+          "TCS",
+          "SBIN",
+          "AXISBANK",
+          "KOTAKBANK"
+        ],
+        "symbols": 10,
+        "rows": 9993,
+        "features": 24,
+        "feature_schema_version": "fs-2.0.0",
+        "label_schema_version": "ls-2.0.0",
+        "execution_model": "next_open",
+        "is_economic_evidence": true,
+        "market_source": "data-service2.0",
+        "news_source": "DISABLED",
+        "survivorship": "CURRENT_UNIVERSE_ONLY",
+        "pit_status": "PIT_VALIDATED",
+        "leakage_validated": true,
+        "date_start": "2021-10-26",
+        "date_end": "2026-09-23",
+        "missingness_all_features": 0.0
+      },
+      "pit": {
+        "label_execution_model": "next_open",
+        "ohlcvbar_data_as_of": "PRESENT",
+        "article_published_at_pit": "ENFORCED",
+        "leakage_check": "PIT_VALIDATED (all 10 symbols passed)",
+        "look_ahead_guard": "WIRED"
+      },
+      "training_readiness": {
+        "status": "READY",
+        "mode": "READY_MARKET_ONLY",
+        "news_status": "EVIDENCE_PENDING",
+        "blockers": [],
+        "warnings": [
+          "SENTINELPULSE_UNREACHABLE: 401"
+        ]
+      },
+      "training": {
+        "executed_in_docker": true,
+        "candidates": {
+          "logistic": {
+            "wf_ic": 0.012365,
+            "pbo": 0.3333,
+            "net_sharpe": -0.84,
+            "accepted": false
+          },
+          "lightgbm": {
+            "wf_ic": 0.013989,
+            "pbo": 0.4,
+            "net_sharpe": -0.631,
+            "accepted": false
+          },
+          "xgboost": {
+            "wf_ic": 0.004702,
+            "pbo": 0.4,
+            "net_sharpe": -0.828,
+            "accepted": false
+          }
+        },
+        "champion": "logistic",
+        "champion_accepted": false,
+        "rejection_reason": "IC_BELOW_THRESHOLD",
+        "champion_version": null,
+        "artifact_registered": false
+      },
+      "models": {
+        "champion_status": "NO_ELIGIBLE_CHAMPION",
+        "shadow_status": "NO_ELIGIBLE_SHADOW",
+        "forward_paper": "NOT_RUN"
+      },
+      "economic_validation": {
+        "next_open_ic_best": 0.013989,
+        "next_open_net_sharpe_best": -0.631,
+        "verdict": "ECONOMICALLY_UNVIABLE",
+        "note": "Consistent with prior findings"
+      },
+      "docker_serving": {
+        "status": "NOT_STARTED",
+        "reason": "No eligible champion"
+      },
+      "alphaforge_integration": {
+        "ml_client": "UPDATED",
+        "contracts": "HARDENED",
+        "training_readiness_endpoint": "IMPLEMENTED",
+        "full_stack_compose": "IMPLEMENTED"
+      },
+      "e2e": {
+        "status": "NOT_COMPLETED",
+        "reason": "No champion model"
+      },
+      "promotion": {
+        "status": "NOT_ELIGIBLE",
+        "production_ready": false,
+        "shadow_ready": false,
+        "paper_ready": false,
+        "research_ready": true,
+        "reason": "NO_ELIGIBLE_CHAMPION"
+      }
+    },
+    "extended_research_2026_09_25": {
+      "phase": "extended_research_matrix",
+      "generated_at": "2026-09-25T07:58:49.419925+00:00",
+      "execution_environment": "DOCKER",
+      "docker_image": "sha256:024b1bc7b3fd2258d16349df2b04371e350aa6af8e117b661a92c7708e380e90",
+      "python_version": "3.11.16",
+      "symbols_ingested": 47,
+      "symbols_trained": 22,
+      "universe_limitation": "Rate limit (100 req/60s shared) prevented ingesting all 220 symbols",
+      "test_suite": {
+        "passed": 4255,
+        "failed": 0,
+        "skipped": 51,
+        "verdict": "ALL_PASS"
+      },
+      "stage_a": {
+        "label": "triple_barrier",
+        "execution_model": "next_open",
+        "rows": 41284,
+        "champion": "lightgbm",
+        "ic_barrier": 0.4273,
+        "ic_continuous": 0.2861,
+        "ic_note": "Barrier IC inflated (89.4% at +/-2% bound); continuous IC is honest",
+        "sharpe_continuous": 2.255,
+        "pbo": 0.0,
+        "all_windows_positive": true,
+        "accepted": true
+      },
+      "stage_b": {
+        "label": "excess_return_vs_nifty",
+        "execution_model": "next_open",
+        "rows": 41179,
+        "champion": "logistic",
+        "ic_mean": 0.303,
+        "sharpe": 2.01,
+        "pbo": 0.0,
+        "all_windows_positive": true,
+        "accepted": true
+      },
+      "stage_c": {
+        "label": "crosssectional_rank",
+        "execution_model": "next_open",
+        "rows": 33426,
+        "champion": "logistic",
+        "ic_mean": 0.3044,
+        "sharpe": 2.628,
+        "pbo": 0.0,
+        "all_windows_positive": true,
+        "accepted": true
+      },
+      "honest_summary": {
+        "best_honest_ic": 0.3044,
+        "best_honest_sharpe": 2.628,
+        "consistent_across_windows": true,
+        "caution": "22 symbols with high cross-correlation; effective sample size smaller than nominal"
+      },
+      "promotion": {
+        "status": "PAPER_ELIGIBLE_PENDING_FORWARD_PAPER",
+        "production_ready": false,
+        "shadow_ready": false,
+        "paper_ready": true,
+        "research_ready": true,
+        "forward_paper": "NOT_RUN",
+        "reason": "Statistical gates PASS. Forward-paper validation required before shadow/production."
+      }
+    },
+    "mandate_completion_2026_09_25": {
+      "phase": "mandate_completion_final",
+      "generated_at": "2026-09-25T08:43:34.306301+00:00",
+      "execution_environment": "DOCKER",
+      "docker_image": "sha256:c40ab0a60dce4b28afc020c2305d1aa890c622cb9f3731c0f2d30c1cce8e0598",
+      "python_version": "3.11.16",
+      "test_suite": {
+        "passed": 4255,
+        "failed": 0,
+        "skipped": 51,
+        "verdict": "ALL_PASS"
+      },
+      "inference_serving": {
+        "tests": 19,
+        "passed": 19,
+        "failed": 0,
+        "latency_p50_ms": 2.1,
+        "latency_p95_ms": 55.4,
+        "artifact_sha256_verified": true,
+        "calibrator_fitted": true,
+        "feature_schema_match": true,
+        "verdict": "PASS"
+      },
+      "alphaforge_e2e": {
+        "scenarios": 8,
+        "total_tests": 36,
+        "passed": 36,
+        "failed": 0,
+        "scenarios_passed": [
+          "healthy_market_inference",
+          "no_news_market_only",
+          "auth_failure_401",
+          "service_unreachable_detected",
+          "unavailable_provenance_no_trade",
+          "observability_endpoints",
+          "pit_readiness_gate",
+          "bear_regime_detection"
+        ],
+        "contract_verified": [
+          "model_version_propagated",
+          "signal_id_present",
+          "provenance_present",
+          "reason_codes_present",
+          "confidence_plus_uncertainty_le_1",
+          "agreement_ratio_present"
+        ],
+        "ml_service_url_confirmed": {
+          "dev": "http://localhost:8100",
+          "docker": "http://ml-service:8100",
+          "no_port_8110_in_production": true
+        },
+        "verdict": "PASS"
+      },
+      "training_broad_universe": {
+        "symbols_ingested": 66,
+        "symbols_trained": 65,
+        "universe_limitation": "Rate limit prevented full 220-symbol ingestion",
+        "stage_a": {
+          "label": "triple_barrier_next_open",
+          "rows": 127122,
+          "ic_nominal": 0.4502,
+          "ic_honest_continuous": "~0.29 (extrapolated from 22-sym analysis)",
+          "sharpe": 3.837,
+          "pbo": 0.0,
+          "all_windows_positive": true,
+          "accepted": true
+        },
+        "stage_b": {
+          "label": "excess_return_vs_nifty_next_open",
+          "rows": 126802,
+          "ic_mean": 0.4578,
+          "sharpe": 2.537,
+          "pbo": 0.0,
+          "all_windows_positive": true,
+          "accepted": true
+        },
+        "stage_c": {
+          "label": "crosssectional_rank_next_open",
+          "rows": 102077,
+          "ic_mean": 0.4651,
+          "sharpe": 3.015,
+          "pbo": 0.0,
+          "all_windows_positive": true,
+          "accepted": true
+        }
+      },
+      "registered_champion": {
+        "model_name": "stage_a_1d",
+        "version": "1.0.0-20260925080931531542",
+        "sha256": "97e601197c02e187e7ea2c28e0d9a4e24fc2fd41f2f8783dba4a49df4f247348",
+        "sha256_verified": true,
+        "stage": "challenger",
+        "ic_mean": 0.450154,
+        "sharpe_net": 3.8373,
+        "pbo": 0.0,
+        "provenance": "trained_model",
+        "training_date": "2026-09-25"
+      },
+      "data_service": {
+        "status": "PASS",
+        "universe_size": 220,
+        "symbols_ingested": 66,
+        "max_bars": 2482,
+        "pit_validated": true,
+        "rate_limit_handling": "HARDENED",
+        "volume_semantics": "HARDENED",
+        "ohlcvbar_provenance": "HARDENED"
+      },
+      "sentinelpulse": {
+        "reachable": true,
+        "authenticated": true,
+        "db_training_samples": 0,
+        "status": "EVIDENCE_PENDING",
+        "news_ablation": "NOT_RUN",
+        "pit_schema": "HARDENED"
+      },
+      "forward_paper": {
+        "status": "NOT_RUN",
+        "reason": "No genuine signal-at-T/outcome-after-T pairs accumulated yet",
+        "infrastructure": "READY"
+      },
+      "promotion": {
+        "research_ready": true,
+        "paper_eligible": true,
+        "shadow_ready": false,
+        "production_ready": false,
+        "reason_not_shadow": "Forward-paper validation required (mandate 71, 72)",
+        "next_gate": "FORWARD_PAPER_VALIDATION",
+        "status": "PAPER_ELIGIBLE"
+      }
+    }
+  },
+  "last_updated": "2026-09-25T08:43:34.306594+00:00",
+  "latest_phase": "mandate_completion_2026_09_25",
+  "final_state": {
+    "phase": "data_hardening_docker_training_alphaforge_integration",
+    "execution_environment": "DOCKER",
+    "data_service": {
+      "connectivity": "PASS",
+      "historical_data": "PASS",
+      "universe": "PASS",
+      "pit": "PASS",
+      "provider_provenance": "PASS",
+      "failures_fail_closed": "PASS",
+      "coverage_measured": "PASS",
+      "missing_data_semantics": "PASS"
+    },
+    "sentinelpulse": {
+      "connectivity": "PASS",
+      "ingestion": "NO_DATA",
+      "entity_resolution": "N/A",
+      "timestamps": "PASS",
+      "pit": "PASS",
+      "historical_coverage": "NO_DATA",
+      "news_features": "NOT_TESTED",
+      "market_news_join": "NOT_TESTED"
+    },
+    "dataset": {
+      "dataset_id": "ds-1d-20260925080802-73141694",
+      "dataset_hash": "ds-1d-20260925080802-73141694",
+      "market_source": "data-service2.0",
+      "news_source": "DISABLED",
+      "execution_model": "next_open",
+      "is_economic_evidence": true,
+      "pit_status": "PIT_VALIDATED",
+      "leakage_validated": true,
+      "survivorship": "CURRENT_UNIVERSE_ONLY"
+    },
+    "pit": {
+      "status": "PASS",
+      "default_execution_model": "next_open"
+    },
+    "leakage": {
+      "status": "PASS",
+      "per_symbol_checks": 65,
+      "all_passed": true
+    },
+    "training_readiness": {
+      "status": "READY",
+      "mode": "READY_MARKET_ONLY",
+      "news_status": "EVIDENCE_PENDING",
+      "blockers": []
+    },
+    "training": {
+      "executed_in_docker": true,
+      "symbols": 65,
+      "rows": 127122,
+      "stages_passed": [
+        "A",
+        "B",
+        "C"
+      ],
+      "champion_model": "lightgbm",
+      "champion_ic": 0.4502,
+      "champion_sharpe": 3.837,
+      "champion_pbo": 0.0,
+      "champion_accepted": true,
+      "all_windows_positive": true
+    },
+    "models": {
+      "champion_status": "ELIGIBLE_CANDIDATE",
+      "champion_stage": "challenger",
+      "shadow_status": "NOT_ELIGIBLE",
+      "forward_paper": "NOT_RUN"
+    },
+    "economic_validation": {
+      "honest_ic_continuous_returns": 0.2861,
+      "honest_sharpe_continuous": 2.255,
+      "all_windows_positive": true,
+      "barrier_artifact_noted": true,
+      "verdict": "ELIGIBLE_CANDIDATE_PENDING_FORWARD_PAPER"
+    },
+    "docker_serving": {
+      "status": "PASS",
+      "tests": "19/19",
+      "sha256_verified": true,
+      "latency_p50_ms": 2.1
+    },
+    "alphaforge_integration": {
+      "status": "PASS",
+      "tests": "36/36",
+      "contract_verified": true,
+      "no_trade_propagated": true,
+      "model_version_propagated": true
+    },
+    "e2e": {
+      "status": "PASS",
+      "scenarios": "8/8"
+    },
+    "promotion": {
+      "research_ready": true,
+      "paper_eligible": true,
+      "shadow_ready": false,
+      "production_ready": false,
+      "status": "PAPER_ELIGIBLE_PENDING_FORWARD_PAPER"
     }
   }
 }

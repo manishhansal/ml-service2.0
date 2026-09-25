@@ -102,9 +102,15 @@ class SentinelPulseClient:
 
     async def connect(self) -> None:
         """Create the shared httpx.AsyncClient. Call once at startup."""
+        # Build headers — only include Authorization when a real API key is configured.
+        # An empty API key produces a malformed "Bearer " header that the server rejects.
+        headers: dict[str, str] = {}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
-            headers={"Authorization": f"Bearer {self._api_key}"},
+            headers=headers,
             timeout=10.0,
         )
         logger.info("sentinel_pulse_client_connected", base_url=self._base_url)
@@ -316,8 +322,18 @@ class SentinelPulseClient:
         if data is None:
             return None
 
+        # SentinelPulse /api/v1/ml/training/samples returns:
+        #   {"success": true, "data": [...list of samples...], "meta": {...}}
+        # The _fetch_with_retry extracts response["data"] which is a list, not a dict.
+        # Normalise both shapes: {"samples": [...]} (old spec) or list directly (live API).
+        if isinstance(data, list):
+            raw_samples: list[Any] = data
+        elif isinstance(data, dict):
+            raw_samples = data.get("samples", [])
+        else:
+            raw_samples = []
+
         # Filter out samples that lack look_ahead_validated=True (Req 1.14 / 1.15)
-        raw_samples: list[Any] = data.get("samples", [])
         valid_samples: list[Any] = []
         for sample in raw_samples:
             if not isinstance(sample, dict):
@@ -331,8 +347,8 @@ class SentinelPulseClient:
                     sample_timestamp=sample.get("timestamp"),
                 )
 
-        data["samples"] = valid_samples
-        return data
+        # Always return a normalised dict with a "samples" key
+        return {"samples": valid_samples}
 
     async def fetch_historical_reactions(
         self,
