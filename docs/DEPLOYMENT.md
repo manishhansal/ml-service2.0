@@ -149,7 +149,27 @@ Copy `.env.example` to `.env` and fill in the values marked **required**. All va
 
 ## Development Setup
 
-### 1. Clone and create a virtual environment
+> **Preferred approach: use Docker.** `make up` starts the complete stack (ml-service + Redis + MLflow) with no host dependencies. The steps below are for contributors who need a host Python environment for IDE integration.
+
+### Option A — Docker (recommended, mandate §2)
+
+```bash
+# Start the full stack
+make up
+
+# Verify it's running
+make status-docker
+
+# Run tests inside Docker (authoritative)
+make docker-test
+
+# Tail logs
+make logs-ml
+```
+
+### Option B — Host Python (development / IDE integration only)
+
+#### 1. Clone and create a virtual environment
 
 ```bash
 git clone <repo-url> ml-service2.0
@@ -160,7 +180,7 @@ source .venv/bin/activate      # Linux / macOS
 # .venv\Scripts\activate       # Windows
 ```
 
-### 2. Install dependencies
+#### 2. Install dependencies
 
 ```bash
 # Production dependencies only
@@ -170,7 +190,7 @@ pip install -e .
 pip install -e ".[dev]"
 ```
 
-### 3. Configure environment
+#### 3. Configure environment
 
 ```bash
 cp .env.example .env
@@ -179,23 +199,18 @@ cp .env.example .env
 
 For a pure local development run where data-service2.0 and SentinelPulse are not available, the service will start and serve **heuristic predictions** for all endpoints. No trained ML artifacts are required.
 
-### 4. Start a local Redis instance
+#### 4. Start infrastructure
+
+Redis and MLflow are included in the Docker Compose stack (`make up`). If you need them on the host:
 
 ```bash
-# Docker one-liner
+# Redis
 docker run -d -p 6379:6379 redis:7-alpine
+# Or brew (macOS): brew install redis && brew services start redis
 
-# Or brew (macOS)
-brew install redis && brew services start redis
-```
-
-### 5. Start a local MLflow instance (optional)
-
-```bash
+# MLflow (optional)
 mlflow server --host 0.0.0.0 --port 5000
 ```
-
-If MLflow is unavailable, training runs will fail but inference endpoints will continue to operate on any previously loaded artifacts.
 
 ---
 
