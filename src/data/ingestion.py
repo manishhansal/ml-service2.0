@@ -53,6 +53,8 @@ class IngestionValidationReport:
     negative_volume: int = 0
     chronology_violations: int = 0
     gaps_detected: int = 0
+    expected_closures: int = 0            # weekends + NSE holidays (mandate §4)
+    true_missing_sessions: int = 0        # actual trading sessions with no data
     first_ts: str | None = None
     last_ts: str | None = None
 
@@ -67,6 +69,8 @@ class IngestionValidationReport:
             "negative_volume": self.negative_volume,
             "chronology_violations": self.chronology_violations,
             "gaps_detected": self.gaps_detected,
+            "expected_closures": self.expected_closures,
+            "true_missing_sessions": self.true_missing_sessions,
             "first_ts": self.first_ts,
             "last_ts": self.last_ts,
         }
@@ -257,12 +261,37 @@ def normalize_bars(
     report.first_ts = df.index.min().isoformat()
     report.last_ts = df.index.max().isoformat()
 
-    # Gap detection for daily bars: count missing business days.
+    # Gap detection for daily bars: use NSE exchange calendar (mandate §4).
+    # IMPORTANT: weekends and NSE holidays are EXPECTED_MARKET_CLOSURE,
+    # NOT true missing sessions.  Using pd.bdate_range (Mon–Fri only) was
+    # already a partial fix but still over-counts by including NSE holidays.
     if interval == "1d" and len(df) > 1:
-        expected = pd.bdate_range(df.index.min(), df.index.max())
-        present = pd.DatetimeIndex([d.normalize() for d in df.index]).tz_localize(None)
-        expected_naive = expected.tz_localize(None)
-        report.gaps_detected = len(set(expected_naive) - set(present))
+        try:
+            from src.validation.calendar import classify_gaps_in_series, is_market_open
+            present_dates = sorted({ts.date() for ts in df.index})
+            from datetime import date as _date
+            first = present_dates[0]
+            last = present_dates[-1]
+            # Build the set of expected NSE trading days in the range
+            from datetime import timedelta as _td
+            expected_trading_days: set[_date] = set()
+            cur = first
+            while cur <= last:
+                if is_market_open(cur):
+                    expected_trading_days.add(cur)
+                cur += _td(days=1)
+            missing_trading_days = expected_trading_days - set(present_dates)
+            report.gaps_detected = len(missing_trading_days)
+            # Store gap classification for observability
+            gap_summary = classify_gaps_in_series(present_dates)
+            report.expected_closures = gap_summary["n_expected_closures"]
+            report.true_missing_sessions = gap_summary["n_true_missing_sessions"]
+        except ImportError:
+            # Fallback to bdate_range if calendar module not available
+            expected = pd.bdate_range(df.index.min(), df.index.max())
+            present_set = {d.normalize().tz_localize(None) for d in df.index}
+            expected_naive = set(expected.tz_localize(None))
+            report.gaps_detected = len(expected_naive - present_set)
 
     return df
 
