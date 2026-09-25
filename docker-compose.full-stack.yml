@@ -1,0 +1,171 @@
+# =============================================================================
+# AlphaForge Full-Stack Docker Compose
+# ml-service2.0 + data-service2.0 + SentinelPulse + shared infrastructure
+#
+# PURPOSE: Integration testing, Docker-based ML training, and E2E validation.
+# This is the CANONICAL execution environment for training and inference.
+# Do NOT run ML training outside of this Docker context (mandate §2).
+#
+# Services:
+#   ml-service         — ml-service2.0 (port 8100)
+#   data-service-api   — data-service2.0 (port 8200) [external compose]
+#   sentinelpulse-api  — SentinelPulse (port 3001) [external compose]
+#   redis              — Shared Redis (port 6379)
+#   mlflow             — MLflow tracking server (port 5000)
+#   postgres           — Shared PostgreSQL / TimescaleDB (port 5432)
+#
+# Usage:
+#   1. Ensure data-service2.0 and SentinelPulse are running:
+#      cd ../data-service2.0 && docker compose up -d
+#      cd ../SentinelPulse && docker compose -f docker/docker-compose.yml up -d
+#   2. Start ml-service stack with full connectivity:
+#      docker compose -f docker-compose.full-stack.yml --env-file .env up -d
+#   3. Check readiness:
+#      curl -H "X-API-KEY: $ML_SERVICE_API_KEY" http://localhost:8100/training/readiness
+#   4. Run training inside Docker:
+#      docker compose -f docker-compose.full-stack.yml exec ml-service \
+#        python -m src.scripts.train --timeframe 1d --universe fno
+#
+# Network:
+#   All services share the `alphaforge-net` bridge network.
+#   Inter-service DNS: use service names (ml-service, data-service-api, etc.)
+#   NEVER use localhost or 127.0.0.1 for inter-service communication.
+#
+# Credentials:
+#   All secrets via environment variables / .env file.
+#   Never committed. Never printed. Never in logs.
+#
+# Mandate compliance:
+#   §2  — All ML execution inside Docker
+#   §24 — Deterministic Docker network, service DNS
+#   §25 — Credentials via env vars only
+#   §26 — Health checks for every dependency
+# =============================================================================
+
+version: "3.9"
+
+networks:
+  # Shared network for all AlphaForge services.
+  # data-service2.0 and SentinelPulse must attach to this network.
+  alphaforge-net:
+    driver: bridge
+    name: alphaforge-net
+
+services:
+
+  # ── ml-service2.0 ────────────────────────────────────────────────────────────
+  ml-service:
+    build:
+      context: .
+      target: dev
+    image: ml-service2:dev
+    container_name: ml-service
+    ports:
+      - "8100:8100"
+    environment:
+      - ML_SERVICE_API_KEY=${ML_SERVICE_API_KEY}
+      - DATA_SERVICE_API_KEY=${DATA_SERVICE_API_KEY}
+      # Use Docker service DNS names — NEVER localhost (mandate §24)
+      - DATA_SERVICE_2_URL=http://data-service-api:8200
+      - SENTINEL_PULSE_URL=http://sentinelpulse-api:3001
+      - REDIS_URL=redis://redis:6379
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-research}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Sentinel key — pass through from env (mandate §25)
+      - SENTINEL_PULSE_API_KEY=${SENTINEL_PULSE_API_KEY:-}
+      # Provenance: injected at start time
+      - DOCKER_IMAGE_DIGEST=${DOCKER_IMAGE_DIGEST:-full-stack-local}
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./artifacts:/app/artifacts
+      - ./configs:/app/configs
+      - ./reports:/app/reports
+    networks:
+      - alphaforge-net
+    depends_on:
+      redis:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8100/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 45s
+      retries: 5
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8100 --reload
+
+  # ── Redis ─────────────────────────────────────────────────────────────────────
+  # Shared Redis for ml-service feature cache + SentinelPulse cache.
+  # NOTE: if data-service2.0 or SentinelPulse already expose Redis on :6379,
+  # use their instance by updating REDIS_URL above.
+  redis:
+    image: redis:7-alpine
+    container_name: alphaforge-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - alphaforge-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+
+  # ── MLflow ────────────────────────────────────────────────────────────────────
+  mlflow:
+    image: python:3.11-slim
+    container_name: alphaforge-mlflow
+    command: >
+      sh -c "pip install --quiet mlflow==2.19.0 &&
+             mlflow server --host 0.0.0.0 --port 5000
+             --backend-store-uri sqlite:///mlruns/mlflow.db
+             --default-artifact-root /mlruns/artifacts"
+    ports:
+      - "5000:5000"
+    networks:
+      - alphaforge-net
+    volumes:
+      - ./mlruns:/mlruns
+    healthcheck:
+      test: ["CMD", "python3", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
+      retries: 5
+
+  # ── data-service2.0 (external) ────────────────────────────────────────────────
+  # NOTE: data-service2.0 is managed by its own compose in ../data-service2.0/.
+  # This placeholder attaches it to the alphaforge-net network.
+  # To use: ensure data-service-api container exists and is in alphaforge-net.
+  # OR: set DATA_SERVICE_2_URL=http://host.docker.internal:8200 to use the host.
+  #
+  # This service block is a STUB — uncomment if running fully self-contained:
+  # data-service-api:
+  #   image: data-service:2.1.0  # built by data-service2.0 compose
+  #   container_name: data-service-api
+  #   networks:
+  #     - alphaforge-net
+  #   ports:
+  #     - "8200:8200"
+
+  # ── SentinelPulse (external) ──────────────────────────────────────────────────
+  # NOTE: SentinelPulse is managed by its own compose in ../SentinelPulse/docker/.
+  # Attach it to alphaforge-net or use host.docker.internal.
+  # sentinelpulse-api:
+  #   image: sentinel-pulse:latest  # built by SentinelPulse compose
+  #   container_name: sentinelpulse-api
+  #   networks:
+  #     - alphaforge-net
+  #   ports:
+  #     - "3001:3001"
+
+volumes:
+  redis-data:
+    driver: local
