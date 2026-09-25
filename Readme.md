@@ -82,23 +82,68 @@ uvicorn src.main:app --host 0.0.0.0 --port 8100 --workers 4
 
 ## Docker
 
-### Development stack (ml-service + Redis + MLflow + WireMock stubs)
+ml-service2.0 runs as its own Docker Compose stack (redis + mlflow + ml-service). All ML execution happens inside Docker — do not run training directly on the host.
+
+### Preferred workflow — Makefile targets
 
 ```bash
-docker-compose up
+# Start the full stack (ml-service + redis + mlflow)
+make up
+
+# Stop the stack
+make down
+
+# Rebuild the image and restart (after dependency or source changes)
+make rebuild
+
+# Run the full test suite inside Docker (authoritative)
+make docker-test
+
+# Run the training-readiness gate against live services
+make readiness
+
+# Tail ml-service logs
+make logs-ml
+
+# Show container status + health
+make status-docker
+
+# Open a shell in the running ml-service container
+make shell
 ```
 
-### Integration test stack
+### Direct Docker Compose (advanced)
 
 ```bash
-docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+# Development stack (ml-service + Redis + MLflow)
+docker compose up -d
+
+# Run with hot-reload source bind-mount (default in docker-compose.yml)
+docker compose up -d ml-service
+
+# Integration test stack (WireMock stubs for data-service and SentinelPulse)
+docker compose -f docker-compose.test.yml up --abort-on-container-exit
 ```
+
+### Ports
+
+| Service | Host port | Notes |
+|---|---|---|
+| ml-service | `8100` | HTTP + WebSocket |
+| redis | internal only | No host binding — avoids conflict with alpha-forge-redis |
+| mlflow | internal only | Access via `docker compose port mlflow 5000` |
 
 ---
 
 ## Running Tests
 
+> **All ML execution must run inside Docker** (mandate §2). The commands below are for quick host-side feedback during development. The authoritative test run is `make docker-test`.
+
 ```bash
+# Run tests inside Docker (authoritative)
+make docker-test
+
+# Host-side (fast feedback, no Docker overhead)
 # Full test suite with coverage
 pytest tests/ --cov=src --cov-fail-under=90 --timeout=120
 
