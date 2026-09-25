@@ -1,0 +1,70 @@
+{
+  "audit_date": "2026-09-25",
+  "mandate": "§22-§25 — SentinelPulse historical readiness audit",
+  "service_status": {
+    "reachable": true,
+    "authenticated": true,
+    "base_url": "http://localhost:3001",
+    "api_key_configured": true
+  },
+  "historical_data": {
+    "training_samples": 0,
+    "historical_reactions": 0,
+    "feature_vectors": 0,
+    "news_context_available": false,
+    "coverage_verdict": "NO_HISTORICAL_SAMPLES"
+  },
+  "schema_status": {
+    "lookAheadValidated_field": "ADDED (prisma schema updated)",
+    "pitAnchorPublishedAt_field": "ADDED (prisma schema updated)",
+    "ArticlePITMetadata_enforced": true,
+    "published_not_in_future_validator": true
+  },
+  "pit_controls": {
+    "publication_time_enforcement": "IMPLEMENTED — ArticlePITMetadata.published_at validator rejects future dates",
+    "ingestion_vs_publication_separation": "IMPLEMENTED — separate fields: published_at, ingested_at, updated_at",
+    "pit_anchor_field": "pitAnchorPublishedAt in NewsTrainingSample",
+    "look_ahead_validated_flag": "lookAheadValidated field in NewsTrainingSample"
+  },
+  "blockers": [
+    {
+      "blocker_id": "SP-001",
+      "severity": "CRITICAL",
+      "description": "Zero training samples in SentinelPulse DB. Historical news ingestion pipeline has never run.",
+      "impact": "NEWS_ABLATION_IMPOSSIBLE — market+news ablation (mandate §24) cannot run without historical samples.",
+      "resolution": "Start SentinelPulse ingestion workers and run historical backfill for 2021-2026 period.",
+      "workaround": "Market-only candidate remains unaffected. Per mandate §22: SentinelPulse is a SEPARATE research branch. Market-only confirmation is complete."
+    },
+    {
+      "blocker_id": "SP-002",
+      "severity": "MEDIUM",
+      "description": "news-context endpoint returns 404 for symbol-level queries (e.g. RELIANCE).",
+      "impact": "Live inference degraded-mode for news features — acceptable per mandate §22 for market-only candidate.",
+      "resolution": "Verify SentinelPulse news-context route configuration. Check article entity resolution."
+    }
+  ],
+  "mandate_compliance": {
+    "market_only_confirmation_unaffected": true,
+    "news_as_separate_branch": "CONFIRMED — news features NOT injected into market-only CONFIRMATION_BASELINE_V1",
+    "news_ablation_status": "BLOCKED_NO_HISTORICAL_DATA",
+    "news_ablation_note": "Per mandate §22: 'SentinelPulse must remain a SEPARATE research branch. Do NOT inject news features into the market-only confirmation candidate.' This is correctly enforced. News ablation requires historical data first.",
+    "historical_news_requirements_before_ablation": [
+      "SentinelPulse ingestion workers running",
+      "Historical article backfill for 2021-2026",
+      "Entity resolution for 65 baseline symbols",
+      "Minimum sample count per symbol (target: >252 trading-day coverage)",
+      "PIT validation on all samples (publication_time <= prediction_time)",
+      "lookAheadValidated=true on all used samples"
+    ]
+  },
+  "next_steps": {
+    "immediate": "Market-only confirmation complete. SentinelPulse is blocked.",
+    "when_historical_data_available": [
+      "Build NEWS_ONLY dataset with PIT-safe features",
+      "Run market-only, news-only, market+news, market+randomized-news, market+lagged-news ablation",
+      "Record 5 ablation experiments in RESEARCH_TRIAL_LEDGER",
+      "Update DSR calculation with 5 additional trials",
+      "Determine whether news adds incremental OOS value after market features"
+    ]
+  }
+}

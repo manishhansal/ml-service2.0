@@ -1,0 +1,326 @@
+{
+  "report_type": "CONFIRMATION_PHASE",
+  "baseline_id": "CONFIRMATION_BASELINE_V1",
+  "protocol_id": "CP-V1-20260925",
+  "generated_at": "2026-09-25T17:51:16.151503+00:00",
+  "started_at": "2026-09-25T17:50:14.409004+00:00",
+  "git_sha": "4cf307c31face6caf3b5ad516f9388494885966a",
+  "docker_image": "sha256:240bc877228980843ec7b370d6721c5a79ede0d472631790509b21328f5f53a4",
+  "dataset_id": "ds-1d-20260925080802-73141694",
+  "dataset_hash": "ee508cb6afccbc00db50b3cce47d3c3a790749b7a63ee43bec06ec5aefd52c4d",
+  "model_version": "1.0.0-20260925080931531542",
+  "model_sha256": "97e601197c02e187e7ea2c28e0d9a4e24fc2fd41f2f8783dba4a49df4f247348",
+  "n_rows": 127122,
+  "n_symbols": 65,
+  "n_dates": 1525,
+  "survivorship": "CURRENT_UNIVERSE_ONLY",
+  "survivorship_note": "All results are SURVIVORSHIP_LIMITED. Historical constituent membership is unavailable.",
+  "cross_sectional_dependence": {
+    "mean_pairwise_pearson": 0.144196,
+    "mean_pairwise_spearman": 0.139793,
+    "avg_rolling_corr_60d": -999.0,
+    "n_pairs_sampled": 200
+  },
+  "effective_sample_size": {
+    "n_raw": 127122,
+    "n_dates": 1525,
+    "n_symbols": 65,
+    "n_effective_kv": 2490.8,
+    "n_effective_date_clustered": 1523.0,
+    "ratio_kv": 0.019593,
+    "ratio_date_clustered": 0.011981,
+    "note": "Date-level IC series: T=1523 dates, lag-1 autocorrelation rho=-0.2411. KV ESS=2490.8. Date-clustered ESS=1523 (conservative). Interpretation: each date contributes 1 independent IC observation."
+  },
+  "cluster_robust_statistics": {
+    "ic_mean": 0.485896,
+    "ic_se_date_clustered": 0.004662,
+    "ic_tstat_date_clustered": 90.4605,
+    "ic_pvalue_date_clustered": 0.0,
+    "ic_ci_low_95": 0.41256,
+    "ic_ci_high_95": 0.430848,
+    "ic_se_symbol_clustered": 0.023668,
+    "ic_tstat_symbol_clustered": 17.8174,
+    "ic_pvalue_symbol_clustered": 0.0,
+    "n_date_clusters": 1523,
+    "n_symbol_clusters": 65,
+    "n_obs": 127122
+  },
+  "bootstrap_ci": {
+    "ic_point": 0.421704,
+    "ic_bootstrap_mean": 0.422085,
+    "ic_ci_95": [
+      0.41415,
+      0.43003
+    ],
+    "ic_ci_99": [
+      0.412712,
+      0.43167
+    ],
+    "n_reps": 1000
+  },
+  "null_tests": {
+    "label_permutation": {
+      "observed_ic": 0.485896,
+      "null_mean": -9.9e-05,
+      "null_std": 0.00301,
+      "observed_percentile": 100.0,
+      "p_value_one_sided": 0.0,
+      "reject_h0": true,
+      "n_permutations": 500,
+      "note": "Observed IC at 100.0th percentile of null distribution. H0 REJECTED at 95th percentile."
+    },
+    "time_permutation": {
+      "observed_ic": 0.485896,
+      "null_mean": 0.000378,
+      "null_std": 0.008575,
+      "observed_percentile": 100.0,
+      "p_value_one_sided": 0.0,
+      "reject_h0": true,
+      "n_permutations": 500,
+      "note": "Observed IC at 100.0th percentile of null distribution. H0 REJECTED at 95th percentile."
+    },
+    "symbol_permutation": {
+      "observed_ic": 0.485896,
+      "null_mean": -0.000226,
+      "null_std": 0.005787,
+      "observed_percentile": 100.0,
+      "p_value_one_sided": 0.0,
+      "reject_h0": true,
+      "n_permutations": 500,
+      "note": "Observed IC at 100.0th percentile of null distribution. H0 REJECTED at 95th percentile."
+    },
+    "block_permutation": {
+      "observed_ic": 0.485896,
+      "null_mean": -0.00033,
+      "null_std": 0.0094,
+      "observed_percentile": 100.0,
+      "p_value_one_sided": 0.0,
+      "reject_h0": true,
+      "n_permutations": 500,
+      "note": "Observed IC at 100.0th percentile of null distribution. H0 REJECTED at 95th percentile."
+    }
+  },
+  "deflated_sharpe_ratio": {
+    "observed_sharpe": 5.4725,
+    "expected_max_sharpe_h0": 2.3261,
+    "n_trials": 57,
+    "n_backtest_years": 4.958247775496235,
+    "T_days": 1249,
+    "se_sr": 0.113091,
+    "dsr": 1.0,
+    "dsr_pvalue": 0.0,
+    "dsr_significant_at_05": true,
+    "interpretation": "P(real skill | 57 trials, SR=5.47) = 1.0000. DSR SIGNIFICANT at 5%."
+  },
+  "beta_neutral": {
+    "raw_ic": 0.476562,
+    "beta_neutral_ic": 0.394907,
+    "ic_decay_after_beta_neutralization": "PARTIAL_OR_NONE",
+    "n_dates": 27,
+    "cluster_robust_se": 0.032321,
+    "cluster_robust_tstat": 10.9435,
+    "cluster_robust_pvalue": 0.0,
+    "beta_estimation_note": "Beta estimated over full available history per symbol (not PIT-safe rolling). This is a known limitation \u2014 PIT-safe rolling beta would be more conservative. Results should be treated as directional, not definitive."
+  },
+  "sector_neutral": {
+    "raw_ic": 0.485896,
+    "sector_neutral_ic": 0.358071,
+    "ic_decay_fraction": 0.2631,
+    "sector_dependence_flag": "NOT_SECTOR_DEPENDENT",
+    "ic_by_sector": {
+      "AUTO": 0.506856,
+      "CEMENT": 0.518581,
+      "CONGLOMERATE": 0.230027,
+      "CONSUMER": 0.43384,
+      "CONSUMER_DURABLES": 0.554142,
+      "DEFENCE": 0.579672,
+      "ENERGY": 0.538993,
+      "FINANCIALS": 0.444759,
+      "FINTECH": 0.553086,
+      "HEALTHCARE": 0.441943,
+      "INDEX": 0.361047,
+      "INDUSTRIALS": 0.623529,
+      "INFRA": 0.484065,
+      "IT": 0.340113,
+      "MATERIALS": 0.531128,
+      "METALS": 0.578153,
+      "OTHER": 0.575628,
+      "RENEWABLES": 0.537187,
+      "TELECOM": 0.073077
+    },
+    "leave_one_sector_out_ic": {
+      "FINANCIALS": 0.504132,
+      "IT": 0.491281,
+      "CONSUMER": 0.489624,
+      "DEFENCE": 0.483801,
+      "INDUSTRIALS": 0.47909,
+      "RENEWABLES": 0.484856,
+      "ENERGY": 0.479301,
+      "MATERIALS": 0.484038,
+      "INFRA": 0.485963,
+      "AUTO": 0.48494,
+      "CEMENT": 0.485266,
+      "METALS": 0.477171,
+      "CONSUMER_DURABLES": 0.484468,
+      "HEALTHCARE": 0.489957,
+      "OTHER": 0.483957,
+      "CONGLOMERATE": 0.488956,
+      "TELECOM": 0.489248,
+      "FINTECH": 0.484394,
+      "INDEX": 0.485941
+    },
+    "top_sector": "INDUSTRIALS",
+    "top_sector_ic": 0.623529
+  },
+  "symbol_robustness": {
+    "full_ic": 0.485896,
+    "n_symbols": 65,
+    "top_1_contribution": 0.0116,
+    "top_5_contribution": 0.0421,
+    "concentration_flag": "NOT_CONCENTRATED",
+    "top_contributors": [
+      {
+        "symbol": "SIEMENS",
+        "contribution": 0.0116
+      },
+      {
+        "symbol": "PETRONET",
+        "contribution": 0.0088
+      },
+      {
+        "symbol": "ADANIPORTS",
+        "contribution": -0.0077
+      },
+      {
+        "symbol": "ASHOKLEY",
+        "contribution": 0.0071
+      },
+      {
+        "symbol": "BHARTIARTL",
+        "contribution": -0.0069
+      }
+    ]
+  },
+  "regime_robustness": {
+    "periods": {
+      "2021": {
+        "ic": 0.505055,
+        "net_sharpe_10bps": 5.6888,
+        "hit_rate": 0.6885,
+        "n_obs": 5509,
+        "n_symbols": 60,
+        "n_dates": 70
+      },
+      "2022": {
+        "ic": 0.4975,
+        "net_sharpe_10bps": 5.6959,
+        "hit_rate": 0.687,
+        "n_obs": 25038,
+        "n_symbols": 60,
+        "n_dates": 308
+      },
+      "2023": {
+        "ic": 0.498832,
+        "net_sharpe_10bps": 5.4868,
+        "hit_rate": 0.6821,
+        "n_obs": 24918,
+        "n_symbols": 61,
+        "n_dates": 308
+      },
+      "2024": {
+        "ic": 0.48459,
+        "net_sharpe_10bps": 5.5133,
+        "hit_rate": 0.6843,
+        "n_obs": 25768,
+        "n_symbols": 64,
+        "n_dates": 306
+      },
+      "2025": {
+        "ic": 0.482484,
+        "net_sharpe_10bps": 5.4069,
+        "hit_rate": 0.6782,
+        "n_obs": 26664,
+        "n_symbols": 63,
+        "n_dates": 309
+      },
+      "2026": {
+        "ic": 0.450884,
+        "net_sharpe_10bps": 5.1369,
+        "hit_rate": 0.6739,
+        "n_obs": 19225,
+        "n_symbols": 64,
+        "n_dates": 224
+      }
+    },
+    "positive_periods": 6,
+    "negative_periods": 0,
+    "positive_sharpe_periods": 6,
+    "regime_dependent": false,
+    "note": "All periods reported \u2014 no cherry-picking. Sharpe uses position-weighted returns (sign(pred-0.5) * return - cost), not raw return minus cost."
+  },
+  "ic_artifact_resolution": {
+    "ic_vs_continuous_returns": 0.485896,
+    "ic_vs_barrier_clamped_returns": 0.485896,
+    "ic_inflation_from_barrier": 0.0,
+    "barrier_artifact_confirmed": false,
+    "verdict": "IC_CONTINUOUS=0.4859, IC_BARRIER=0.4859. Inflation factor: 0.0x. No strong inflation."
+  },
+  "cost_sensitivity": {
+    "cost_levels": {
+      "5bps": {
+        "cost_bps": 5.0,
+        "gross_mean_return": 0.00709148,
+        "net_mean_return": 0.00659148,
+        "net_sharpe": 5.9217,
+        "n_trades": 127122
+      },
+      "10bps": {
+        "cost_bps": 10.0,
+        "gross_mean_return": 0.00709148,
+        "net_mean_return": 0.00609148,
+        "net_sharpe": 5.4725,
+        "n_trades": 127122
+      },
+      "15bps": {
+        "cost_bps": 15.0,
+        "gross_mean_return": 0.00709148,
+        "net_mean_return": 0.00559148,
+        "net_sharpe": 5.0233,
+        "n_trades": 127122
+      },
+      "20bps": {
+        "cost_bps": 20.0,
+        "gross_mean_return": 0.00709148,
+        "net_mean_return": 0.00509148,
+        "net_sharpe": 4.5741,
+        "n_trades": 127122
+      },
+      "30bps": {
+        "cost_bps": 30.0,
+        "gross_mean_return": 0.00709148,
+        "net_mean_return": 0.00409148,
+        "net_sharpe": 3.6757,
+        "n_trades": 127122
+      }
+    },
+    "primary_cost_bps": 10.0,
+    "primary_net_sharpe": 5.4725,
+    "survives_all_costs": true
+  },
+  "gates": {
+    "primary_ic_continuous_ge_0.02": true,
+    "cluster_robust_pvalue_lt_0.05": true,
+    "null_test_95th_percentile": true,
+    "cost_gate_10bps": "True",
+    "pbo_lt_0.5": true,
+    "not_sector_concentrated": true,
+    "not_symbol_concentrated": true
+  },
+  "n_gates_passed": "7",
+  "n_gates_total": 7,
+  "certification_state": "PAPER_ELIGIBLE",
+  "failure_class": "NONE",
+  "survivorship_classification": "CURRENT_UNIVERSE_ONLY",
+  "forward_paper_status": "NOT_RUN",
+  "forward_paper_note": "PAPER_ELIGIBLE requires forward-paper validation. No genuine signal-at-T / outcome-after-T pairs have accumulated."
+}
