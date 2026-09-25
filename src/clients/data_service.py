@@ -8,6 +8,9 @@ Implements every public endpoint consumed by ml-service2.0, along with:
   - DataConfidenceScore quality gate (Req 1.7)
   - 3m interval ban for Indian market data (Req 1.8)
   - 401/403 abort-and-log without retry (Req 1.4)
+  - 429 rate-limit handling → DataServiceRateLimitedError (mandate §5.1.D)
+  - Explicit failure semantics: NOT_CONFIGURED / AUTH_FAILED / RATE_LIMITED /
+    UPSTREAM_ERROR / TIMEOUT / DATA_UNAVAILABLE (never fake market data)
 
 Usage::
 
@@ -46,6 +49,7 @@ class DataServiceAuthError(Exception):
     """Raised when data-service2.0 returns HTTP 401 or 403.
 
     The caller must NOT retry; return PredictionProvenance.UNAVAILABLE (Req 1.4).
+    Maps to ProviderFailureReason.AUTH_FAILED (mandate §5.1.D).
     """
 
 
@@ -58,7 +62,25 @@ class LowDataConfidenceError(Exception):
 
 
 class DataServiceUnavailableError(Exception):
-    """Raised on connection failures, timeouts, or while the circuit is open."""
+    """Raised on connection failures, timeouts, or while the circuit is open.
+
+    Maps to ProviderFailureReason.UPSTREAM_ERROR / TIMEOUT / DATA_UNAVAILABLE.
+    """
+
+
+class DataServiceRateLimitedError(DataServiceUnavailableError):
+    """Raised when data-service2.0 returns HTTP 429 (Too Many Requests).
+
+    Maps to ProviderFailureReason.RATE_LIMITED (mandate §5.1.D).
+    Never produces fake market data on rate-limit.
+
+    Attributes:
+        retry_after_seconds: Suggested retry delay from Retry-After header (if present).
+    """
+
+    def __init__(self, message: str, retry_after_seconds: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
 
 
 # ---------------------------------------------------------------------------
@@ -261,6 +283,28 @@ class DataServiceClient:
                 f"GET {path} (credential: X-API-KEY)"
             )
 
+        # Rate limit — abort immediately, no retry; caller must back off (mandate §5.1.D)
+        if response.status_code == 429:
+            retry_after: float | None = None
+            raw_retry = response.headers.get("Retry-After")
+            if raw_retry is not None:
+                try:
+                    retry_after = float(raw_retry)
+                except ValueError:
+                    pass
+            self._record_failure()
+            log.warning(
+                "data_service_rate_limited",
+                path=path,
+                retry_after_seconds=retry_after,
+                failure_reason="RATE_LIMITED",
+            )
+            raise DataServiceRateLimitedError(
+                f"data-service2.0 returned 429 for GET {path} (RATE_LIMITED). "
+                f"Retry-After: {retry_after}s",
+                retry_after_seconds=retry_after,
+            )
+
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
@@ -323,6 +367,28 @@ class DataServiceClient:
             raise DataServiceAuthError(
                 f"data-service2.0 returned {response.status_code} for "
                 f"POST {path} (credential: X-API-KEY)"
+            )
+
+        # Rate limit — abort immediately (mandate §5.1.D)
+        if response.status_code == 429:
+            retry_after: float | None = None
+            raw_retry = response.headers.get("Retry-After")
+            if raw_retry is not None:
+                try:
+                    retry_after = float(raw_retry)
+                except ValueError:
+                    pass
+            self._record_failure()
+            log.warning(
+                "data_service_rate_limited",
+                path=path,
+                retry_after_seconds=retry_after,
+                failure_reason="RATE_LIMITED",
+            )
+            raise DataServiceRateLimitedError(
+                f"data-service2.0 returned 429 for POST {path} (RATE_LIMITED). "
+                f"Retry-After: {retry_after}s",
+                retry_after_seconds=retry_after,
             )
 
         try:
