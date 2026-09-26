@@ -34,6 +34,7 @@ import pandas as pd
 from src.data.labels import LabelConfig, LabelFactory, label_quality_report
 from src.features.factory import FEATURE_SCHEMA_VERSION, FeatureFactory
 from src.features.leakage_validator import LeakageValidator, PITViolationError
+from src.features.normalizer import FeatureNormalizer, ScalingMethod
 from src.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -86,6 +87,9 @@ class DatasetMetadata:
     survivorship: str = "CURRENT_UNIVERSE_ONLY"
     execution_model: str = "next_open"
     is_economic_evidence: bool = True  # False when execution_model=close_to_close
+    # Normalizer provenance
+    normalizer_state: dict[str, Any] = field(default_factory=dict)  # serialized FeatureNormalizer
+    normalization_applied: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -113,6 +117,8 @@ class DatasetMetadata:
             "survivorship": self.survivorship,
             "execution_model": self.execution_model,
             "is_economic_evidence": self.is_economic_evidence,
+            "normalizer_state": self.normalizer_state,
+            "normalization_applied": self.normalization_applied,
         }
 
 
@@ -166,6 +172,8 @@ class DatasetBuilder:
         news_source: str = "DISABLED",
         docker_image: str = "HOST_EXECUTION",
         survivorship: str = "CURRENT_UNIVERSE_ONLY",
+        normalize: bool = True,
+        winsor_pct: tuple[float, float] = (1.0, 99.0),
     ) -> None:
         self._root = Path(output_root)
         self._root.mkdir(parents=True, exist_ok=True)
@@ -175,6 +183,8 @@ class DatasetBuilder:
         self._news_source = news_source
         self._docker_image = docker_image
         self._survivorship = survivorship
+        self._normalize = normalize
+        self._winsor_pct = winsor_pct
         # NOTE on threshold: the default LeakageValidator threshold (0.05) is
         # tuned to flag *any* forward-looking correlation and produces false
         # positives on legitimately-predictive PIT-safe momentum features
@@ -253,6 +263,34 @@ class DatasetBuilder:
             label_config.execution_model == "next_open"
         )
 
+        # ── Normalization (Gap 3 fix) ─────────────────────────────────────────
+        # Fit normalizer on the assembled feature matrix BEFORE leakage
+        # validation so the validator sees normalized values (better for
+        # correlation-based detection).  Normalizer is fit on the FULL
+        # combined frame here — in production walk-forward this should be
+        # called per fold; the DatasetBuilder.build() path is the baseline
+        # research/backtest path.
+        normalizer_state: dict[str, Any] = {}
+        normalization_applied = False
+        if self._normalize and feature_cols:
+            feature_data = combined[feature_cols].copy()
+            normalizer = FeatureNormalizer(winsor_pct=self._winsor_pct)
+            try:
+                normalizer.fit(feature_data)
+                combined[feature_cols] = normalizer.transform(feature_data)
+                normalizer_state = normalizer.to_dict()
+                normalization_applied = True
+                logger.info(
+                    "dataset_normalization_applied",
+                    n_features=len(feature_cols),
+                    winsor_pct=self._winsor_pct,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "dataset_normalization_failed_continuing_raw",
+                    error=str(exc),
+                )
+
         # ── Leakage validation (per-symbol to avoid cross-sectional artifacts) ──
         leakage_ok = True
         if self._validate_leakage:
@@ -295,6 +333,8 @@ class DatasetBuilder:
             survivorship=self._survivorship,
             execution_model=label_config.execution_model,
             is_economic_evidence=is_economic_evidence,
+            normalizer_state=normalizer_state,
+            normalization_applied=normalization_applied,
         )
 
         self._freeze(dataset_id, combined, meta)
@@ -306,6 +346,7 @@ class DatasetBuilder:
             leakage_ok=leakage_ok,
             execution_model=label_config.execution_model,
             is_economic_evidence=is_economic_evidence,
+            normalization_applied=normalization_applied,
             market_source=self._market_source,
             news_source=self._news_source,
             survivorship=self._survivorship,
@@ -352,6 +393,19 @@ class DatasetBuilder:
     def load_metadata(self, dataset_id: str) -> DatasetMetadata:
         d = self._root / dataset_id
         raw = json.loads((d / "metadata.json").read_text())
+        # LOW-5 fix: strip keys that metadata.json may carry from a newer code
+        # version so DatasetMetadata(**raw) never raises TypeError on unknown
+        # kwargs.  Known fields come from the dataclass; extras are silently
+        # discarded with a debug log.
+        known = {f.name for f in DatasetMetadata.__dataclass_fields__.values()}  # type: ignore[attr-defined]
+        unknown = set(raw.keys()) - known
+        if unknown:
+            logger.warning(
+                "dataset_metadata_unknown_fields_ignored",
+                dataset_id=dataset_id,
+                unknown_fields=sorted(unknown),
+            )
+            raw = {k: v for k, v in raw.items() if k in known}
         return DatasetMetadata(**raw)
 
     # ── Helpers ────────────────────────────────────────────────────────────
