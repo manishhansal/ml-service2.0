@@ -17,7 +17,20 @@ Design guarantees
 - Bounded concurrency + a simple async rate limiter keep load on the data
   service predictable.
 - Validation covers: duplicates, chronology, OHLC consistency, non-negative
-  volume, and gap detection.
+  volume, gap detection for EVERY canonical interval (daily + intraday).
+
+Gap detection (Gap 1 fix):
+  - Daily bars (1d):  NSE exchange calendar — distinguishes weekends/holidays
+    (EXPECTED_MARKET_CLOSURE) from real missing sessions (TRUE_MISSING_SESSION).
+  - Intraday bars (1m, 5m, 10m, 15m, 30m, 1h): session-aware gap detection via
+    ``calendar.classify_intraday_gaps`` — compares observed bars per session
+    against the expected count, and detects within-session bar gaps.
+
+Live calendar refresh (Gap 2 fix):
+  At pipeline startup, ``DataIngestionPipeline.refresh_calendar()`` calls
+  ``calendar.refresh_from_market_status(data_client)`` to load the authoritative
+  NSE holiday list from data-service2.0.  Static fallback remains active when
+  the live call fails.
 
 Requirements: P0-003, Req 2.x (PIT), 06_DATA_CONTRACTS, 08_LABEL_SPECIFICATION.
 """
@@ -44,35 +57,67 @@ logger = get_logger(__name__)
 class IngestionValidationReport:
     """Per-(symbol, interval) validation summary produced during ingestion."""
 
-    symbol: str
+    symbol:   str
     interval: str
-    rows_raw: int = 0
+
+    # Raw / clean counts
+    rows_raw:   int = 0
     rows_clean: int = 0
-    duplicates_dropped: int = 0
-    ohlc_violations: int = 0
-    negative_volume: int = 0
+
+    # Bar-level rejections
+    duplicates_dropped:    int = 0
+    ohlc_violations:       int = 0
+    negative_volume:       int = 0
     chronology_violations: int = 0
-    gaps_detected: int = 0
-    expected_closures: int = 0            # weekends + NSE holidays (mandate §4)
-    true_missing_sessions: int = 0        # actual trading sessions with no data
+
+    # Daily gap fields (populated for interval == "1d")
+    gaps_detected:          int = 0
+    expected_closures:      int = 0   # weekends + NSE holidays
+    true_missing_sessions:  int = 0   # actual trading sessions with no data
+
+    # Intraday gap fields (populated for all intervals except 1d)
+    intraday_sessions_expected: int = 0
+    intraday_sessions_full:     int = 0
+    intraday_sessions_partial:  int = 0
+    intraday_sessions_missing:  int = 0
+    intraday_within_session_gaps: int = 0
+    intraday_gap_rate_pct:      float = 0.0
+    intraday_gap_details:       list[dict[str, Any]] = field(default_factory=list)
+
+    # Timestamp span
     first_ts: str | None = None
-    last_ts: str | None = None
+    last_ts:  str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "symbol": self.symbol,
+            "symbol":   self.symbol,
             "interval": self.interval,
-            "rows_raw": self.rows_raw,
+            "rows_raw":   self.rows_raw,
             "rows_clean": self.rows_clean,
-            "duplicates_dropped": self.duplicates_dropped,
-            "ohlc_violations": self.ohlc_violations,
-            "negative_volume": self.negative_volume,
+            "duplicates_dropped":    self.duplicates_dropped,
+            "ohlc_violations":       self.ohlc_violations,
+            "negative_volume":       self.negative_volume,
             "chronology_violations": self.chronology_violations,
-            "gaps_detected": self.gaps_detected,
-            "expected_closures": self.expected_closures,
+            "gaps_detected":         self.gaps_detected,
+            "expected_closures":     self.expected_closures,
             "true_missing_sessions": self.true_missing_sessions,
+            "intraday_sessions_expected":    self.intraday_sessions_expected,
+            "intraday_sessions_full":        self.intraday_sessions_full,
+            "intraday_sessions_partial":     self.intraday_sessions_partial,
+            "intraday_sessions_missing":     self.intraday_sessions_missing,
+            "intraday_within_session_gaps":  self.intraday_within_session_gaps,
+            "intraday_gap_rate_pct":         self.intraday_gap_rate_pct,
+            # LOW-1 fix: ensure all datetime/date objects in gap detail dicts are
+            # serialized to ISO strings so json.dumps() never raises TypeError.
+            "intraday_gap_details": [
+                {
+                    k: (v.isoformat() if hasattr(v, "isoformat") else v)
+                    for k, v in detail.items()
+                }
+                for detail in self.intraday_gap_details
+            ],
             "first_ts": self.first_ts,
-            "last_ts": self.last_ts,
+            "last_ts":  self.last_ts,
         }
 
 
@@ -80,19 +125,21 @@ class IngestionValidationReport:
 class IngestionResult:
     """Aggregate result returned by ``DataIngestionPipeline.ingest``."""
 
-    output_dir: Path
-    symbols_ingested: list[str] = field(default_factory=list)
-    symbols_failed: list[str] = field(default_factory=list)
-    reports: list[IngestionValidationReport] = field(default_factory=list)
-    total_rows: int = 0
+    output_dir:       Path
+    symbols_ingested: list[str]                   = field(default_factory=list)
+    symbols_failed:   list[str]                   = field(default_factory=list)
+    reports:          list[IngestionValidationReport] = field(default_factory=list)
+    total_rows:       int = 0
+    calendar_live:    bool = False   # True when NSE calendar was refreshed from live source
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "output_dir": str(self.output_dir),
+            "output_dir":       str(self.output_dir),
             "symbols_ingested": self.symbols_ingested,
-            "symbols_failed": self.symbols_failed,
-            "total_rows": self.total_rows,
-            "reports": [r.to_dict() for r in self.reports],
+            "symbols_failed":   self.symbols_failed,
+            "total_rows":       self.total_rows,
+            "calendar_live":    self.calendar_live,
+            "reports":          [r.to_dict() for r in self.reports],
         }
 
 
@@ -104,14 +151,14 @@ class _RateLimiter:
 
     def __init__(self, rate_per_sec: float) -> None:
         self._min_interval = 1.0 / rate_per_sec if rate_per_sec > 0 else 0.0
-        self._last: float = 0.0
+        self._last: float  = 0.0
         self._lock = asyncio.Lock()
 
     async def acquire(self) -> None:
         if self._min_interval <= 0.0:
             return
         async with self._lock:
-            now = asyncio.get_event_loop().time()
+            now  = asyncio.get_event_loop().time()
             wait = self._min_interval - (now - self._last)
             if wait > 0:
                 await asyncio.sleep(wait)
@@ -119,8 +166,6 @@ class _RateLimiter:
 
 
 # ── Bar normalisation / validation helpers ─────────────────────────────────────
-
-_OHLC_COLS = ("open", "high", "low", "close")
 
 
 def _parse_bar_timestamp(bar: dict[str, Any]) -> datetime | None:
@@ -135,7 +180,6 @@ def _parse_bar_timestamp(bar: dict[str, Any]) -> datetime | None:
     if raw is None:
         return None
     if isinstance(raw, (int, float)):
-        # Heuristic: ms epoch if large, else seconds.
         val = float(raw)
         if val > 1e12:
             val /= 1000.0
@@ -168,25 +212,28 @@ def normalize_bars(
       - volume must be present and >= 0 (missing volume → dropped)
       - duplicates on timestamp removed (keep first)
       - rows sorted chronologically; out-of-order originals counted
+      - Gap detection for ALL canonical intervals:
+          * 1d:              NSE calendar (holiday-aware)
+          * 1m/5m/10m/15m/30m/1h: session-aware intraday gap detection
 
     Returns a DataFrame indexed by UTC timestamp with columns
-    [open, high, low, close, volume, vwap?, data_confidence, symbol].
+    [open, high, low, close, volume, vwap?, data_confidence, provider, symbol].
     """
     report.rows_raw = len(raw_bars)
-    records: list[dict[str, Any]] = []
-    seen_ts: set[datetime] = set()
+    records:  list[dict[str, Any]] = []
+    seen_ts:  set[datetime] = set()
 
     for bar in raw_bars:
         ts = _parse_bar_timestamp(bar)
         if ts is None:
             continue
 
-        # OHLC extraction — require all four present and finite.
+        # OHLC extraction — require all four present and coercible to float.
         try:
-            o = float(bar["open"]) if bar.get("open") is not None else None
-            h = float(bar["high"]) if bar.get("high") is not None else None
-            low_ = float(bar["low"]) if bar.get("low") is not None else None
-            c = float(bar["close"]) if bar.get("close") is not None else None
+            o    = float(bar["open"])  if bar.get("open")  is not None else None
+            h    = float(bar["high"])  if bar.get("high")  is not None else None
+            low_ = float(bar["low"])   if bar.get("low")   is not None else None
+            c    = float(bar["close"]) if bar.get("close") is not None else None
         except (TypeError, ValueError, KeyError):
             continue
 
@@ -222,27 +269,26 @@ def normalize_bars(
         except (TypeError, ValueError):
             vwap = None
 
+        # DataConfidenceScore — probe both flat and nested envelope shapes.
         conf = bar.get("data_confidence")
         if conf is None:
-            meta = bar.get("metadata") or {}
+            meta    = bar.get("metadata") or {}
             quality = meta.get("quality") if isinstance(meta, dict) else {}
             if isinstance(quality, dict):
                 conf = quality.get("score")
 
-        records.append(
-            {
-                "timestamp": ts,
-                "open": o,
-                "high": h,
-                "low": low_,
-                "close": c,
-                "volume": vol,
-                "vwap": vwap,
-                "data_confidence": int(conf) if conf is not None else None,
-                "provider": bar.get("provider") or bar.get("source"),
-                "symbol": symbol,
-            }
-        )
+        records.append({
+            "timestamp":        ts,
+            "open":             o,
+            "high":             h,
+            "low":              low_,
+            "close":            c,
+            "volume":           vol,
+            "vwap":             vwap,
+            "data_confidence":  int(conf) if conf is not None else None,
+            "provider":         bar.get("provider") or bar.get("source"),
+            "symbol":           symbol,
+        })
 
     if not records:
         report.rows_clean = 0
@@ -252,48 +298,121 @@ def normalize_bars(
         )
 
     df = pd.DataFrame(records)
+
     # Chronology check on original order before sorting.
     ts_series = df["timestamp"]
-    report.chronology_violations = int((ts_series.diff().dt.total_seconds() < 0).sum())
+    report.chronology_violations = int(
+        (ts_series.diff().dt.total_seconds() < 0).sum()
+    )
 
     df = df.sort_values("timestamp").set_index("timestamp")
     report.rows_clean = len(df)
-    report.first_ts = df.index.min().isoformat()
-    report.last_ts = df.index.max().isoformat()
+    report.first_ts   = df.index.min().isoformat()
+    report.last_ts    = df.index.max().isoformat()
 
-    # Gap detection for daily bars: use NSE exchange calendar (mandate §4).
-    # IMPORTANT: weekends and NSE holidays are EXPECTED_MARKET_CLOSURE,
-    # NOT true missing sessions.  Using pd.bdate_range (Mon–Fri only) was
-    # already a partial fix but still over-counts by including NSE holidays.
-    if interval == "1d" and len(df) > 1:
-        try:
-            from src.validation.calendar import classify_gaps_in_series, is_market_open
-            present_dates = sorted({ts.date() for ts in df.index})
-            from datetime import date as _date
-            first = present_dates[0]
-            last = present_dates[-1]
-            # Build the set of expected NSE trading days in the range
-            from datetime import timedelta as _td
-            expected_trading_days: set[_date] = set()
-            cur = first
-            while cur <= last:
-                if is_market_open(cur):
-                    expected_trading_days.add(cur)
-                cur += _td(days=1)
-            missing_trading_days = expected_trading_days - set(present_dates)
-            report.gaps_detected = len(missing_trading_days)
-            # Store gap classification for observability
-            gap_summary = classify_gaps_in_series(present_dates)
-            report.expected_closures = gap_summary["n_expected_closures"]
-            report.true_missing_sessions = gap_summary["n_true_missing_sessions"]
-        except ImportError:
-            # Fallback to bdate_range if calendar module not available
-            expected = pd.bdate_range(df.index.min(), df.index.max())
-            present_set = {d.normalize().tz_localize(None) for d in df.index}
-            expected_naive = set(expected.tz_localize(None))
-            report.gaps_detected = len(expected_naive - present_set)
+    # ── Gap detection ──────────────────────────────────────────────────────────
+
+    if len(df) > 1:
+        _run_gap_detection(df, interval, report)
 
     return df
+
+
+# ── Gap detection (extracted for clarity) ─────────────────────────────────────
+
+
+def _run_gap_detection(
+    df: pd.DataFrame,
+    interval: str,
+    report: IngestionValidationReport,
+) -> None:
+    """Populate all gap fields on *report* based on *interval*.
+
+    Daily bars  → NSE-calendar-aware daily gap classification.
+    Intraday    → session-aware classify_intraday_gaps().
+    """
+    try:
+        from src.validation.calendar import (
+            classify_gaps_in_series,
+            classify_intraday_gaps,
+            expected_trading_days,
+            is_market_open,
+        )
+    except ImportError:
+        logger.warning("calendar_module_unavailable_skip_gap_detection")
+        return
+
+    if interval == "1d":
+        _run_daily_gap_detection(df, report, classify_gaps_in_series, is_market_open)
+    elif interval in ("1m", "5m", "10m", "15m", "30m", "1h"):
+        _run_intraday_gap_detection(df, interval, report, classify_intraday_gaps)
+    # 1w, 1M: no gap detection (too sparse to be meaningful for ML training)
+
+
+def _run_daily_gap_detection(
+    df: pd.DataFrame,
+    report: IngestionValidationReport,
+    classify_gaps_in_series: Any,
+    is_market_open: Any,
+) -> None:
+    """Daily NSE-calendar gap detection (mandate §4)."""
+    from datetime import date as _date, timedelta as _td
+
+    present_dates = sorted({ts.date() for ts in df.index})
+    first = present_dates[0]
+    last  = present_dates[-1]
+
+    # Build expected trading days
+    expected: set[_date] = set()
+    cur = first
+    while cur <= last:
+        if is_market_open(cur):
+            expected.add(cur)
+        cur += _td(days=1)
+
+    missing_trading_days = expected - set(present_dates)
+    report.gaps_detected = len(missing_trading_days)
+
+    gap_summary = classify_gaps_in_series(present_dates)
+    report.expected_closures    = gap_summary["n_expected_closures"]
+    report.true_missing_sessions = gap_summary["n_true_missing_sessions"]
+
+
+def _run_intraday_gap_detection(
+    df: pd.DataFrame,
+    interval: str,
+    report: IngestionValidationReport,
+    classify_intraday_gaps: Any,
+) -> None:
+    """Intraday session-aware gap detection for 1m–1h intervals."""
+    ts_list = list(df.index)
+    result = classify_intraday_gaps(ts_list, interval)
+
+    report.intraday_sessions_expected     = result["n_sessions_expected"]
+    report.intraday_sessions_full         = result["n_sessions_full"]
+    report.intraday_sessions_partial      = result["n_sessions_partial"]
+    report.intraday_sessions_missing      = result["n_sessions_missing"]
+    report.intraday_within_session_gaps   = result["n_intraday_gaps"]
+    report.intraday_gap_rate_pct          = result["gap_rate_pct"]
+    report.intraday_gap_details           = result["intraday_gap_details"]
+
+    # Also populate the common gaps_detected field for callers that only
+    # check that field without knowing whether the data is intraday.
+    report.gaps_detected = (
+        result["n_sessions_missing"]
+        + result["n_sessions_partial"]
+        + result["n_intraday_gaps"]
+    )
+
+    if result["gap_rate_pct"] > 5.0:
+        logger.warning(
+            "intraday_gap_rate_high",
+            symbol=report.symbol,
+            interval=interval,
+            gap_rate_pct=result["gap_rate_pct"],
+            sessions_missing=result["n_sessions_missing"],
+            sessions_partial=result["n_sessions_partial"],
+        )
 
 
 # ── Ingestion pipeline ─────────────────────────────────────────────────────────
@@ -306,6 +425,10 @@ class DataIngestionPipeline:
     Usage::
 
         pipeline = DataIngestionPipeline(data_client, output_root=Path("./data_raw"))
+
+        # Refresh the NSE calendar from the live source before ingesting.
+        await pipeline.refresh_calendar()
+
         result = await pipeline.ingest(
             symbols=["NIFTY", "BANKNIFTY", "RELIANCE"],
             interval="1d",
@@ -326,12 +449,44 @@ class DataIngestionPipeline:
         max_concurrency: int = 4,
         rate_per_sec: float = 8.0,
     ) -> None:
-        self._data = data_client
-        self._root = Path(output_root)
+        self._data             = data_client
+        self._root             = Path(output_root)
         self._root.mkdir(parents=True, exist_ok=True)
-        self._sem = asyncio.Semaphore(max_concurrency)
-        self._limiter = _RateLimiter(rate_per_sec)
-        self._checkpoint_path = self._root / "_checkpoint.json"
+        self._sem              = asyncio.Semaphore(max_concurrency)
+        self._limiter          = _RateLimiter(rate_per_sec)
+        self._checkpoint_path  = self._root / "_checkpoint.json"
+        self._calendar_live    = False
+
+    # ── Live calendar refresh (Gap 2) ─────────────────────────────────────────
+
+    async def refresh_calendar(self) -> bool:
+        """Enrich the NSE holiday calendar from data-service2.0's live endpoint.
+
+        Calls ``GET /v1/india/market/status`` which returns the authoritative
+        holiday list.  Falls back to the static set on any failure.
+
+        Returns:
+            True if the live calendar was loaded, False if the static fallback
+            is in use.
+        """
+        from src.validation.calendar import refresh_from_market_status
+        try:
+            ok = await refresh_from_market_status(self._data)
+            self._calendar_live = ok
+            if ok:
+                logger.info("nse_calendar_refreshed_from_live_source")
+            else:
+                logger.warning(
+                    "nse_calendar_live_refresh_failed_using_static_fallback"
+                )
+            return ok
+        except Exception as exc:
+            logger.warning(
+                "nse_calendar_live_refresh_error",
+                error=str(exc),
+            )
+            self._calendar_live = False
+            return False
 
     # ── Checkpoint I/O ────────────────────────────────────────────────────────
 
@@ -363,43 +518,61 @@ class DataIngestionPipeline:
         to_date: str | None = None,
         exchange: str = "NSE",
         resume: bool = True,
+        refresh_calendar: bool = True,
     ) -> IngestionResult:
         """
         Ingest historical bars for all *symbols* at *interval*.
 
         Args:
-            symbols:   Instrument symbols to ingest.
-            interval:  Canonical bar interval (e.g. "1d", "1h", "5m").
-            from_date: ISO date string for range start.
-            to_date:   ISO date string for range end.
-            exchange:  Exchange code.
-            resume:    When True, symbols already in the checkpoint are skipped.
+            symbols:          Instrument symbols to ingest.
+            interval:         Canonical bar interval (e.g. "1d", "5m").
+            from_date:        ISO date string for range start.
+            to_date:          ISO date string for range end.
+            exchange:         Exchange code.
+            resume:           Skip symbols already in the checkpoint.
+            refresh_calendar: Refresh NSE holiday calendar from data-service2.0
+                              before ingesting (recommended; True by default).
 
         Returns:
             IngestionResult with per-symbol validation reports.
         """
+        # Refresh the live calendar once before the first symbol is fetched.
+        if refresh_calendar:
+            await self.refresh_calendar()
+
         checkpoint = self._load_checkpoint()
         completed: dict[str, Any] = checkpoint.setdefault("completed", {})
-        result = IngestionResult(output_dir=self._root)
+        result = IngestionResult(
+            output_dir=self._root,
+            calendar_live=self._calendar_live,
+        )
 
         async def _run(sym: str) -> None:
             key = f"{interval}:{sym.upper()}"
-            if resume and key in completed and self._output_path(sym, interval).exists():
+            if (
+                resume
+                and key in completed
+                and self._output_path(sym, interval).exists()
+            ):
                 logger.info("ingestion_skip_resumed", symbol=sym, interval=interval)
                 result.symbols_ingested.append(sym)
                 return
+
             async with self._sem:
                 await self._limiter.acquire()
                 report = await self._ingest_one(sym, interval, from_date, to_date, exchange)
+
             if report is None:
                 result.symbols_failed.append(sym)
                 return
+
             result.reports.append(report)
             result.total_rows += report.rows_clean
             result.symbols_ingested.append(sym)
             completed[key] = {
-                "last_ts": report.last_ts,
-                "rows": report.rows_clean,
+                "last_ts":     report.last_ts,
+                "rows":        report.rows_clean,
+                "gaps":        report.gaps_detected,
                 "ingested_at": datetime.now(tz=UTC).isoformat(),
             }
             self._save_checkpoint(checkpoint)
@@ -411,16 +584,17 @@ class DataIngestionPipeline:
             n_ingested=len(result.symbols_ingested),
             n_failed=len(result.symbols_failed),
             total_rows=result.total_rows,
+            calendar_live=result.calendar_live,
         )
         return result
 
     async def _ingest_one(
         self,
-        symbol: str,
-        interval: str,
+        symbol:    str,
+        interval:  str,
         from_date: str | None,
-        to_date: str | None,
-        exchange: str,
+        to_date:   str | None,
+        exchange:  str,
     ) -> IngestionValidationReport | None:
         """Fetch, validate, and persist a single symbol. Returns None on failure."""
         report = IngestionValidationReport(symbol=symbol, interval=interval)
@@ -434,13 +608,18 @@ class DataIngestionPipeline:
             )
         except Exception as exc:
             logger.warning(
-                "ingestion_fetch_failed", symbol=symbol, interval=interval, error=str(exc)
+                "ingestion_fetch_failed",
+                symbol=symbol, interval=interval, error=str(exc),
             )
             return None
 
         df = normalize_bars(raw or [], symbol, interval, report)
+
         if df.empty:
-            logger.warning("ingestion_empty_after_validation", symbol=symbol, interval=interval)
+            logger.warning(
+                "ingestion_empty_after_validation",
+                symbol=symbol, interval=interval,
+            )
             return report
 
         out = self._output_path(symbol, interval)
@@ -455,6 +634,8 @@ class DataIngestionPipeline:
             interval=interval,
             rows_clean=report.rows_clean,
             gaps=report.gaps_detected,
+            intraday_gap_rate_pct=report.intraday_gap_rate_pct,
+            true_missing_sessions=report.true_missing_sessions,
         )
         return report
 
