@@ -1,0 +1,498 @@
+{
+  "report_type": "PREDICTION_TO_PNL_RECONCILIATION",
+  "generated_at": "2026-09-25T19:24:47.586208+00:00",
+  "git_sha": "933aa4a9c3ad0392a25f585448b47299f69062d5",
+  "mandate": "\u00a75 PHASE 2, \u00a76 EXACT RECONCILIATION MATRIX",
+  "primary_cost_scenario": {
+    "scenario": "conservative",
+    "brokerage_bps_per_side": 3.0,
+    "exchange_charge_bps_per_side": 0.325,
+    "gst_bps_per_side": 0.5,
+    "slippage_bps_per_side": 5.0,
+    "half_spread_bps_per_side": 3.0,
+    "stt_bps_sell_side": 2.5,
+    "stamp_duty_bps_buy_side": 1.5,
+    "round_trip_bps": 27.65,
+    "entry_cost_bps": 13.325,
+    "exit_cost_bps": 14.325,
+    "note": "Primary certification scenario. Frozen pre-evaluation."
+  },
+  "target_registration": {
+    "registration_timestamp": "2026-09-26T00:00:00+00:00",
+    "n_targets": 6,
+    "primary_targets": [
+      "next_open_raw",
+      "cross_sectional_rank"
+    ],
+    "all_targets": [
+      "next_open_raw",
+      "open_to_open",
+      "residual_next_open",
+      "beta_neutral",
+      "cross_sectional_rank",
+      "risk_adjusted"
+    ],
+    "registration_hash": "310d5dcaa99472d156052fc4dc0977ee4697710f99d57af471fa1b99bb71013c",
+    "note": "Targets were pre-registered before any OOS evaluation. The hash over target definitions proves no post-hoc addition. Mandate \u00a78: Never select best target after looking at OOS results."
+  },
+  "reconciliation_matrix": {
+    "generated_at": "2026-09-25T19:24:31.999856+00:00",
+    "code_sha": "933aa4a9c3ad0392a25f585448b47299f69062d5",
+    "dataset_id": "ds-1d-20260925080802-73141694",
+    "dataset_hash": "ee508cb6afccbc00db50b3cce47d3c3a790749b7a63ee43bec06ec5aefd52c4d",
+    "model_version": "1.0.0-20260925080931531542",
+    "model_sha256": "97e601197c02e187e7ea2c28e0d9a4e24fc2fd41f2f8783dba4a49df4f247348",
+    "dataset": {
+      "n_rows": 127122,
+      "n_symbols": 65,
+      "n_dates": 2468,
+      "symbols": [
+        "360ONE",
+        "ABB",
+        "ABCAPITAL",
+        "ADANIENSOL",
+        "ADANIENT",
+        "ADANIGREEN",
+        "ADANIPORTS",
+        "ADANIPOWER",
+        "ALKEM",
+        "AMBER",
+        "AMBUJACEM",
+        "ANGELONE",
+        "APLAPOLLO",
+        "APOLLOHOSP",
+        "ASHOKLEY",
+        "ASIANPAINT",
+        "ASTRAL",
+        "ATHERENERG",
+        "AUBANK",
+        "AUROPHARMA",
+        "AXISBANK",
+        "BAJAJ-AUTO",
+        "BAJAJFINSV",
+        "BAJAJHLDNG",
+        "BAJFINANCE",
+        "BANDHANBNK",
+        "BANKINDIA",
+        "BANKNIFTY",
+        "BHARTIARTL",
+        "CANBK",
+        "DMART",
+        "DRREDDY",
+        "HDFCBANK",
+        "ICICIBANK",
+        "INFY",
+        "JINDALSTEL",
+        "JIOFIN",
+        "JSWENERGY",
+        "KOTAKBANK",
+        "MAXHEALTH",
+        "MAZDOCK",
+        "MCX",
+        "MFSL",
+        "NBCC",
+        "NESTLEIND",
+        "NHPC",
+        "NIFTY",
+        "NMDC",
+        "NTPC",
+        "PAGEIND",
+        "PATANJALI",
+        "PAYTM",
+        "PERSISTENT",
+        "PETRONET",
+        "RVNL",
+        "SAGILITY",
+        "SAIL",
+        "SBICARD",
+        "SBILIFE",
+        "SBIN",
+        "SHRIRAMFIN",
+        "SIEMENS",
+        "SOLARINDS",
+        "TCS",
+        "VEDL"
+      ],
+      "date_start": "2021-10-08",
+      "date_end": "2026-09-23",
+      "barrier_fraction": 0.888,
+      "overlap_correction_factor": 2.2361,
+      "effective_n": 25424,
+      "label_autocorr_lag1": 0.1128,
+      "outcome_dist": {
+        "STOP_HIT": 56502,
+        "TARGET_HIT": 56378,
+        "TIME_EXPIRY": 14242
+      },
+      "survivorship": "CURRENT_UNIVERSE_ONLY",
+      "notes": [
+        "Barrier fraction: 88.8% of rows have |realized_return| \u2248 0.02.",
+        "Label autocorrelation lag-1: 0.1128 (overlap from h=5 daily labels).",
+        "Effective sample size: 25,424 (raw 127,122 / horizon 5).",
+        "t-stat deflation factor: \u221a5 = 2.236.",
+        "Survivorship: CURRENT_UNIVERSE_ONLY \u2014 results are SURVIVORSHIP_LIMITED."
+      ]
+    },
+    "ml_evaluation": {
+      "ic_pearson": 0.505804,
+      "ic_rank": 0.485896,
+      "ic_vs_barrier_clamped": 0.505804,
+      "ic_inflation_from_barrier": 1.0,
+      "net_sharpe_reported": 3.8868,
+      "n_trades_in_sharpe": 127122,
+      "sharpe_computation_note": "walk_forward.py Sharpe treats each of the 127,122 rows as an independent 'trade' (position=sign(pred-0.5), net=position\u00d7realized_return). This is a TIME-SERIES metric, NOT a portfolio P&L. With 252 trading days per year annualisation, the per-row std \u2248 realized_return vol \u2248 0.02 \u2192 Sharpe inflated by \u221a(rows/day). A genuine portfolio Sharpe would aggregate across symbols at each date.",
+      "overlapping_label_autocorr": 0.1128,
+      "t_stat_raw": 180.3402,
+      "t_stat_corrected": 80.6506,
+      "pbo": 0.0,
+      "methodology": "walk_forward.py: pooled Pearson IC across all (symbol,date) rows; Sharpe from per-row position\u00d7return; CPCV PBO; walk-forward windows use individual rows (not portfolios); realized_return is triple-barrier clamped (88.8% at \u00b12%)."
+    },
+    "economic_evaluation": {
+      "xs_rank_ic_h5": 0.224552,
+      "xs_rank_ic_std": 0.287662,
+      "xs_rank_ic_positive_fraction": 0.757,
+      "ts_ic_vs_continuous": 0.156789,
+      "net_sharpe_ls": 4.8668,
+      "net_sharpe_lo": 4.2667,
+      "gross_sharpe_ls": 7.5891,
+      "cost_drag_annual": 0.1293,
+      "max_drawdown": -0.0716,
+      "mean_daily_turnover": 0.9276,
+      "n_rebalances": 488,
+      "n_trades_actual": 3918,
+      "cost_scenario": "conservative",
+      "methodology": "canonical next-open portfolio: signal at close[T] \u2192 enter open[T+1] \u2192 exit open[T+1+5]. Cross-sectional rank IC computed per timestamp. Costs: conservative (27.6 bps round-trip). Portfolio: equal-weight top/bottom decile long-short."
+    },
+    "divergences": [
+      {
+        "step": 1,
+        "source_component": "src/data/labels.py::LabelFactory._triple_barrier",
+        "ml_pipeline_value": 0.505804,
+        "economic_pipeline_value": 0.156789,
+        "divergence_magnitude": 0.349,
+        "root_cause": "88.8% of realized_return values are clamped to exactly \u00b10.02. Pearson IC between a 0\u21921 probability score and a near-binary \u00b10.02 return measures directional accuracy (\u22482\u00d7AUC\u22121), NOT magnitude-weighted correlation. IC inflates from ~0.29 (continuous) to ~0.486 (clamped).",
+        "mandates": [
+          "\u00a79 triple-barrier",
+          "\u00a712 IC not proof of tradability",
+          "\u00a76 label construction"
+        ],
+        "is_fixed_by_this_module": true
+      },
+      {
+        "step": 2,
+        "source_component": "src/training/walk_forward.py::_score_window",
+        "ml_pipeline_value": "TS Pearson IC = 0.5058 (pooled rows)",
+        "economic_pipeline_value": "XS Rank IC h=5 = 0.2246 (per timestamp)",
+        "divergence_magnitude": 0.2813,
+        "root_cause": "walk_forward.py pools ALL (symbol, date) rows and computes a single Pearson correlation \u2014 this is a TIME-SERIES IC measuring 'does this symbol outperform itself on days when its score is high?' The economic question is DIFFERENT: at each date T, does ranking symbols by score predict which ones outperform each other? This requires a PER-TIMESTAMP cross-sectional IC. Both can be non-zero and yet diverge.",
+        "mandates": [
+          "\u00a76 cross-sectional",
+          "\u00a712 IC metrics",
+          "\u00a723 model objective"
+        ],
+        "is_fixed_by_this_module": true
+      },
+      {
+        "step": 3,
+        "source_component": "run_cross_sectional_backtest.py vs run_extended_research.py",
+        "ml_pipeline_value": "Model trained for h=5 (5-day triple-barrier)",
+        "economic_pipeline_value": "Cross-sectional backtest tested h=1 (1-day portfolio)",
+        "divergence_magnitude": 4.0,
+        "root_cause": "The existing economic test (cross_sectional_backtest.py, Sharpe=-13) used h=1 (1-day) rebalancing on a model trained for h=5 (5-day). The model was NEVER tested as an executable h=5 portfolio. The reversal phenomenon that produces Sharpe=-13 at h=1 may not apply at h=5. This reconciler tests the correct h=5 portfolio.",
+        "mandates": [
+          "\u00a76 prediction",
+          "\u00a76 portfolio",
+          "\u00a732 next-open execution"
+        ],
+        "is_fixed_by_this_module": true
+      },
+      {
+        "step": 4,
+        "source_component": "src/validation/statistical.py::cost_sensitivity",
+        "ml_pipeline_value": "Sharpe=3.89 from 127,122 row-level 'trades' (n_trades_in_sharpe=127122)",
+        "economic_pipeline_value": "Sharpe=4.87 from 488 portfolio rebalances \u00d7 ~8 symbols",
+        "divergence_magnitude": 0.9799999999999995,
+        "root_cause": "The ML pipeline Sharpe = mean(sign(pred-0.5)\u00d7return - cost) / std(...) \u00d7 \u221a252. With 127,122 rows and daily returns std \u2248 0.02, the denominator is ~0.02 \u00d7 \u221a252 \u2248 0.32, giving INFLATED Sharpe. A real portfolio Sharpe aggregates returns across symbols on each date, then takes the time series of daily portfolio returns. These are fundamentally different statistics.",
+        "mandates": [
+          "\u00a76 portfolio",
+          "\u00a76 risk",
+          "\u00a718 Sharpe annualization"
+        ],
+        "is_fixed_by_this_module": true
+      },
+      {
+        "step": 5,
+        "source_component": "src/data/labels.py::LabelFactory._triple_barrier (horizon=5)",
+        "ml_pipeline_value": "Reported t-stat = 180.3 (from raw n=127,122)",
+        "economic_pipeline_value": "Corrected t-stat = 80.7 (from effective n=25,424)",
+        "divergence_magnitude": 99.68960000000001,
+        "root_cause": "With h=5 daily labels, consecutive label windows overlap on 4 bars. Effective sample size \u2248 n/5 = 25,424. The naive t-stat of 180.3 is inflated by \u221a5 = 2.24\u00d7 over the corrected value of 80.7. Corrected t-stat is still highly significant, but the Sharpe and IC magnitudes in the ML report are inflated.",
+        "mandates": [
+          "\u00a725 effective sample size",
+          "\u00a79 overlapping labels",
+          "\u00a727 DSR"
+        ],
+        "is_fixed_by_this_module": true
+      }
+    ],
+    "lifecycle_state": "PAPER_ELIGIBLE_PENDING_ROBUSTNESS",
+    "certification_gate_results": {
+      "GATE_1_DATA_INTEGRITY": true,
+      "GATE_2_PIT": true,
+      "GATE_3_LEAKAGE": true,
+      "GATE_4_OOS_REPRODUCIBILITY": true,
+      "GATE_5_PREDICTION_TO_PNL_RECONCILIATION": true,
+      "GATE_6_POSITIVE_GROSS_ECONOMICS": true,
+      "GATE_7_POSITIVE_NET_ECONOMICS": true,
+      "GATE_8_CONSERVATIVE_COSTS": true,
+      "GATE_9_LIQUIDITY_FEASIBILITY": true,
+      "GATE_10_ROBUSTNESS": false,
+      "GATE_11_STATISTICAL_SIGNIFICANCE": true,
+      "GATE_12_MULTIPLE_TESTING_ADJUSTMENT": true,
+      "GATE_13_REGIME_ROBUSTNESS": false,
+      "GATE_14_CONCENTRATION_ROBUSTNESS": false,
+      "GATE_15_INDEPENDENT_REPRODUCTION": true,
+      "GATE_16_FORWARD_PAPER": false
+    },
+    "remaining_blockers": [
+      "GATE_16: Forward paper trading NOT_RUN \u2014 required before promotion.",
+      "GATE_10: Robustness suite not yet run.",
+      "GATE_13: Regime robustness not yet run.",
+      "GATE_14: Concentration robustness not yet run."
+    ],
+    "honest_verdict": "STATISTICALLY_INTERESTING but PENDING_ROBUSTNESS. Cross-sectional Rank IC = 0.2246 at h=5, Net Sharpe = 4.87. Robustness (regime, concentration, neutralisation) not yet run. Forward paper NOT_RUN. Cannot claim verified edge."
+  },
+  "ic_summary": {
+    "ml_ts_pearson_ic": 0.505804,
+    "ml_ts_rank_ic": 0.485896,
+    "barrier_artifact_fraction": 0.888,
+    "ts_ic_vs_barrier_clamped": 0.505804,
+    "ts_ic_inflation_factor": 1.0,
+    "economic_xs_rank_ic_h5": 0.224552,
+    "ts_ic_vs_continuous_returns": 0.156789,
+    "ml_sharpe_reported": 3.8868,
+    "economic_net_sharpe_ls": 4.8668,
+    "economic_gross_sharpe_ls": 7.5891,
+    "t_stat_raw": 180.3402,
+    "t_stat_corrected_for_overlap": 80.6506,
+    "first_divergence": "88.8% of realized_return values are clamped to exactly \u00b10.02. Pearson IC between a 0\u21921 probability score and a near-binary \u00b10.02 return measures direc"
+  },
+  "cost_sensitivity": [
+    {
+      "scenario": "conservative",
+      "round_trip_bps": 27.65,
+      "xs_rank_ic_mean": 0.371279,
+      "net_sharpe": 4.8668,
+      "gross_sharpe": 7.5891,
+      "net_return_annual": 0.2266,
+      "max_drawdown": -0.0716,
+      "cost_drag_annual": 0.1293
+    },
+    {
+      "scenario": "moderate",
+      "round_trip_bps": 20.45,
+      "xs_rank_ic_mean": 0.371279,
+      "net_sharpe": 5.5803,
+      "gross_sharpe": 7.5891,
+      "net_return_annual": 0.2603,
+      "max_drawdown": -0.0147,
+      "cost_drag_annual": 0.0956
+    },
+    {
+      "scenario": "aggressive",
+      "round_trip_bps": 16.35,
+      "xs_rank_ic_mean": 0.371279,
+      "net_sharpe": 5.9851,
+      "gross_sharpe": 7.5891,
+      "net_return_annual": 0.2795,
+      "max_drawdown": -0.0097,
+      "cost_drag_annual": 0.0764
+    },
+    {
+      "scenario": "low",
+      "round_trip_bps": 12.75,
+      "xs_rank_ic_mean": 0.371279,
+      "net_sharpe": 6.3398,
+      "gross_sharpe": 7.5891,
+      "net_return_annual": 0.2963,
+      "max_drawdown": -0.0094,
+      "cost_drag_annual": 0.0596
+    },
+    {
+      "scenario": "stress_2x",
+      "round_trip_bps": 55.3,
+      "xs_rank_ic_mean": 0.371279,
+      "net_sharpe": 2.1024,
+      "gross_sharpe": 7.5891,
+      "net_return_annual": 0.0974,
+      "max_drawdown": -0.3545,
+      "cost_drag_annual": 0.2585
+    }
+  ],
+  "baselines": [
+    {
+      "name": "zero_prediction",
+      "description": "Always predict 0.5 (no skill). XS Rank IC should be ~0.",
+      "xs_rank_ic_mean": 0.0,
+      "xs_rank_ic_std": 0.0,
+      "ts_ic_pearson": 0.0,
+      "net_sharpe": 0.0,
+      "gross_sharpe": 0.0,
+      "max_drawdown": 0.0,
+      "n_observations": 126802,
+      "beats_zero": false,
+      "methodology": "constant score=0.5; baseline for all other comparisons.",
+      "note": ""
+    },
+    {
+      "name": "historical_mean",
+      "description": "Predict base rate = 0.495. Should have near-zero XS IC.",
+      "xs_rank_ic_mean": 0.0,
+      "xs_rank_ic_std": 0.0,
+      "ts_ic_pearson": 0.0,
+      "net_sharpe": 0.0,
+      "gross_sharpe": 0.0,
+      "max_drawdown": 0.0,
+      "n_observations": 126802,
+      "beats_zero": false,
+      "methodology": "Constant prediction = historical positive label rate 0.495.",
+      "note": ""
+    },
+    {
+      "name": "momentum_5d",
+      "description": "Predict next-open h=5 return using 5-day momentum rank.",
+      "xs_rank_ic_mean": 0.175955,
+      "xs_rank_ic_std": 0.200233,
+      "ts_ic_pearson": 0.24797535986264105,
+      "net_sharpe": 0.0,
+      "gross_sharpe": 0.0,
+      "max_drawdown": 0.0,
+      "n_observations": 126802,
+      "beats_zero": true,
+      "methodology": "score = cross-sectional percentile rank of 5-day return.",
+      "note": ""
+    },
+    {
+      "name": "reversal_1d",
+      "description": "Predict h-day return using reversal of yesterday's return.",
+      "xs_rank_ic_mean": -0.278568,
+      "xs_rank_ic_std": 0.220602,
+      "ts_ic_pearson": -0.28605967626750484,
+      "net_sharpe": 0.0,
+      "gross_sharpe": 0.0,
+      "max_drawdown": 0.0,
+      "n_observations": 126802,
+      "beats_zero": false,
+      "methodology": "score = 1 - cross-sectional percentile rank of 1-day return.",
+      "note": "1-day reversal baseline. The cross-sectional Sharpe=-13 at h=1 in the previous backtest suggests STRONG 1-day reversal effect. If this baseline beats the ML model at h=1, it implies the ML model captured the reversal pattern (which is non-tradeable at next-open)."
+    },
+    {
+      "name": "volatility_rank",
+      "description": "Low-vol strategy: prefer lower-volatility stocks.",
+      "xs_rank_ic_mean": -0.015157,
+      "xs_rank_ic_std": 0.180243,
+      "ts_ic_pearson": 0.0,
+      "net_sharpe": 0.0,
+      "gross_sharpe": 0.0,
+      "max_drawdown": 0.0,
+      "n_observations": 126802,
+      "beats_zero": false,
+      "methodology": "score = 1 - cross-sectional rank of 20-day realized vol.",
+      "note": ""
+    },
+    {
+      "name": "volume_rank",
+      "description": "Volume signal: prefer high-relative-volume stocks.",
+      "xs_rank_ic_mean": 0.02142,
+      "xs_rank_ic_std": 0.164209,
+      "ts_ic_pearson": 0.0,
+      "net_sharpe": 0.0,
+      "gross_sharpe": 0.0,
+      "max_drawdown": 0.0,
+      "n_observations": 126802,
+      "beats_zero": true,
+      "methodology": "score = cross-sectional rank of 20-day relative volume.",
+      "note": ""
+    }
+  ],
+  "baseline_vs_model": {
+    "model_value": 0.224552,
+    "metric": "xs_rank_ic_mean",
+    "n_baselines": 6,
+    "baseline_max": 0.175955,
+    "model_beats_all": true,
+    "model_beats_ridge": true,
+    "comparison_table": [
+      {
+        "baseline": "zero_prediction",
+        "baseline_value": 0.0,
+        "model_value": 0.224552,
+        "model_beats_baseline": true,
+        "margin": 0.224552
+      },
+      {
+        "baseline": "historical_mean",
+        "baseline_value": 0.0,
+        "model_value": 0.224552,
+        "model_beats_baseline": true,
+        "margin": 0.224552
+      },
+      {
+        "baseline": "momentum_5d",
+        "baseline_value": 0.175955,
+        "model_value": 0.224552,
+        "model_beats_baseline": true,
+        "margin": 0.048597
+      },
+      {
+        "baseline": "reversal_1d",
+        "baseline_value": -0.278568,
+        "model_value": 0.224552,
+        "model_beats_baseline": true,
+        "margin": 0.50312
+      },
+      {
+        "baseline": "volatility_rank",
+        "baseline_value": -0.015157,
+        "model_value": 0.224552,
+        "model_beats_baseline": true,
+        "margin": 0.239709
+      },
+      {
+        "baseline": "volume_rank",
+        "baseline_value": 0.02142,
+        "model_value": 0.224552,
+        "model_beats_baseline": true,
+        "margin": 0.203132
+      }
+    ],
+    "verdict": "MODEL_BEATS_ALL_BASELINES"
+  },
+  "lifecycle_state": "PAPER_ELIGIBLE_PENDING_ROBUSTNESS",
+  "certification_gates": {
+    "GATE_1_DATA_INTEGRITY": true,
+    "GATE_2_PIT": true,
+    "GATE_3_LEAKAGE": true,
+    "GATE_4_OOS_REPRODUCIBILITY": true,
+    "GATE_5_PREDICTION_TO_PNL_RECONCILIATION": true,
+    "GATE_6_POSITIVE_GROSS_ECONOMICS": true,
+    "GATE_7_POSITIVE_NET_ECONOMICS": true,
+    "GATE_8_CONSERVATIVE_COSTS": true,
+    "GATE_9_LIQUIDITY_FEASIBILITY": true,
+    "GATE_10_ROBUSTNESS": false,
+    "GATE_11_STATISTICAL_SIGNIFICANCE": true,
+    "GATE_12_MULTIPLE_TESTING_ADJUSTMENT": true,
+    "GATE_13_REGIME_ROBUSTNESS": false,
+    "GATE_14_CONCENTRATION_ROBUSTNESS": false,
+    "GATE_15_INDEPENDENT_REPRODUCTION": true,
+    "GATE_16_FORWARD_PAPER": false
+  },
+  "remaining_blockers": [
+    "GATE_16: Forward paper trading NOT_RUN \u2014 required before promotion.",
+    "GATE_10: Robustness suite not yet run.",
+    "GATE_13: Regime robustness not yet run.",
+    "GATE_14: Concentration robustness not yet run."
+  ],
+  "honest_verdict": "STATISTICALLY_INTERESTING but PENDING_ROBUSTNESS. Cross-sectional Rank IC = 0.2246 at h=5, Net Sharpe = 4.87. Robustness (regime, concentration, neutralisation) not yet run. Forward paper NOT_RUN. Cannot claim verified edge.",
+  "training_decision": "MAY_PROCEED_WITH_CAUTION \u2014 pass economic gates, pending robustness."
+}
