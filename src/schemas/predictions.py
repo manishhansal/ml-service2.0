@@ -85,6 +85,14 @@ class RegimePredictionResponse(BaseSchema):
     features_used: int
     model_version: str
     provenance: PredictionProvenance = PredictionProvenance.HEURISTIC
+    normalization_applied: bool = Field(
+        default=False,
+        description="True when features were normalized via FeatureNormalizer before inference.",
+    )
+    feature_schema_version: str = Field(
+        default="",
+        description="Feature schema version the model was trained on (e.g. 'fs-2.0.0').",
+    )
     shap_top10: list[dict[str, float]] = Field(
         default_factory=list,
         description="Top-10 SHAP feature contributions",
@@ -155,6 +163,14 @@ class RankingResponse(BaseSchema):
     model_version: str
     regime_used: MarketRegime
     provenance: PredictionProvenance = PredictionProvenance.HEURISTIC
+    normalization_applied: bool = Field(
+        default=False,
+        description="True when features were normalized before inference.",
+    )
+    feature_schema_version: str = Field(
+        default="",
+        description="Feature schema version the ranking model was trained on.",
+    )
 
 
 # ─── Strategy Selection ───────────────────────────────────────────────────────
@@ -193,6 +209,14 @@ class StrategyResponse(BaseSchema):
     )
     rationale: str
     provenance: PredictionProvenance = PredictionProvenance.HEURISTIC
+    normalization_applied: bool = Field(
+        default=False,
+        description="True when features were normalized before inference.",
+    )
+    feature_schema_version: str = Field(
+        default="",
+        description="Feature schema version the strategy model was trained on.",
+    )
 
 
 # ─── Risk Prediction ──────────────────────────────────────────────────────────
@@ -235,6 +259,14 @@ class RiskResponse(BaseSchema):
     risk_score: float = Field(ge=0, le=10, description="Overall risk score 0-10")
     factors: dict[str, float] = Field(description="Risk factor contributions")
     provenance: PredictionProvenance = PredictionProvenance.HEURISTIC
+    normalization_applied: bool = Field(
+        default=False,
+        description="True when features were normalized before inference.",
+    )
+    feature_schema_version: str = Field(
+        default="",
+        description="Feature schema version the risk model was trained on.",
+    )
     reason_codes: list[str] = Field(
         default_factory=list,
         description="Diagnostic codes (e.g. HIGH_RISK_BLOCKED, CALIBRATION_VIOLATION)",
@@ -376,6 +408,14 @@ class ExecutionDecision(BaseSchema):
     )
     rationale: str
     provenance: PredictionProvenance = PredictionProvenance.HEURISTIC
+    normalization_applied: bool = Field(
+        default=False,
+        description="True when features were normalized before inference.",
+    )
+    feature_schema_version: str = Field(
+        default="",
+        description="Feature schema version the execution model was trained on.",
+    )
 
 
 # ─── Deep Learning Models ─────────────────────────────────────────────────────
