@@ -91,7 +91,21 @@ class CombinatorialPurgedCV:
         returns: np.ndarray,
         timestamps: pd.DatetimeIndex,
         model_factory: Callable[[], Any],
+        normalizer_factory: Callable[[], Any] | None = None,
+        feature_names: list[str] | None = None,
     ) -> CPCVReport:
+        """
+        Run CPCV.
+
+        Args:
+            normalizer_factory: Optional callable returning a fresh FeatureNormalizer.
+                                When supplied, a new normalizer is fitted on each
+                                training fold and applied to both train and test folds
+                                (per-fold normalization, CRITICAL-2 fix).
+            feature_names:      Optional list of feature column names. When supplied
+                                with normalizer_factory, normalizer specs use named
+                                columns matching inference-time DataFrames.
+        """
         n = len(X)
         order = np.argsort(timestamps.values)
         X = X[order]
@@ -118,9 +132,29 @@ class CombinatorialPurgedCV:
             if len(np.unique(y_label[train_idx])) < 2:
                 continue
 
+            # ── Per-fold normalization (CRITICAL-2 fix) ───────────────────
+            X_tr = X[train_idx]
+            X_te = X[test_idx]
+            if normalizer_factory is not None:
+                try:
+                    norm = normalizer_factory()
+                    X_tr_df = pd.DataFrame(X_tr, columns=feature_names)
+                    norm.fit(X_tr_df)
+                    X_tr = norm.transform(X_tr_df).to_numpy(dtype=float)
+                    X_te = norm.transform(
+                        pd.DataFrame(X_te, columns=feature_names)
+                    ).to_numpy(dtype=float)
+                except Exception as exc:
+                    logger.warning(
+                        "cpcv_normalizer_failed_skipping_fold",
+                        error=str(exc),
+                    )
+                    X_tr = X[train_idx]
+                    X_te = X[test_idx]
+
             model = model_factory()
-            model.fit(X[train_idx], y_label[train_idx])
-            preds = np.asarray(model.predict(X[test_idx]), dtype=float)
+            model.fit(X_tr, y_label[train_idx])
+            preds = np.asarray(model.predict(X_te), dtype=float)
             ic = self._ic(preds, returns[test_idx])
             path_ics.append(ic)
 
