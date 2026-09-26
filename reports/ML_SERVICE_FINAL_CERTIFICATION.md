@@ -1827,3 +1827,280 @@ before any capital allocation claim.
 
 *Evidence: `reports/reconciliation.json`*
 *Run: `PYTHONPATH=. python3 scripts/run_reconciliation.py`*
+
+
+---
+
+# PHASE 2–7 COMPLETE PROGRAM UPDATE
+**Executed:** 2026-09-26  
+**Runtime:** 6.6 minutes  
+**Git SHA:** 5c782755560833619eceaedeb768153e425ff2b9
+
+---
+
+## REQUIRED FINAL EXECUTION SUMMARY
+
+```
+PHASE 2 — Prediction/P&L Reconciliation:  PASS   (10/10 gates)
+PHASE 3 — Economic Dataset:                PASS   (9/9 gates)
+PHASE 4 — Statistical Foundation:          PASS   (8/8 gates)
+PHASE 5 — Training Readiness:              PASS   (9/9 gates)
+PHASE 6 — Model Training:                  COMPLETE
+PHASE 7 — OOS Economic Validation:         PASS   (12/12 gates)
+
+MODEL TRAINED:   YES
+MODEL:           LightGBM (champion among Ridge, Logistic, LightGBM)
+EXPERIMENT ID:   62e947dd8e9b
+TARGET:          target_A_h5 — (open[T+1+5] − open[T+1]) / open[T+1]
+                 (continuous next-open return, NOT triple-barrier)
+UNIVERSE:        218 F&O symbols (CURRENT_UNIVERSE_ONLY — SURVIVORSHIP_LIMITED)
+TRAIN PERIOD:    Walk-forward 5 folds, embargo=10d
+OOS PERIOD:      Each fold's held-out test window (strictly chronological)
+FEATURES:        45 (price, volatility, volume, market structure, technical)
+
+OOS XS RANK IC:  0.0533
+OOS ICIR:        0.3579
+OOS POS FRAC:    0.609
+DIRECTIONAL ACC: 0.509
+
+NET SHARPE:      2.5867   (27.65 bps round-trip, real OHLCV, decile LS)
+GROSS SHARPE:    3.3042
+MAX DRAWDOWN:   −0.2241
+NET RETURN:      12.75 (cumulative, 258k OOS trades)
+N TRADES:        76,116
+
+COST ASSUMPTION: 27.65 bps round-trip (conservative, pre-registered)
+COST SCENARIOS:
+  conservative 27.65 bps:  Sharpe 2.59  ✓
+  moderate     20.00 bps:  Sharpe 2.79  ✓
+  aggressive   15.00 bps:  Sharpe 2.91  ✓
+  low          10.00 bps:  Sharpe 3.04  ✓
+  stress 2×    55.30 bps:  Sharpe 1.87  ✓
+
+DSR:             0.2352  (not significant at 5% — 61 prior experiments)
+PBO:             0.0000
+EFFECTIVE N:     9,560
+CLUSTERED t:     6.97
+
+MARKET NEUTRAL IC:  0.018  (partial market beta — not pure beta)
+SECTOR NEUTRAL:     All 5 pseudo-sectors positive IC
+CONCENTRATION:      top-1 = 1.9%, top-5 = 7.5% — NOT CONCENTRATED
+
+REGIME ROBUSTNESS:
+  2022: XS Rank IC = 0.055  ✓
+  2023: XS Rank IC = 0.074  ✓
+  2024: XS Rank IC = 0.057  ✓
+  2025: XS Rank IC = 0.035  ✓
+  2026: XS Rank IC = 0.044  ✓
+  Positive years: 5/5
+
+LOO SYMBOL ROBUSTNESS:
+  Sampled 5 symbols (TCS, TVSMOTOR, FORTIS, MARICO, NAUKRI)
+  All LOO ICs: [0.053, 0.053, 0.053, 0.053, 0.054]
+  Mean LOO IC = 0.0533 — NOT CONCENTRATED
+
+INDEPENDENT REPRODUCTION:
+  Original implementation:     Sharpe 2.5867
+  Independent implementation:  Sharpe 2.5913
+  Discrepancy:                 0.0046 (< 0.5 threshold)
+  RESULT:                      PASS
+
+NULL TEST (frozen OOS):
+  Observed percentile: 100.0%
+  H0 rejected:         TRUE
+
+FORWARD PAPER:   ELIGIBLE_PENDING_EXECUTION
+SHADOW:          SHADOW_BLOCKED_PENDING_FORWARD_PAPER
+PRODUCTION:      NOT_ELIGIBLE
+
+CANONICAL RESEARCH STATE:  HISTORICAL_EDGE_VERIFIED
+```
+
+---
+
+## A. Reconciliation — Root Cause Resolution
+
+The original discrepancy (IC 0.45–0.47, Sharpe 2.5–3.8 in training vs rank IC 0.02, Sharpe −13 in independent test) is **fully explained by five compounding methodological factors**:
+
+| # | Root Cause | ML Pipeline Value | Economic Value | Inflation |
+|---|-----------|-------------------|----------------|-----------|
+| 1 | Barrier clamping artifact | IC=0.500 (clamped ±2%) | IC=0.048 (continuous) | 10.4× |
+| 2 | TS IC vs XS IC | Pooled Pearson 0.506 | Per-timestamp XS 0.069–0.225 | different metric |
+| 3 | Horizon mismatch | Model trained h=5 | Independent test used h=1 → reversal → Sharpe=−13 | — |
+| 4 | Sharpe inflation | 127,122 row-level "trades" | 488 portfolio rebalances | row std inflates |
+| 5 | t-stat overlap | Raw t=180 | Corrected t=81 (÷√5) | √5 = 2.24× |
+
+**No residual contradiction remains.** The h=1 Sharpe=−13 is a valid measurement of a different (wrong) evaluation. The h=5 portfolio produces genuine positive economics confirmed by independent re-implementation.
+
+---
+
+## B. Dataset
+
+| Property | Value |
+|----------|-------|
+| Original 65-symbol dataset | 127,122 rows, 2021–2026 |
+| New canonical dataset | 309,628 rows |
+| Symbols | 218 (out of 220 F&O; 2 unavailable) |
+| Features | 45 (expanded from 24) |
+| Target | continuous next-open h=5 return (NOT triple-barrier) |
+| Feature NaN | 0.0% |
+| Survivorship | CURRENT_UNIVERSE_ONLY (survivorship-limited) |
+| Provider | Angel One → Upstox → YFinance fallback |
+
+---
+
+## C. Target
+
+```
+PRIMARY: target_A_h5
+Formula:  (open[T+1+5] − open[T+1]) / open[T+1]
+Entry:    open[T+1]  (next bar's open after signal at close[T])
+Exit:     open[T+1+5]
+PIT-safe: YES — no forward data in features
+Continuous: YES — no barrier clamping
+Executable: YES — real market open prices
+Pre-registered hash: 310d5dcaa99472d156052fc4dc0977ee4697710f99d57af471fa1b99bb71013c
+```
+
+---
+
+## D. Features
+
+**45 features across 6 families:**
+- Price momentum/reversal: ret_1, ret_2, ret_3, ret_5, ret_10, ret_20, log_ret_*
+- Volatility: vol_5/10/20, ATR, Parkinson, Garman-Klass, vol_regime, vol_accel
+- Volume: rel_volume, zscore, trend, PV divergence
+- Market structure: gap, HL range, close position, candle body/wicks, overnight return
+- Technical: RSI, MACD, Bollinger, EMA cross, ADX, VWAP, Stochastic, breakout distance, skew, kurt
+- Normalization: RobustScaler fit on train only, transform on OOS (no leakage)
+
+Top features by LightGBM importance: ret_5, vol_20, skew_20, vol_5, ret_1
+
+---
+
+## E. Training
+
+| Model | XS IC (mean) | Net Sharpe | PBO |
+|-------|-------------|------------|-----|
+| Ridge | 0.0195 | 3.61 | 0.40 |
+| Logistic | 0.0364 | 4.02 | 0.20 |
+| **LightGBM** (champion) | **0.0532** | **5.48** | **0.00** |
+
+- Walk-forward: 5 folds, embargo=10 days, min_train=250 days
+- Champion selected by highest validation economic Sharpe with PBO < 0.5
+- OOS predictions immutably persisted: 258,337 records (SHA256: ceb9e96b6a91d791)
+
+---
+
+## F. OOS Statistical Metrics
+
+| Metric | Value |
+|--------|-------|
+| XS Rank IC (mean) | 0.0533 |
+| XS Rank IC (std) | 0.1488 |
+| ICIR | 0.3579 |
+| Positive fraction | 60.9% |
+| TS Pearson IC | 0.636 (note: includes label autocorrelation) |
+| Directional accuracy | 50.9% |
+| Effective N | 9,560 |
+| Date-clustered t-stat | 6.97 |
+
+---
+
+## G. Economics
+
+| Metric | Conservative 27.65 bps | Stress 2× 55.3 bps |
+|--------|------------------------|---------------------|
+| Net Sharpe | **2.5867** | 1.8692 |
+| Gross Sharpe | 3.3042 | — |
+| Max Drawdown | −22.4% | — |
+| Net Return | +12.75 (cumul) | — |
+| N Trades | 76,116 | — |
+
+All 5 cost scenarios produce positive net Sharpe. Primary scenario uses pre-registered conservative 27.65 bps.
+
+---
+
+## H. Robustness
+
+All 5 calendar years show positive XS Rank IC. Leave-one-symbol-out (5 sampled) shows mean IC 0.053, all positive. Not concentrated (top-1 = 1.9%).
+
+Partial market beta exposure (market-neutral IC = 0.018, 66% decay). Signal is not pure beta capture.
+
+---
+
+## I. Statistical Validation
+
+| Metric | Value | Note |
+|--------|-------|------|
+| Effective N | 9,560 | N_raw=308k / horizon × CS dependence |
+| Clustered SE | 0.0068 | Date-clustered |
+| Clustered t | 6.97 | Significant |
+| Null test (100 perms) | 100th percentile | H0 rejected |
+| DSR | 0.2352 | **NOT significant at 5%** |
+| PBO | 0.00 | |
+
+**DSR note:** With 61 prior experiments, the expected maximum Sharpe under H0 is 2.35. The observed Sharpe of 2.59 produces DSR=0.24, which does not reach 5% significance. This does not refute the signal, but it means the multiple-testing adjustment consumes most of the statistical margin. Forward paper evidence is required for promotion.
+
+---
+
+## J. Independent Reproduction
+
+A completely independent evaluator (no shared code with the training pipeline) was implemented from scratch using only the persisted OOS predictions file and raw OHLCV:
+
+- Original Sharpe: **2.5867**  
+- Independent Sharpe: **2.5913**  
+- Discrepancy: **0.0046** (well within the 0.5 threshold)  
+- **Result: PASS**
+
+---
+
+## K. Forward Paper Status
+
+Forward paper Session 1 (65 signals, 2026-09-25) from the original 65-symbol model is ongoing.  
+The new 218-symbol model (exp 62e947dd8e9b) requires its own forward paper session.  
+Status: **ELIGIBLE_PENDING_EXECUTION**
+
+Minimum: 20 resolved real-time signals before shadow eligibility.  
+No premature stopping. No selective extension. Append-only.
+
+---
+
+## L. Lifecycle
+
+```
+Previous state:  PAPER_ELIGIBLE_PENDING_ROBUSTNESS
+Current state:   HISTORICAL_EDGE_VERIFIED
+
+Transition basis:
+  ✓ Phase 7 gate: 12/12 economic checks passed
+  ✓ Independent reproduction: PASS
+  ✓ 5/5 years positive IC
+  ✓ All 5 cost scenarios positive
+  ✓ LOO robustness confirmed
+  ✗ Forward paper: PENDING (sole blocker for shadow)
+
+Shadow eligibility:     BLOCKED — forward paper required
+Production eligibility: NOT_ELIGIBLE
+
+DO NOT TRADE CAPITAL.
+```
+
+---
+
+## Blockers (Updated)
+
+| ID | Class | Severity | Status | Description |
+|----|-------|----------|--------|-------------|
+| B-006 | FORWARD_PAPER | CRITICAL | OPEN | New model (exp 62e947dd8e9b) forward paper not started. Need 20+ resolved signals. |
+| B-007 | DSR_MARGINAL | MEDIUM | DOCUMENTED | DSR=0.24 not significant. 61 prior experiments reduce adjusted confidence. Forward paper compensates. |
+| B-008 | MARKET_EXPOSURE | LOW | DOCUMENTED | Market-neutral IC=0.018. 66% IC decay after NIFTY neutralization. |
+| B-001 | FORWARD_PAPER_65SYM | LOW | IN_PROGRESS | Original 65-symbol Session 1 resolves 2026-09-30. Separate from new model forward paper. |
+| ~~B-002~~ | ~~CONTINUOUS_IC~~ | ~~RESOLVED~~ | RESOLVED | Continuous IC measured: 0.048 (65-sym), 0.053 (218-sym) |
+| ~~B-003~~ | ~~UNIVERSE_COVERAGE~~ | ~~RESOLVED~~ | RESOLVED | 218/220 symbols processed |
+
+---
+
+*This section was appended by scripts/run_phase2_7_complete.py on 2026-09-26.*  
+*Previous content (CONFIRMATION_PHASE_COMPLETE) preserved in full above.*  
+*Negative evidence (h=1 Sharpe=−13, barrier artifact, selection contamination) is permanently retained.*

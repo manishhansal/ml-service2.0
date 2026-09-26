@@ -3,7 +3,6 @@
   "generated_at": "2026-09-25T18:30:00+00:00",
   "mandate_version": "AlphaForge Confirmation + Anti-Overfitting + Full-Universe Validation",
   "phase": "CONFIRMATION_PHASE_COMPLETE",
-
   "baseline": {
     "baseline_id": "CONFIRMATION_BASELINE_V1",
     "manifest_sha256": "0ba4047d1774a8605efa859cf5e1c1c045831a0c15c36db8f08cac78cf207eae",
@@ -20,7 +19,6 @@
     "timeframe": "1d",
     "execution_model": "next_open"
   },
-
   "protocol": {
     "protocol_id": "CP-V1-20260925",
     "protocol_sha256": "d14dccebd427d6bab541ab10d61c389a9a36b9561b79e8d8c07a57c38c916a52",
@@ -28,22 +26,24 @@
     "primary_metric": "oos_rank_ic_continuous",
     "primary_threshold": 0.02
   },
-
   "universe": {
     "fno_total": 220,
     "valid_ge_252_bars": 217,
     "coverage_pct": 98.6,
     "unavailable": 3,
-    "unavailable_symbols": ["LTIM", "NIFTYFPI", "NIFTYNXT50"],
+    "unavailable_symbols": [
+      "LTIM",
+      "NIFTYFPI",
+      "NIFTYNXT50"
+    ],
     "unavailable_reason": "Provider returns no data for these symbols (index instruments / no OHLCV)",
     "median_bars_per_symbol": 2482,
     "survivorship": "CURRENT_UNIVERSE_ONLY",
     "survivorship_limited": true,
     "true_missing_sessions_across_217": 14382,
     "calendar_fix": "NSE holiday-aware gap detection (EXPECTED_MARKET_CLOSURE vs TRUE_MISSING_SESSION)",
-    "ingestion_run": "2026-09-25T18:12:28Z to 18:18:47Z — 153 new symbols, 0 failed"
+    "ingestion_run": "2026-09-25T18:12:28Z to 18:18:47Z \u2014 153 new symbols, 0 failed"
   },
-
   "ic_measurement": {
     "ic_primary": 0.485896,
     "ic_type": "BARRIER_CLAMPED",
@@ -54,7 +54,7 @@
     "momentum_not_leakage": true,
     "momentum_evidence": {
       "ret1_lag0_corr_label": 0.3244,
-      "ret1_lag1_corr_label": 0.0610,
+      "ret1_lag1_corr_label": 0.061,
       "lag0_to_lag1_ratio": 5.3,
       "top_feature_by_gain": "ret_1",
       "verdict": "5x lag-0/lag-1 decay confirms momentum, not leakage. ret_1 is PIT-safe."
@@ -62,14 +62,16 @@
     "hit_rate": 0.664,
     "breakeven_hit_rate_10bps_symmetric_2pct": 0.525
   },
-
   "statistical_validation": {
     "cluster_robust": {
       "ic_mean": 0.485896,
       "se_date_clustered": 0.004662,
       "tstat_date": 90.4605,
       "pvalue_date": 0.0,
-      "ci_95": [0.41256, 0.430848],
+      "ci_95": [
+        0.41256,
+        0.430848
+      ],
       "n_date_clusters": 1523,
       "n_symbol_clusters": 65
     },
@@ -83,16 +85,38 @@
     },
     "bootstrap_ci": {
       "ic_point": 0.421704,
-      "ci_95": [0.41415, 0.43003],
-      "ci_99": [0.412712, 0.43167],
+      "ci_95": [
+        0.41415,
+        0.43003
+      ],
+      "ci_99": [
+        0.412712,
+        0.43167
+      ],
       "n_reps": 1000,
       "block_length": 5
     },
     "null_tests": {
-      "label_permutation":  {"h0_rejected": true, "observed_percentile": 100.0, "p_one_sided": 0.0},
-      "time_permutation":   {"h0_rejected": true, "observed_percentile": 100.0, "p_one_sided": 0.0},
-      "symbol_permutation": {"h0_rejected": true, "observed_percentile": 100.0, "p_one_sided": 0.0},
-      "block_permutation":  {"h0_rejected": true, "observed_percentile": 100.0, "p_one_sided": 0.0}
+      "label_permutation": {
+        "h0_rejected": true,
+        "observed_percentile": 100.0,
+        "p_one_sided": 0.0
+      },
+      "time_permutation": {
+        "h0_rejected": true,
+        "observed_percentile": 100.0,
+        "p_one_sided": 0.0
+      },
+      "symbol_permutation": {
+        "h0_rejected": true,
+        "observed_percentile": 100.0,
+        "p_one_sided": 0.0
+      },
+      "block_permutation": {
+        "h0_rejected": true,
+        "observed_percentile": 100.0,
+        "p_one_sided": 0.0
+      }
     },
     "dsr": {
       "observed_sharpe": 5.4725,
@@ -104,7 +128,6 @@
     },
     "pbo": 0.0
   },
-
   "robustness": {
     "beta_neutral": {
       "raw_ic": 0.476562,
@@ -125,12 +148,36 @@
       "flag": "NOT_CONCENTRATED"
     },
     "regime_robustness": {
-      "2021": {"ic": 0.505055, "net_sharpe_10bps": 5.6888, "n_obs": 5509},
-      "2022": {"ic": 0.4975,   "net_sharpe_10bps": 5.6959, "n_obs": 25038},
-      "2023": {"ic": 0.498832, "net_sharpe_10bps": 5.4868, "n_obs": 24918},
-      "2024": {"ic": 0.48459,  "net_sharpe_10bps": 5.5133, "n_obs": 25768},
-      "2025": {"ic": 0.482484, "net_sharpe_10bps": 5.4069, "n_obs": 26664},
-      "2026_ytd": {"ic": 0.450884, "net_sharpe_10bps": 5.1369, "n_obs": 19225},
+      "2021": {
+        "ic": 0.505055,
+        "net_sharpe_10bps": 5.6888,
+        "n_obs": 5509
+      },
+      "2022": {
+        "ic": 0.4975,
+        "net_sharpe_10bps": 5.6959,
+        "n_obs": 25038
+      },
+      "2023": {
+        "ic": 0.498832,
+        "net_sharpe_10bps": 5.4868,
+        "n_obs": 24918
+      },
+      "2024": {
+        "ic": 0.48459,
+        "net_sharpe_10bps": 5.5133,
+        "n_obs": 25768
+      },
+      "2025": {
+        "ic": 0.482484,
+        "net_sharpe_10bps": 5.4069,
+        "n_obs": 26664
+      },
+      "2026_ytd": {
+        "ic": 0.450884,
+        "net_sharpe_10bps": 5.1369,
+        "n_obs": 19225
+      },
       "positive_periods": 6,
       "negative_periods": 0,
       "regime_flag": "REGIME_ROBUST"
@@ -141,21 +188,29 @@
       "note": "Moderate cross-correlation. Accounted for by cluster-robust inference."
     }
   },
-
   "economic_validation": {
     "execution_convention": "next_open",
     "primary_cost_bps": 10.0,
     "cost_sensitivity": {
-      "5bps":  {"net_sharpe": 5.9217},
-      "10bps": {"net_sharpe": 5.4725},
-      "15bps": {"net_sharpe": 5.0233},
-      "20bps": {"net_sharpe": 4.5741},
-      "30bps": {"net_sharpe": 3.6757}
+      "5bps": {
+        "net_sharpe": 5.9217
+      },
+      "10bps": {
+        "net_sharpe": 5.4725
+      },
+      "15bps": {
+        "net_sharpe": 5.0233
+      },
+      "20bps": {
+        "net_sharpe": 4.5741
+      },
+      "30bps": {
+        "net_sharpe": 3.6757
+      }
     },
     "survives_all_tested_costs": true,
     "note": "Sharpe is position-weighted (sign(pred-0.5)*return-cost). Returns are barrier-clamped +-2%."
   },
-
   "gates": {
     "primary_ic_continuous_ge_0.02": true,
     "cluster_robust_pvalue_lt_0.05": true,
@@ -167,7 +222,6 @@
     "n_gates_passed": 7,
     "n_gates_total": 7
   },
-
   "sentinelpulse": {
     "reachable": true,
     "authenticated": true,
@@ -180,7 +234,6 @@
     "backfill_job_id": "253a7610-af1c-4c36-a4a4-e281d93f25fe",
     "pit_controls": "IMPLEMENTED"
   },
-
   "forward_paper": {
     "infrastructure_status": "READY",
     "session_1": {
@@ -191,7 +244,11 @@
       "long": 12,
       "short": 53,
       "resolve_after": "2026-09-28T18:30:00+00:00",
-      "highest_conviction": {"symbol": "MCX", "prediction": 0.9318, "direction": 1}
+      "highest_conviction": {
+        "symbol": "MCX",
+        "prediction": 0.9318,
+        "direction": 1
+      }
     },
     "total_signals_in_store": 65,
     "resolved_trades": 0,
@@ -200,25 +257,33 @@
     "no_historical_replay_counted": true,
     "store_path": "artifacts/forward_paper/signals.jsonl"
   },
-
   "research_ledger": {
     "total_experiments": 58,
     "confirmatory": 2,
     "exploratory": 56,
-    "models_tested": ["logistic", "lightgbm", "xgboost", "ridge"],
+    "models_tested": [
+      "logistic",
+      "lightgbm",
+      "xgboost",
+      "ridge"
+    ],
     "path": "artifacts/ledger/RESEARCH_TRIAL_LEDGER.jsonl"
   },
-
   "test_suite": {
-    "new_confirmation_tests": {"passed": 36, "failed": 0},
-    "existing_suite": {"passed": 1304, "failed": 83, "note": "83 are pre-existing, unchanged"},
+    "new_confirmation_tests": {
+      "passed": 36,
+      "failed": 0
+    },
+    "existing_suite": {
+      "passed": 1304,
+      "failed": 83,
+      "note": "83 are pre-existing, unchanged"
+    },
     "new_failures_introduced": 0
   },
-
   "certification_state": "PAPER_ELIGIBLE",
   "shadow_status": "SHADOW_BLOCKED",
   "production_status": "PRODUCTION_BLOCKED",
-
   "blockers": [
     {
       "blocker_id": "B-001",
@@ -261,13 +326,203 @@
       "resolution": "Accepted. Documented in every artifact."
     }
   ],
-
   "mandate_50_answer": {
     "question": "Does the observed signal survive pre-registered, PIT-safe, leakage-free, statistically robust, cross-sectionally adjusted, regime-robust, cost-aware, next-open executable, and genuinely forward-paper validation?",
     "answer": "INCONCLUSIVE",
-    "detail": "Historical statistical evidence is exceptionally strong (IC=0.486, t=90.5, DSR=1.0, all null tests reject, 6/6 years positive). Forward paper Session 1 started 2026-09-25 — awaiting resolution 2026-09-30. Continuous-return IC not yet measured. Honest state: RESEARCH_SIGNAL_CONFIRMED / PAPER_ELIGIBLE.",
+    "detail": "Historical statistical evidence is exceptionally strong (IC=0.486, t=90.5, DSR=1.0, all null tests reject, 6/6 years positive). Forward paper Session 1 started 2026-09-25 \u2014 awaiting resolution 2026-09-30. Continuous-return IC not yet measured. Honest state: RESEARCH_SIGNAL_CONFIRMED / PAPER_ELIGIBLE.",
     "do_not_claim_profitability": true,
     "do_not_promote_to_shadow": true,
     "do_not_trade_capital": true
-  }
+  },
+  "phase2_7_program": {
+    "executed_at": "2026-09-26T17:21:44.520793+00:00",
+    "git_sha": "5c782755560833619eceaedeb768153e425ff2b9",
+    "mandate": "AlphaForge Phase 2-7 Complete Economic Reconciliation + Training",
+    "report_path": "reports/phase2_7/phase2_7_final_report.json",
+    "phase_gates": {
+      "phase_2_reconciliation": "PASS",
+      "phase_3_dataset": "PASS",
+      "phase_4_statistical": "PASS",
+      "phase_5_readiness": "PASS",
+      "phase_6_training": "COMPLETE",
+      "phase_7_oos_validation": "PASS"
+    },
+    "reconciliation_resolution": {
+      "original_ml_ts_pearson_ic": 0.505804,
+      "original_sharpe_reported": 3.8373,
+      "honest_xs_rank_ic_h5_65sym": 0.0691,
+      "honest_xs_rank_ic_h5_218sym": 0.0533,
+      "original_oos_h1_sharpe": -13.32,
+      "honest_portfolio_h5_sharpe": 2.5867,
+      "barrier_fraction": 0.888,
+      "ic_inflation_factor": 10.44,
+      "root_cause_1": "BARRIER_ARTIFACT: 88.8% of returns clamped at \u00b12%; IC=0.500 vs clamped vs IC=0.048 vs continuous = 10x inflation",
+      "root_cause_2": "HORIZON_MISMATCH: independent test used h=1 on h=5 model; reversal effect causes Sharpe=-13 at h=1",
+      "root_cause_3": "SHARPE_INFLATION: 127,122 row-level trades vs 488 portfolio rebalances; row-level Sharpe=3.22 vs portfolio=8.40",
+      "root_cause_4": "TS_IC_vs_XS_IC: pooled Pearson IC=0.506 vs honest per-timestamp XS Rank IC=0.069-0.225",
+      "root_cause_5": "T_STAT_INFLATION: sqrt(5) deflation from h=5 overlapping labels; raw t=180 vs corrected t=80",
+      "verdict": "DISCREPANCY_FULLY_EXPLAINED: no residual contradiction"
+    },
+    "new_model": {
+      "experiment_id": "62e947dd8e9b",
+      "model": "lightgbm",
+      "target": "target_A_h5_continuous_next_open",
+      "target_formula": "(open[T+1+5] - open[T+1]) / open[T+1]",
+      "universe": 218,
+      "features": 45,
+      "dataset_rows": 309628,
+      "canonical_dataset_sha256": "239a84e056d65e7b",
+      "oos_predictions_count": 258337,
+      "oos_predictions_sha256": "ceb9e96b6a91d791"
+    },
+    "training_comparison": {
+      "ridge": {
+        "xs_ic_mean": 0.0195,
+        "net_sharpe": 3.6101,
+        "pbo": 0.4
+      },
+      "logistic": {
+        "xs_ic_mean": 0.0364,
+        "net_sharpe": 4.0196,
+        "pbo": 0.2
+      },
+      "lightgbm": {
+        "xs_ic_mean": 0.0532,
+        "net_sharpe": 5.4774,
+        "pbo": 0.0
+      },
+      "champion": "lightgbm",
+      "selection_basis": "highest validation economic Sharpe, PBO < 0.5",
+      "top_features_by_importance": [
+        "ret_5",
+        "vol_20",
+        "skew_20",
+        "vol_5",
+        "ret_1"
+      ]
+    },
+    "oos_statistical": {
+      "xs_rank_ic_mean": 0.0533,
+      "xs_rank_ic_std": 0.1488,
+      "icir": 0.3579,
+      "positive_fraction": 0.6091,
+      "ts_pearson_ic": 0.6356,
+      "directional_accuracy": 0.5087,
+      "n_eff": 9560,
+      "clustered_t_stat": 6.9622,
+      "clustered_se": 0.006772
+    },
+    "economic_validation": {
+      "primary_cost_scenario": "conservative",
+      "round_trip_bps": 27.65,
+      "portfolio_type": "decile_long_short",
+      "holding_bars": 5,
+      "net_sharpe": 2.5867,
+      "gross_sharpe": 3.3042,
+      "max_drawdown": -0.2241,
+      "net_return_total": 12.7492,
+      "n_trades": 76116,
+      "pnl_provenance": "REAL_HISTORICAL_OHLCV_NEXT_OPEN",
+      "survives_all_cost_scenarios": true,
+      "cost_sensitivity": {
+        "conservative_27.65bps": 2.5867,
+        "moderate_20bps": 2.7852,
+        "aggressive_15bps": 2.9149,
+        "low_10bps": 3.0447,
+        "stress_2x_55bps": 1.8692
+      }
+    },
+    "statistical_validation": {
+      "null_test_h0_rejected": true,
+      "null_test_pct": 100.0,
+      "n_permutations": 200,
+      "dsr": 0.2352,
+      "dsr_significant_at_05": false,
+      "pbo": 0.0,
+      "dsr_note": "DSR=0.24 not significant at 5% \u2014 61 experiments, multiple testing adjustment reduces confidence. Signal is present but DSR alone insufficient for production promotion."
+    },
+    "robustness": {
+      "year_2022": {
+        "xs_rank_ic": 0.0551,
+        "n_obs": 26464
+      },
+      "year_2023": {
+        "xs_rank_ic": 0.0737,
+        "n_obs": 60888
+      },
+      "year_2024": {
+        "xs_rank_ic": 0.0568,
+        "n_obs": 61625
+      },
+      "year_2025": {
+        "xs_rank_ic": 0.0349,
+        "n_obs": 63940
+      },
+      "year_2026": {
+        "xs_rank_ic": 0.0443,
+        "n_obs": 45420
+      },
+      "positive_years": 5,
+      "total_years": 5,
+      "loo_mean_ic": 0.0533,
+      "loo_all_positive": true,
+      "regime_flag": "REGIME_ROBUST",
+      "concentration": "NOT_CONCENTRATED (top1=0.019, top5=0.075)"
+    },
+    "neutralization": {
+      "raw_xs_ic": 0.0533,
+      "market_neutral_ic": 0.0178,
+      "ic_decay_pct": 66.6,
+      "conclusion": "SIGNAL_NOT_PURE_MARKET_BETA: market-neutral IC=0.018 > 0; partial market exposure documented"
+    },
+    "independent_reproduction": {
+      "method": "Completely independent re-implementation from scratch using only predictions + OHLCV",
+      "original_sharpe": 2.5867,
+      "independent_sharpe": 2.5913,
+      "discrepancy": 0.0046,
+      "pass": true,
+      "verdict": "INDEPENDENT_REPRODUCTION_PASS: <0.5 Sharpe discrepancy"
+    },
+    "forward_paper": {
+      "status": "ELIGIBLE_PENDING_EXECUTION",
+      "note": "Phase 7 historical gate passed. Forward paper must now accumulate 20+ real-time signals before promotion.",
+      "session_1_started": "2026-09-25",
+      "minimum_signals_for_validation": 20
+    },
+    "updated_lifecycle_state": "HISTORICAL_EDGE_VERIFIED",
+    "shadow_status": "SHADOW_BLOCKED_PENDING_FORWARD_PAPER",
+    "production_status": "NOT_ELIGIBLE",
+    "do_not_trade_capital": true,
+    "updated_blockers": [
+      {
+        "blocker_id": "B-006",
+        "class": "FORWARD_PAPER",
+        "severity": "CRITICAL",
+        "status": "OPEN",
+        "description": "Forward paper not started on new model (exp 62e947dd8e9b). Historical gate passed. Must accumulate 20 resolved signals before shadow eligibility."
+      },
+      {
+        "blocker_id": "B-007",
+        "class": "DSR_MARGINAL",
+        "severity": "MEDIUM",
+        "status": "DOCUMENTED",
+        "description": "DSR=0.2352 (below 1.0 significance threshold). 61 prior experiments reduce adjusted confidence. Exploratory phase required pre-registration to compensate."
+      },
+      {
+        "blocker_id": "B-008",
+        "class": "MARKET_NEUTRALITY",
+        "severity": "LOW",
+        "status": "DOCUMENTED",
+        "description": "Market-neutral IC=0.018 (66% decay from raw 0.053). Partial market beta exposure. Not disqualifying but must be monitored."
+      }
+    ],
+    "resolved_blockers": [
+      "B-002: Continuous-return IC now measured: 0.0479 (65-sym), 0.0533 (218-sym OOS)",
+      "B-003: Universe 217/220 coverage already resolved",
+      "HORIZON_MISMATCH: h=1 vs h=5 discrepancy fully explained and resolved in new model"
+    ]
+  },
+  "updated_certification_state": "HISTORICAL_EDGE_VERIFIED",
+  "last_updated": "2026-09-26T17:21:44.521110+00:00",
+  "update_note": "Updated by Phase 2-7 complete program (2026-09-26). Original CONFIRMATION_PHASE_COMPLETE evidence preserved. New model (exp 62e947dd8e9b) on corrected continuous target passes all 12 Phase 7 economic gates. DSR not significant. Forward paper required."
 }
