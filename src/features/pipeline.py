@@ -561,6 +561,18 @@ class FeaturePipeline:
             required = {"open", "high", "low", "close", "volume"}
             if not required.issubset(set(ohlcv_df.columns)):
                 return {}
+            # MEDIUM fix: re-check row count AFTER DataFrame construction — the
+            # raw list length may exceed 200 but NaN/duplicate rows could reduce
+            # the usable count below the minimum needed by Alpha158 (200 bars).
+            ohlcv_df = ohlcv_df.dropna(subset=list(required))
+            if len(ohlcv_df) < 200:
+                logger.warning(
+                    "alpha158_insufficient_valid_bars_after_parse",
+                    symbol=symbol,
+                    bars_valid=len(ohlcv_df),
+                    bars_raw=len(hist),
+                )
+                return {}
             return self._qlib.compute_alpha158(ohlcv_df, symbol)
         except Exception as exc:
             logger.warning(
