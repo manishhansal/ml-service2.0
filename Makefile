@@ -16,7 +16,8 @@
 
 .PHONY: setup test test-unit test-pit test-tdd lint format typecheck ci clean \
         protos serve up down restart rebuild logs logs-ml logs-redis \
-        status-docker shell docker-test readiness help
+        status-docker shell docker-test readiness ingest-universe ingest-universe-resume \
+        universe-coverage forward-paper forward-paper-dry forward-paper-audit help
 
 # ── Detect uv / pip ───────────────────────────────────────────────────────────
 UV := $(shell command -v uv 2>/dev/null)
@@ -170,6 +171,46 @@ readiness:  ## Run the training-readiness gate against live services
 		-v $$(pwd)/scripts:/app/scripts \
 		ml-service2:test-hardened \
 		python3 scripts/run_readiness_gate.py
+
+ingest-universe:  ## Run overnight broad-universe ingestion (155 remaining F&O symbols, resumable)
+	@echo "▶  Starting broad-universe ingestion inside Docker (mandate §2)..."
+	@echo "   Rate: 2 req/s, 2 concurrent, 2s inter-symbol sleep, 70s circuit-reset wait"
+	@echo "   Resumable: already-ingested symbols are skipped (checkpoint: data/1d/_checkpoint.json)"
+	@echo "   Expected duration: ~10 min at 2 req/s for 155 remaining symbols"
+	docker run --rm \
+		--env-file .env \
+		-e DOCKER_IMAGE_DIGEST=dev \
+		--add-host=host.docker.internal:host-gateway \
+		-e DATA_SERVICE_2_URL=http://host.docker.internal:8200 \
+		-v $$(pwd)/scripts:/app/scripts \
+		-v $$(pwd)/src:/app/src \
+		-v $$(pwd)/data:/app/data \
+		ml-service2:test-hardened \
+		python3 scripts/ingest_broad_universe.py --interval 1d --max-symbols 220
+
+ingest-universe-resume:  ## Resume an interrupted ingestion (same as ingest-universe, checkpoint handled automatically)
+	@echo "▶  Resuming broad-universe ingestion from checkpoint..."
+	@if [ -f data/1d/_checkpoint.json ]; then \
+		echo "   Checkpoint found — skipping already-ingested symbols."; \
+		python3 -c "import json; cp=json.load(open('data/1d/_checkpoint.json')); done=len([k for k in cp.get('completed',{}) if k.startswith('1d:')]); print('   Already ingested: ' + str(done) + ' / 220 symbols')"; \
+	else \
+		echo "   No checkpoint found — starting fresh."; \
+	fi
+	$(MAKE) ingest-universe
+
+universe-coverage:  ## Report coverage of the 220-symbol F&O universe from cached parquet files
+	PYTHONPATH=. python3 scripts/run_universe_coverage.py
+
+forward-paper:  ## Run one forward-paper session (generates signals for all 65 baseline symbols)
+	@echo "▶  Running forward-paper session — CONFIRMATION_BASELINE_V1"
+	@echo "   Signals written to artifacts/forward_paper/signals.jsonl (append-only)"
+	PYTHONPATH=. python3 scripts/run_forward_paper_session.py
+
+forward-paper-dry:  ## Dry-run forward-paper session (compute signals, do NOT persist)
+	PYTHONPATH=. python3 scripts/run_forward_paper_session.py --dry-run
+
+forward-paper-audit:  ## Daily forward-paper audit (shows status, anomalies, resolve-due count)
+	PYTHONPATH=. python3 scripts/run_forward_paper_audit.py
 
 # ── Clean ─────────────────────────────────────────────────────────────────────
 clean:  ## Remove build artefacts, caches, and coverage files

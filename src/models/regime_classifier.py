@@ -89,6 +89,7 @@ class RegimeClassifier:
         self._last_confidence: float = 0.0
         self._explainer: ModelExplainer = ModelExplainer()
         self.feature_names: list[str] = REGIME_FEATURE_NAMES
+        self._normalizer: Any | None = None   # FeatureNormalizer | None (CRITICAL-1)
 
         if model_path is not None:
             self._load_from_path(model_path)
@@ -215,12 +216,30 @@ class RegimeClassifier:
     def _model_predict(
         self, features: dict[str, float]
     ) -> tuple[MarketRegime, float, dict[str, float]]:
-        """XGBoost-based prediction returning (regime, confidence, probabilities)."""
+        """XGBoost-based prediction returning (regime, confidence, probabilities).
+
+        CRITICAL-1 fix: applies the fitted FeatureNormalizer (if present in the
+        artifact) before calling model.predict_proba so that inference features
+        are on the same scale as training features.
+        """
         import numpy as np  # type: ignore[import-untyped]
 
         feature_vector = np.array(
             [[features.get(f, 0.0) for f in self.feature_names]]
         )
+
+        # Apply normalizer when available (CRITICAL-1 fix)
+        if getattr(self, "_normalizer", None) is not None:
+            try:
+                import pandas as pd
+                feat_df = pd.DataFrame(feature_vector, columns=self.feature_names)
+                feature_vector = self._normalizer.transform(feat_df).to_numpy(dtype=float)
+            except Exception as exc:
+                logger.warning(
+                    "regime_classifier_normalizer_transform_failed",
+                    error=str(exc),
+                )
+
         probas = self._model.predict_proba(feature_vector)[0]
         class_idx = int(np.argmax(probas))
         confidence = float(probas[class_idx])
@@ -306,11 +325,52 @@ class RegimeClassifier:
             )
 
     def _load_model_file(self, path: Path, version: str) -> None:
-        """Deserialise a joblib/pickle artifact and register it with the explainer."""
-        import joblib  # type: ignore[import-untyped]
+        """Deserialise a joblib/pickle artifact and register it with the explainer.
 
-        model = joblib.load(path)
+        CRITICAL-1 fix: when the artifact is a dict payload (produced by
+        TrainingOrchestrator._fit_and_register), extract the normalizer state
+        and hydrate a FeatureNormalizer for use at inference time.
+        """
+        import joblib  # type: ignore[import-untyped]
+        import pickle
+
+        # Try pickle first (new-style dict payload), then joblib (legacy).
+        try:
+            with path.open("rb") as fh:
+                raw = pickle.load(fh)
+        except Exception:
+            raw = joblib.load(path)
+
+        if isinstance(raw, dict):
+            # New-style artifact payload from TrainingOrchestrator
+            model   = raw["estimator"]
+            norm_st = raw.get("normalizer_state")
+            fn_list = raw.get("feature_names")
+            if fn_list:
+                self.feature_names = fn_list
+        else:
+            # Legacy joblib artifact (no normalizer)
+            model   = raw
+            norm_st = None
+
         self._model = model
+
+        # Hydrate normalizer if present (CRITICAL-1 fix)
+        self._normalizer = None
+        if norm_st:
+            try:
+                from src.features.normalizer import FeatureNormalizer
+                self._normalizer = FeatureNormalizer.from_dict(norm_st)
+                logger.info(
+                    "regime_classifier_normalizer_loaded",
+                    n_features=len(norm_st.get("specs", {})),
+                )
+            except Exception as exc:
+                logger.warning(
+                    "regime_classifier_normalizer_load_failed",
+                    error=str(exc),
+                )
+
         self._model_version = version
 
         # Register the model with the SHAP explainer so subsequent calls
@@ -325,4 +385,5 @@ class RegimeClassifier:
             "regime_classifier_model_loaded",
             version=version,
             path=str(path),
+            normalizer_present=self._normalizer is not None,
         )

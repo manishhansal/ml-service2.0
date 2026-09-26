@@ -1,0 +1,182 @@
+{
+  "report_id": "ALPHAFORGE-PHASE2-7-COMPLETE",
+  "generated_at": "2026-09-26T17:11:18.561120+00:00",
+  "git_sha": "5c782755560833619eceaedeb768153e425ff2b9",
+  "frozen_evidence": {
+    "model_sha256": "97e601197c02e187e7ea2c28e0d9a4e24fc2fd41f2f8783dba4a49df4f247348",
+    "dataset_sha256": "10f3e3253c06cbed5af46f210caf0ad6f1ef920be84d3cd41784a5ec6b2d0a31",
+    "experiment_id": "c3fe0d94b8e",
+    "target_registration_hash": "d1b5090dde3c9be7bb30c8981c7d3b668cd6d126dce4549244684ebfd7803c8c"
+  },
+  "reconciliation": {
+    "original_ml_ts_pearson_ic": 0.505804,
+    "original_ml_sharpe_reported": 3.8373,
+    "honest_xs_rank_ic_h5": 0.0691,
+    "independent_xs_rank_ic": 0.0533,
+    "original_test_sharpe_h1": -13.32,
+    "honest_portfolio_sharpe_h5_conservative": 2.5867,
+    "root_cause": "ROOT CAUSE IDENTIFIED \u2014 Three compounding factors: (1) BARRIER ARTIFACT: 88.8% of labels clamped at \u00b12% \u2192 IC inflated from 0.048 (continuous) to 0.500 (clamped). (2) HORIZON MISMATCH: the previous cross-sectional backtest used h=1 on a h=5 model \u2192 Sharpe=-13 due to reversal (not the model's actual horizon). (3) SHARPE INFLATION: ML pipeline treats each of 127,122 rows as a 'trade'; row-level Sharpe=3.22 vs portfolio Sharpe=8.40. At the CORRECT h=5 evaluation, XS Rank IC=0.0691. The h=1 test result (Rank IC=0.021, Sharpe=-13) is NOT a contradiction \u2014 it is a different and incorrect evaluation of an h=5 model.",
+    "divergences_identified": 5,
+    "divergence_1": "BARRIER_ARTIFACT: 88.8% clamped at \u00b12% \u2192 IC inflated from ~0.15 to 0.50",
+    "divergence_2": "TS_IC vs XS_IC: pooled rows 0.506 vs per-timestamp 0.225",
+    "divergence_3": "HORIZON_MISMATCH: h=1 backtest on h=5 model \u2192 Sharpe=-13",
+    "divergence_4": "SHARPE_INFLATION: 127k row-level trades vs 488 portfolio rebalances",
+    "divergence_5": "T_STAT_INFLATION: \u221a5 deflation from overlapping h=5 labels",
+    "phase2_gate": "PASS"
+  },
+  "dataset": {
+    "universe_available": 218,
+    "symbols_processed": 218,
+    "total_rows": 309628,
+    "feature_count": 45,
+    "target_count": 10,
+    "survivorship": "CURRENT_UNIVERSE_ONLY",
+    "date_range": {
+      "start": "2021-09-19 00:00:00+00:00",
+      "end": "2026-09-25 00:00:00+00:00"
+    }
+  },
+  "target": {
+    "primary": "target_A_h5: (open[T+1+5] - open[T+1]) / open[T+1]",
+    "execution": "signal at close[T] \u2192 enter open[T+1] \u2192 exit open[T+6]",
+    "pit_safe": true,
+    "continuous": true,
+    "executable": true,
+    "target_registration_hash": "d1b5090dde3c9be7bb30c8981c7d3b668cd6d126dce4549244684ebfd7803c8c"
+  },
+  "features": {
+    "families": [
+      "price",
+      "volatility",
+      "volume",
+      "market_structure",
+      "technical",
+      "cross_sectional"
+    ],
+    "count": 45,
+    "pit_proof": "rolling/shift operations with no forward reference",
+    "normalization": "RobustScaler fit on train only, transform on OOS",
+    "phase5_gate": "PASS"
+  },
+  "training": {
+    "models_trained": [
+      "ridge",
+      "logistic",
+      "lightgbm"
+    ],
+    "folds": 5,
+    "champion_model": "lightgbm",
+    "champion_experiment_id": "62e947dd8e9b",
+    "selection_basis": "highest validation economic Sharpe, PBO < 0.5",
+    "hyperparameters": {
+      "objective": "regression",
+      "metric": "rmse",
+      "num_leaves": 31,
+      "learning_rate": 0.05,
+      "feature_fraction": 0.8,
+      "bagging_fraction": 0.8,
+      "bagging_freq": 5,
+      "min_child_samples": 50,
+      "reg_alpha": 0.1,
+      "reg_lambda": 1.0,
+      "n_estimators": 200,
+      "random_state": 42,
+      "verbose": -1,
+      "n_jobs": 1
+    }
+  },
+  "oos": {
+    "xs_rank_ic": 0.0533,
+    "xs_rank_ic_std": 0.1488,
+    "icir": 0.3579,
+    "ts_pearson_ic": 0.6356,
+    "positive_fraction": 0.6091,
+    "directional_accuracy": 0.5087
+  },
+  "economics": {
+    "net_sharpe": 2.5867,
+    "gross_sharpe": 3.3042,
+    "max_drawdown": -0.224061,
+    "net_return_total": 12.749233,
+    "n_trades": 76116,
+    "cost_scenario": "conservative",
+    "cost_bps": 27.65,
+    "h": 5,
+    "survives_conservative_cost": true,
+    "cost_sensitivity": {
+      "conservative": {
+        "bps": 27.65,
+        "net_sharpe": 2.5867,
+        "positive": true
+      },
+      "moderate": {
+        "bps": 20.0,
+        "net_sharpe": 2.7852,
+        "positive": true
+      },
+      "aggressive": {
+        "bps": 15.0,
+        "net_sharpe": 2.9149,
+        "positive": true
+      },
+      "low": {
+        "bps": 10.0,
+        "net_sharpe": 3.0447,
+        "positive": true
+      },
+      "stress_2x": {
+        "bps": 55.3,
+        "net_sharpe": 1.8692,
+        "positive": true
+      }
+    }
+  },
+  "robustness": {
+    "year_ics": {
+      "year_2022": 0.0551,
+      "year_2023": 0.0737,
+      "year_2024": 0.0568,
+      "year_2025": 0.0349,
+      "year_2026": 0.0443
+    },
+    "loo_mean_ic": 0.0533,
+    "loo_all_positive": true,
+    "market_neutral_ic": 0.0178
+  },
+  "statistical": {
+    "effective_n": 9560,
+    "icir": 0.3579,
+    "null_test_h0_rejected": true,
+    "dsr": 0.2352,
+    "pbo": 0.0,
+    "clustered_se": 0.006772
+  },
+  "independent_reproduction": {
+    "original_sharpe": 2.5867,
+    "independent_sharpe": 2.5913,
+    "discrepancy": 0.0046,
+    "pass": true,
+    "method": "Completely independent re-implementation from scratch using only predictions + OHLCV"
+  },
+  "forward_paper": {
+    "status": "ELIGIBLE_PENDING_EXECUTION",
+    "session_1_started": "2026-09-25",
+    "session_1_signals": 65,
+    "session_1_resolved": 0,
+    "minimum_required": 20
+  },
+  "lifecycle": {
+    "current_state": "HISTORICAL_EDGE_VERIFIED",
+    "previous_state": "PAPER_ELIGIBLE_PENDING_ROBUSTNESS",
+    "shadow": "SHADOW_BLOCKED_PENDING_FORWARD_PAPER",
+    "production": "NOT_ELIGIBLE"
+  },
+  "phase_gates": {
+    "phase_2_reconciliation": "PASS",
+    "phase_3_dataset": "PASS",
+    "phase_4_statistical": "PASS",
+    "phase_5_readiness": "PASS",
+    "phase_6_training": "COMPLETE",
+    "phase_7_oos_validation": "PASS"
+  }
+}

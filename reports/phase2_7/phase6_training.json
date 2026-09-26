@@ -1,0 +1,190 @@
+{
+  "phase": "PHASE_6_TRAINING",
+  "generated_at": "2026-09-26T17:08:33.127483+00:00",
+  "random_seed": 42,
+  "model_results": {
+    "ridge": {
+      "model": "ridge",
+      "xs_ic_mean": 0.0195,
+      "xs_ic_worst": 0.0009,
+      "xs_ic_std": 0.0125,
+      "net_sharpe_mean": 3.6101,
+      "pbo": 0.4,
+      "positive_fraction": 1.0
+    },
+    "logistic": {
+      "model": "logistic",
+      "xs_ic_mean": 0.0364,
+      "xs_ic_worst": 0.0237,
+      "xs_ic_std": 0.0081,
+      "net_sharpe_mean": 4.0196,
+      "pbo": 0.2,
+      "positive_fraction": 1.0
+    },
+    "lightgbm": {
+      "model": "lightgbm",
+      "hyperparameters": {
+        "objective": "regression",
+        "metric": "rmse",
+        "num_leaves": 31,
+        "learning_rate": 0.05,
+        "feature_fraction": 0.8,
+        "bagging_fraction": 0.8,
+        "bagging_freq": 5,
+        "min_child_samples": 50,
+        "reg_alpha": 0.1,
+        "reg_lambda": 1.0,
+        "n_estimators": 200,
+        "random_state": 42,
+        "verbose": -1,
+        "n_jobs": 1
+      },
+      "xs_ic_mean": 0.0532,
+      "xs_ic_worst": 0.0338,
+      "xs_ic_std": 0.0144,
+      "net_sharpe_mean": 5.4774,
+      "pbo": 0.0,
+      "positive_fraction": 1.0,
+      "top_features": [
+        [
+          "ret_5",
+          145.0
+        ],
+        [
+          "vol_20",
+          122.8
+        ],
+        [
+          "skew_20",
+          94.0
+        ],
+        [
+          "vol_5",
+          90.8
+        ],
+        [
+          "ret_1",
+          87.4
+        ],
+        [
+          "ret_2",
+          82.6
+        ],
+        [
+          "vol_accel",
+          78.2
+        ],
+        [
+          "ema_10_50",
+          74.0
+        ],
+        [
+          "macd_hist",
+          68.8
+        ],
+        [
+          "adx_14",
+          64.0
+        ],
+        [
+          "vol_10",
+          62.8
+        ],
+        [
+          "dist_from_high_20d",
+          62.8
+        ],
+        [
+          "gap_pct",
+          60.4
+        ],
+        [
+          "ret_3",
+          58.8
+        ],
+        [
+          "atr_14_pct",
+          58.8
+        ]
+      ]
+    }
+  },
+  "champion": {
+    "model": "lightgbm",
+    "experiment_id": "62e947dd8e9b",
+    "xs_ic_mean": 0.0532,
+    "xs_ic_worst": 0.0338,
+    "net_sharpe_mean": 5.4774,
+    "pbo": 0.0,
+    "positive_fraction": 1.0,
+    "oos_predictions_path": "reports/phase2_7/champion_lightgbm_oos_predictions.parquet",
+    "oos_predictions_sha256": "ceb9e96b6a91d791c8460e0aadea5fadb5dec74259ca076ba7c52556e5f98f02",
+    "oos_predictions_count": 258337
+  },
+  "top_features": [
+    [
+      "ret_5",
+      145.0
+    ],
+    [
+      "vol_20",
+      122.8
+    ],
+    [
+      "skew_20",
+      94.0
+    ],
+    [
+      "vol_5",
+      90.8
+    ],
+    [
+      "ret_1",
+      87.4
+    ],
+    [
+      "ret_2",
+      82.6
+    ],
+    [
+      "vol_accel",
+      78.2
+    ],
+    [
+      "ema_10_50",
+      74.0
+    ],
+    [
+      "macd_hist",
+      68.8
+    ],
+    [
+      "adx_14",
+      64.0
+    ],
+    [
+      "vol_10",
+      62.8
+    ],
+    [
+      "dist_from_high_20d",
+      62.8
+    ],
+    [
+      "gap_pct",
+      60.4
+    ],
+    [
+      "ret_3",
+      58.8
+    ],
+    [
+      "atr_14_pct",
+      58.8
+    ]
+  ],
+  "feature_count": 45,
+  "target": "target_A_h5",
+  "n_folds": 5,
+  "training_gate_was_open": true
+}
