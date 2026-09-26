@@ -14,6 +14,7 @@ Requirements: Phase Q, Phase 47, Phase 48, Phase 67, 12_ONLINE_LEARNING_SPEC.
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -132,16 +133,44 @@ class FeedbackStore:
 
     Every FeedbackRecord is written once and never modified. Reads reconstruct
     the full outcome history for a signal / symbol.
+
+    HIGH-5 fix: ``append()`` is now guarded by an ``asyncio.Lock`` so concurrent
+    coroutines resolving trades simultaneously cannot interleave partial writes.
+    A synchronous ``_lock_sync`` (``threading.Lock``) protects ``all_records()``
+    when called from non-async contexts (e.g. tests).
     """
 
     def __init__(self, path: Path) -> None:
         self._path = Path(path)
         self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._async_lock: asyncio.Lock | None = None
+        import threading
+        self._sync_lock = threading.Lock()
+
+    def _get_async_lock(self) -> asyncio.Lock:
+        """Lazily create asyncio.Lock bound to the running event loop."""
+        if self._async_lock is None:
+            self._async_lock = asyncio.Lock()
+        return self._async_lock
+
+    async def async_append(self, record: FeedbackRecord) -> None:
+        """Coroutine-safe append — use this from async contexts."""
+        line = record.model_dump_json()
+        async with self._get_async_lock():
+            with self._path.open("a", encoding="utf-8") as fh:
+                fh.write(line + "\n")
+        logger.info("feedback_recorded", signal_id=record.signal_id, symbol=record.symbol,
+                    exit_reason=record.exit_reason)
 
     def append(self, record: FeedbackRecord) -> None:
+        """Synchronous append — safe for non-async callers (tests, scripts).
+
+        For async callers use ``async_append()`` to avoid blocking the event loop.
+        """
         line = record.model_dump_json()
-        with self._path.open("a", encoding="utf-8") as fh:
-            fh.write(line + "\n")
+        with self._sync_lock:
+            with self._path.open("a", encoding="utf-8") as fh:
+                fh.write(line + "\n")
         logger.info("feedback_recorded", signal_id=record.signal_id, symbol=record.symbol,
                     exit_reason=record.exit_reason)
 

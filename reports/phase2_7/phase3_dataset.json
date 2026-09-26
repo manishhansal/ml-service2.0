@@ -1,0 +1,75 @@
+{
+  "phase": "PHASE_3_DATASET",
+  "generated_at": "2026-09-26T17:04:58.438406+00:00",
+  "gate_result": "PASS",
+  "target_registration": {
+    "registration_hash": "d1b5090dde3c9be7bb30c8981c7d3b668cd6d126dce4549244684ebfd7803c8c",
+    "registered_at": "2026-09-26T17:04:55.675274+00:00",
+    "primary_target": "target_A_h5",
+    "primary_execution": "enter open[T+1], exit open[T+6], signal at close[T]",
+    "secondary_targets": [
+      "target_A_h1",
+      "target_A_h2",
+      "target_A_h3",
+      "target_A_h10",
+      "target_E_excess_h5",
+      "target_G_beta_neutral_h5",
+      "target_B_close_to_open",
+      "target_C_open_to_open_h1"
+    ],
+    "primary_cost_scenario": "conservative_27.65bps",
+    "note": "Targets pre-registered BEFORE any OOS evaluation."
+  },
+  "pit_checks": {
+    "future_prices_in_features": false,
+    "target_after_signal": true,
+    "open_available_at_signal": true,
+    "normalization_fit_period": "per_symbol_rolling",
+    "leakage_risk": "LOW"
+  },
+  "universe": {
+    "target_fno_universe": 220,
+    "ohlcv_files_available": 218,
+    "symbols_processed": 218,
+    "symbols_failed": 0,
+    "survivorship": "CURRENT_UNIVERSE_ONLY",
+    "survivorship_note": "Universe is the current live F&O set. Historical constituent membership not reconstructed. All results are SURVIVORSHIP_LIMITED."
+  },
+  "data_quality": {
+    "total_rows": 309628,
+    "feature_columns": 45,
+    "target_columns": 10,
+    "feature_nan_fraction": 0.0,
+    "target_nan_by_col": {
+      "target_A_h1": 0.001,
+      "target_B_close_to_open": 0.001,
+      "target_C_open_to_open_h1": 0.001,
+      "target_A_h2": 0.002,
+      "target_A_h3": 0.003,
+      "target_A_h5": 0.004,
+      "target_A_h10": 0.008,
+      "target_E_excess_h1": 0.001,
+      "target_E_excess_h5": 0.004,
+      "target_G_beta_neutral_h5": 0.046
+    },
+    "date_range": {
+      "start": "2021-09-19 00:00:00+00:00",
+      "end": "2026-09-25 00:00:00+00:00"
+    }
+  },
+  "canonical_dataset_path": "reports/phase2_7/canonical_dataset.parquet",
+  "canonical_dataset_sha256": "239a84e056d65e7bc955a8fe2f365f6f9249c70ae19e9ed9f9d36dc295ecc637",
+  "feature_count": 45,
+  "target_count": 10,
+  "gate_checks": {
+    "canonical_target_defined": true,
+    "target_executable": true,
+    "dataset_pit_safe": true,
+    "universe_synchronized": true,
+    "provider_provenance_valid": true,
+    "data_quality_pass": true,
+    "missingness_understood": true,
+    "survivorship_documented": true,
+    "dataset_reproducible": true
+  }
+}

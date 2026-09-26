@@ -106,3 +106,6 @@ qlib_data/
 # ── Training Data Cache ───────────────────────────────────────────────────────
 # Local parquet cache written by the Docker training pipeline — not committed
 data/
+
+# ── Phase 2-7 large binary artifacts (committed as JSON reports instead) ──────
+reports/phase2_7/*.parquet
