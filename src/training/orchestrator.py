@@ -151,13 +151,53 @@ class TrainingOrchestrator:
         candidate_names = candidate_names or ["logistic", "lightgbm", "xgboost"]
 
         frame = self._builder.load_frame(dataset_id)
-        meta = self._builder.load_metadata(dataset_id)
+        meta  = self._builder.load_metadata(dataset_id)
         feature_cols = self._builder._ff.FEATURE_NAMES
 
-        X = frame[feature_cols].to_numpy(dtype=float)
+        # Load RAW (un-normalized) features.  Normalization is applied per-fold
+        # inside WalkForwardValidator and CPCV (CRITICAL-2 fix).
+        # The DatasetBuilder stores features already normalized in the parquet
+        # when normalize=True.  To get raw data here we must re-read and skip
+        # normalization.  If normalization_applied=True in meta, we bypass the
+        # stored normalized frame by building features from scratch.
+        # The cleaner architectural path: DatasetBuilder stores raw features;
+        # normalization is always per-fold in the training loop.
+        # Backward-compat: if meta.normalization_applied is False the frame is raw.
+        if getattr(meta, "normalization_applied", False) and meta.normalizer_state:
+            # Re-build raw feature frame without normalization for per-fold use.
+            X_raw = frame[feature_cols].to_numpy(dtype=float)
+            # The stored parquet was already normalized — we cannot un-normalize
+            # without the original data. Use the normalized data as-is for the
+            # validation loop (per-fold re-normalization would double-normalize).
+            # Flag this so the operator knows to rebuild the dataset with
+            # normalize=False for clean per-fold normalization in future runs.
+            logger.warning(
+                "orchestrator_using_prenormalized_dataset",
+                dataset_id=dataset_id,
+                note=(
+                    "Dataset was built with normalize=True. Per-fold normalization "
+                    "is disabled for this run to avoid double-normalization. "
+                    "Rebuild the dataset with DatasetBuilder(normalize=False) "
+                    "for clean per-fold normalization."
+                ),
+            )
+            normalizer_factory = None  # do NOT re-normalize
+        else:
+            # Raw dataset — enable per-fold normalization
+            from src.features.normalizer import FeatureNormalizer
+            normalizer_factory = lambda: FeatureNormalizer(winsor_pct=(1.0, 99.0))  # noqa: E731
+            X_raw = frame[feature_cols].to_numpy(dtype=float)
+
+        X       = X_raw
         y_label = frame["label"].to_numpy(dtype=float)
         returns = frame["realized_return"].fillna(0.0).to_numpy(dtype=float)
-        ts = pd.DatetimeIndex(frame.index)
+        ts      = pd.DatetimeIndex(frame.index)
+        # NEW BUG FIX: frame is a DataFrame — use column membership check, not .get()
+        symbols = (
+            frame["symbol"].to_numpy()
+            if "symbol" in frame.columns
+            else np.array(["UNKNOWN"] * len(frame))
+        )
 
         report = TrainingReport(
             model_name=model_name,
@@ -165,13 +205,17 @@ class TrainingOrchestrator:
             dataset_hash=meta.dataset_hash,
         )
 
-        wf = WalkForwardValidator(
+        wf   = WalkForwardValidator(
             n_windows=self.n_windows, embargo_days=self.embargo_days, cost_bps=self.cost_bps
         )
         cpcv = CombinatorialPurgedCV(n_groups=6, k_test_groups=2, embargo=self.embargo_days)
 
         for name in candidate_names:
-            cand = self._evaluate_candidate(name, X, y_label, returns, ts, wf, cpcv)
+            cand = self._evaluate_candidate(
+                name, X, y_label, returns, ts, wf, cpcv,
+                normalizer_factory=normalizer_factory,
+                symbols=symbols,
+            )
             if cand is not None:
                 report.candidates.append(cand)
 
@@ -180,19 +224,20 @@ class TrainingOrchestrator:
             return report
 
         champion = self._select_champion(report.candidates)
-        report.champion = champion.name
-        report.champion_ic_mean = champion.wf_ic_mean
-        report.champion_pbo = champion.cpcv_pbo
+        report.champion           = champion.name
+        report.champion_ic_mean   = champion.wf_ic_mean
+        report.champion_pbo       = champion.cpcv_pbo
         report.champion_net_sharpe = champion.wf_net_sharpe
-        report.champion_ece = champion.calibration_ece
-        report.champion_brier = champion.calibration_brier
+        report.champion_ece       = champion.calibration_ece
+        report.champion_brier     = champion.calibration_brier
 
         # Acceptance gates (documented thresholds — NOT tuned to pass).
         report.passed_acceptance, report.rejection_reason = self._acceptance(champion)
 
         if register_champion and report.passed_acceptance:
             version = self._fit_and_register(
-                model_name, champion.name, X, y_label, returns, ts, meta, champion
+                model_name, champion.name, X, y_label, returns, ts, meta,
+                champion, normalizer_factory=normalizer_factory,
             )
             report.champion_version = version
 
@@ -209,11 +254,24 @@ class TrainingOrchestrator:
     # ── Candidate evaluation ──────────────────────────────────────────────
 
     def _evaluate_candidate(
-        self, name, X, y_label, returns, ts, wf, cpcv
+        self, name, X, y_label, returns, ts, wf, cpcv,
+        normalizer_factory=None,
+        symbols=None,
     ) -> CandidateResult | None:
         try:
-            wf_report = wf.validate(X, y_label, returns, ts, lambda: build_estimator(name))
-            cpcv_report = cpcv.run(X, y_label, returns, ts, lambda: build_estimator(name))
+            wf_report = wf.validate(
+                X, y_label, returns, ts,
+                lambda: build_estimator(name),
+                normalizer_factory=normalizer_factory,
+                symbols=symbols,
+                feature_names=list(self._builder._ff.FEATURE_NAMES),
+            )
+            cpcv_report = cpcv.run(
+                X, y_label, returns, ts,
+                lambda: build_estimator(name),
+                normalizer_factory=normalizer_factory,
+                feature_names=list(self._builder._ff.FEATURE_NAMES),
+            )
         except Exception as exc:
             logger.warning("candidate_eval_failed", name=name, error=str(exc))
             return None
@@ -221,7 +279,7 @@ class TrainingOrchestrator:
         cand = CandidateResult(
             name=name,
             is_baseline=name in BASELINE_MODELS,
-            wf_ic_mean=wf_report.ic_mean,
+            wf_ic_mean=wf_report.ic_mean,            # now Spearman rank IC
             wf_ic_worst=wf_report.ic_worst,
             wf_positive_fraction=wf_report.positive_ic_fraction,
             wf_net_sharpe=wf_report.net_sharpe_mean,
@@ -231,11 +289,11 @@ class TrainingOrchestrator:
 
         # Fit calibrator on a held-out OOS tail (last 20%) — never the selection set.
         cand.calibration_ece, cand.calibration_fitted, cand.calibration_brier = (
-            self._fit_calibration_probe(name, X, y_label)
+            self._fit_calibration_probe(name, X, y_label, normalizer_factory)
         )
         return cand
 
-    def _fit_calibration_probe(self, name, X, y_label) -> tuple[float, bool, float]:
+    def _fit_calibration_probe(self, name, X, y_label, normalizer_factory=None) -> tuple[float, bool, float]:
         """Return (ece, fitted, brier) computed on a held-out OOS tail."""
         from src.meta.calibration_eval import evaluate_calibration
 
@@ -244,10 +302,20 @@ class TrainingOrchestrator:
         if split < 30 or n - split < 20:
             return 1.0, False, 1.0
         try:
-            model = build_estimator(name).fit(X[:split], y_label[:split])
-            oos_scores = model.predict(X[split:])
+            X_tr, X_te = X[:split], X[split:]
+            if normalizer_factory is not None:
+                norm = normalizer_factory()
+                feat_names = self._builder._ff.FEATURE_NAMES
+                X_tr_df = pd.DataFrame(X_tr, columns=feat_names)
+                norm.fit(X_tr_df)
+                X_tr = norm.transform(X_tr_df).to_numpy(dtype=float)
+                X_te = norm.transform(
+                    pd.DataFrame(X_te, columns=feat_names)
+                ).to_numpy(dtype=float)
+
+            model = build_estimator(name).fit(X_tr, y_label[:split])
+            oos_scores = model.predict(X_te)
             oos_labels = (y_label[split:] > 0).astype(float)
-            # Calibrate then measure calibrated ECE/Brier (post-calibration quality).
             cal = CalibrationLayer()
             fitted = cal.fit(name, oos_scores.tolist(), oos_labels.tolist())
             calibrated = np.array([cal.calibrate(name, float(s)) for s in oos_scores])
@@ -295,37 +363,83 @@ class TrainingOrchestrator:
     # ── Fit + register ─────────────────────────────────────────────────────
 
     def _fit_and_register(
-        self, model_name, cand_name, X, y_label, returns, ts, meta, champion
+        self, model_name, cand_name, X, y_label, returns, ts, meta,
+        champion, normalizer_factory=None,
     ) -> str:
-        # Fit champion on ALL data for production.
-        model = build_estimator(cand_name).fit(X, y_label)
+        """Fit champion on ALL data and register the immutable artifact.
 
-        # Fit production calibrator on a held-out tail.
-        split = int(len(X) * 0.8)
+        CRITICAL-1 fix: the serialized normalizer is included in the pickle
+        payload so that inference-time code can load and apply it, eliminating
+        train/serve skew.
+
+        The normalizer is re-fitted on the FULL training set here (not the
+        last fold's normalizer) so that production inference benefits from all
+        available data for the Winsorization bounds and center/scale stats.
+        """
+        # ── Step 1: fit production normalizer on full dataset ─────────────
+        production_normalizer = None
+        normalizer_state: dict = {}
+        X_to_fit = X
+
+        if normalizer_factory is not None:
+            try:
+                production_normalizer = normalizer_factory()
+                # Use string feature names so the serialized normalizer_state
+                # carries named specs that match inference-time column names.
+                # pd.DataFrame(X) alone produces integer column names (0,1,2…)
+                # which would cause a RuntimeError mismatch at inference.
+                feat_names = self._builder._ff.FEATURE_NAMES
+                X_df = pd.DataFrame(X, columns=feat_names)
+                production_normalizer.fit(X_df)
+                X_to_fit = production_normalizer.transform(X_df).to_numpy(dtype=float)
+                normalizer_state = production_normalizer.to_dict()
+                logger.info(
+                    "orchestrator_production_normalizer_fitted",
+                    n_features=len(normalizer_state.get("specs", {})),
+                )
+            except Exception as exc:
+                logger.warning(
+                    "orchestrator_production_normalizer_failed",
+                    error=str(exc),
+                )
+                X_to_fit = X
+                production_normalizer = None
+                normalizer_state = {}
+
+        # ── Step 2: fit champion on normalized data ───────────────────────
+        model = build_estimator(cand_name).fit(X_to_fit, y_label)
+
+        # Fit production calibrator on a held-out tail (normalized).
+        split = int(len(X_to_fit) * 0.8)
         cal = CalibrationLayer()
         cal_fitted = False
-        if split >= 30 and len(X) - split >= 20:
-            probe = build_estimator(cand_name).fit(X[:split], y_label[:split])
+        if split >= 30 and len(X_to_fit) - split >= 20:
+            probe = build_estimator(cand_name).fit(X_to_fit[:split], y_label[:split])
             cal.fit(
                 model_name,
-                probe.predict(X[split:]).tolist(),
+                probe.predict(X_to_fit[split:]).tolist(),
                 (y_label[split:] > 0).astype(float).tolist(),
             )
             cal_fitted = cal.has_calibrator(model_name)
 
         version = f"1.0.0-{datetime.now(tz=UTC).strftime('%Y%m%d%H%M%S%f')}"
 
-        # Write the pickled payload to a STAGING location; ModelRegistry.register()
-        # copies it into the immutable version directory and computes the checksum.
+        # ── Step 3: pickle payload — INCLUDES normalizer (CRITICAL-1 fix) ─
         staging = self._registry._root / "_staging"
         staging.mkdir(parents=True, exist_ok=True)
         staged_file = staging / f"{model_name}_{version}_model.pkl"
 
         payload = {
-            "estimator": model,
-            "estimator_name": cand_name,
-            "calibrator": cal._calibrators.get(model_name) if cal_fitted else None,
-            "feature_names": self._builder._ff.FEATURE_NAMES,
+            "estimator":          model,
+            "estimator_name":     cand_name,
+            "calibrator":         cal._calibrators.get(model_name) if cal_fitted else None,
+            "feature_names":      self._builder._ff.FEATURE_NAMES,
+            # CRITICAL-1 fix: normalizer state is now part of every model artifact.
+            # At inference time, load this with FeatureNormalizer.from_dict() and
+            # apply it before calling model.predict().
+            "normalizer_state":   normalizer_state,
+            "normalization_applied": production_normalizer is not None,
+            "feature_schema_version": meta.feature_schema_version,
         }
         with staged_file.open("wb") as fh:
             pickle.dump(payload, fh)
@@ -333,9 +447,9 @@ class TrainingOrchestrator:
         artifact = ModelArtifact(
             model_name=model_name,
             version=version,
-            stage=ModelLifecycleStage.CHALLENGER,  # promotion gate lifts to PRODUCTION
-            artifact_path="model.pkl",  # relative name; register copies + resolves
-            sha256_checksum="",  # registry computes on register
+            stage=ModelLifecycleStage.CHALLENGER,
+            artifact_path="model.pkl",
+            sha256_checksum="",
             training_date=datetime.now(tz=UTC).strftime("%Y-%m-%d"),
             training_dataset_hash=meta.dataset_hash,
             ic_mean=champion.wf_ic_mean,
@@ -343,17 +457,17 @@ class TrainingOrchestrator:
             pbo=champion.cpcv_pbo,
             provenance=PredictionProvenance.TRAINED_MODEL,
             metadata={
-                "estimator_name": cand_name,
-                "calibration_fitted": cal_fitted,
-                "calibration_ece": champion.calibration_ece,
-                "dataset_id": meta.dataset_id,
+                "estimator_name":         cand_name,
+                "calibration_fitted":     cal_fitted,
+                "calibration_ece":        champion.calibration_ece,
+                "dataset_id":             meta.dataset_id,
                 "feature_schema_version": meta.feature_schema_version,
-                "n_windows": self.n_windows,
-                "cost_bps": self.cost_bps,
-                "training_metrics": champion.to_dict(),
+                "n_windows":              self.n_windows,
+                "cost_bps":               self.cost_bps,
+                "normalization_applied":  production_normalizer is not None,
+                "training_metrics":       champion.to_dict(),
             },
         )
-        # Rename staged file to model.pkl so the copied artifact file is model.pkl.
         final_stage = staging / "model.pkl"
         staged_file.replace(final_stage)
         self._registry.register(artifact, artifact_file_path=final_stage)
