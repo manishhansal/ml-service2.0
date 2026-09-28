@@ -28,9 +28,10 @@ def training_client():
 class TestTrainingFlow:
     _CONFIG = {
         "model_name": "market_regime",
-        "feature_version": "latest",
-        "start_date": "2023-01-01",
-        "end_date": "2024-01-01",
+        "dataset_id": "test_dataset_e2e",
+        "candidate_names": ["logistic"],  # fast single-candidate for testing
+        "n_windows": 5,
+        "register_champion": False,  # don't persist artifacts during tests
     }
 
     def test_training_run_returns_200(self, training_client):
