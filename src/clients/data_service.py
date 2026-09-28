@@ -507,8 +507,54 @@ class DataServiceClient:
         # The response may wrap bars in a "data" list
         bars = data.get("data") or data.get("bars") or data
         if isinstance(bars, list):
-            return bars  # type: ignore[return-value]
+            if bars:
+                return bars  # type: ignore[return-value]
+            # Empty response from data-service — fall back to on-disk parquet
+            # (Task 4 fix: parquet fallback when provider unavailable after restart)
+            parquet_bars = self._load_bars_from_parquet(symbol, interval)
+            if parquet_bars:
+                return parquet_bars
+            return bars  # empty
         return [bars]  # type: ignore[list-item]
+
+    @staticmethod
+    def _load_bars_from_parquet(symbol: str, interval: str) -> list[dict[str, Any]]:
+        """Load OHLCV bars from on-disk parquet as fallback.
+
+        Task 4 (FIX): When data-service historical endpoint returns 0 bars
+        (provider unavailable after restart), fall back to on-disk parquets
+        which are the authoritative historical data source.
+
+        Only used for 1d interval (intraday parquets not on disk).
+        """
+        from pathlib import Path  # noqa: PLC0415
+        import pandas as pd  # noqa: PLC0415
+
+        if interval != "1d":
+            return []
+        pf = Path("data/1d/1d") / f"{symbol}.parquet"
+        if not pf.exists():
+            return []
+        try:
+            df = pd.read_parquet(pf)
+            df.columns = [c.lower() for c in df.columns]
+            if df.index.tz is None:
+                df.index = df.index.tz_localize("UTC")
+            bars = []
+            for ts, row in df.iterrows():
+                unix_ts = int(ts.timestamp())
+                bars.append({
+                    "time": unix_ts,
+                    "open": float(row.get("open", 0) or 0),
+                    "high": float(row.get("high", 0) or 0),
+                    "low": float(row.get("low", 0) or 0),
+                    "close": float(row.get("close", 0) or 0),
+                    "volume": int(row.get("volume", 0) or 0),
+                    "_source": "parquet_fallback",
+                })
+            return bars
+        except Exception:
+            return []
 
     async def get_option_chain(
         self,
