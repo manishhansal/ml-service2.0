@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-24T16:40:53.618241+00:00",
+  "generated_at": "2026-09-28T04:38:51.362711+00:00",
   "base_url": "http://localhost:8200",
   "canonical_intervals": [
     "1m",
@@ -14,60 +14,54 @@
   ],
   "checks": {
     "market_status": {
-      "status": "OK",
-      "keys": [
-        "data",
-        "metadata"
-      ]
+      "status": "DATA_SERVICE_UNAVAILABLE",
+      "detail": "data-service2.0 returned 429 for GET /v1/india/market/status (RATE_LIMITED). Retry-After: 5.0s"
     },
     "fno_universe": {
-      "status": "OK",
-      "keys": [
-        "data",
-        "metadata"
-      ]
+      "status": "DATA_SERVICE_UNAVAILABLE",
+      "detail": "data-service2.0 returned 429 for GET /v1/instruments/fno-universe (RATE_LIMITED). Retry-After: 5.0s"
     },
     "historical": {
       "NIFTY": {
         "1d": {
-          "status": "VALID_DATA",
-          "n_bars": 1251
+          "status": "DATA_SERVICE_UNAVAILABLE",
+          "detail": "data-service2.0 returned 429 for GET /v1/india/historical (RATE_LIMITED). Retry-After: 5.0s"
         },
         "15m": {
-          "status": "VALID_DATA",
-          "n_bars": 2975
+          "status": "DATA_SERVICE_UNAVAILABLE",
+          "detail": "data-service2.0 circuit is open \u2014 fast-failing request"
         },
         "5m": {
-          "status": "VALID_DATA",
-          "n_bars": 8925
+          "status": "DATA_SERVICE_UNAVAILABLE",
+          "detail": "data-service2.0 circuit is open \u2014 fast-failing request"
         }
       },
       "BANKNIFTY": {
         "1d": {
-          "status": "VALID_DATA",
-          "n_bars": 1263
+          "status": "DATA_SERVICE_UNAVAILABLE",
+          "detail": "data-service2.0 circuit is open \u2014 fast-failing request"
         },
         "15m": {
-          "status": "VALID_DATA",
-          "n_bars": 2975
+          "status": "DATA_SERVICE_UNAVAILABLE",
+          "detail": "data-service2.0 circuit is open \u2014 fast-failing request"
         },
         "5m": {
-          "status": "VALID_DATA",
-          "n_bars": 8925
+          "status": "DATA_SERVICE_UNAVAILABLE",
+          "detail": "data-service2.0 circuit is open \u2014 fast-failing request"
         }
       },
       "RELIANCE": {
         "1d": {
-          "status": "VALID_DATA",
-          "n_bars": 1286
+          "status": "DATA_SERVICE_UNAVAILABLE",
+          "detail": "data-service2.0 circuit is open \u2014 fast-failing request"
         },
         "15m": {
-          "status": "VALID_DATA",
-          "n_bars": 2912
+          "status": "DATA_SERVICE_UNAVAILABLE",
+          "detail": "data-service2.0 circuit is open \u2014 fast-failing request"
         },
         "5m": {
-          "status": "VALID_DATA",
-          "n_bars": 8696
+          "status": "DATA_SERVICE_UNAVAILABLE",
+          "detail": "data-service2.0 circuit is open \u2014 fast-failing request"
         }
       }
     },
@@ -75,5 +69,5 @@
       "status": "ENFORCED"
     }
   },
-  "overall": "VALID_DATA"
+  "overall": "DATA_SERVICE_UNAVAILABLE"
 }
