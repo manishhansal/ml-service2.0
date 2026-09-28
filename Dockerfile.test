@@ -40,6 +40,7 @@ RUN pip install --no-cache-dir --timeout=120 --retries=3 \
     "pytest-benchmark==5.1.0" \
     "ruff==0.8.4" \
     "prometheus-client==0.21.1" \
+    "shap==0.46.0" \
     || echo "WARNING: Some optional packages failed to install — continuing"
 
 # Copy only what we need for tests (source is usually volume-mounted in CI)
@@ -48,6 +49,11 @@ COPY src/ ./src/
 COPY tests/ ./tests/
 COPY configs/ ./configs/
 COPY scripts/ ./scripts/
+# strategy/ contains agent-editable signal filters (feature_weights.json, nse-calendar.json)
+COPY strategy/ ./strategy/
+# Ensure journal/ directory exists for NSEEventWatcher state files
+RUN mkdir -p /app/journal /app/artifacts/live_session /app/artifacts/forward_paper \
+             /app/artifacts/counterfactual /app/artifacts/approvals
 
 # Remove old phase3 test files from image root and replace with
 # the fixed versions from our phase3_archived directory.
