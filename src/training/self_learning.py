@@ -132,15 +132,32 @@ class SelfLearningLoop:
         drift_action: str = "MONITOR",
         performance_degraded: bool = False,
         candidate_names: list[str] | None = None,
+        champion_ic: float | None = None,
     ) -> dict[str, Any]:
         """
         Execute one controlled self-learning cycle end-to-end.
 
-        Returns a dict describing what happened. The champion is only ever
-        changed through the lifecycle manager's gated promotion — this method
-        stops at registering the challenger + promoting it to SHADOW. Promotion
-        to champion still requires the six-gate + approval-token step, which is
-        intentionally NOT auto-approved here.
+        FIX NEW-P1-004: Before promoting a challenger to SHADOW, verify it beats
+        the current champion's IC by at least the orchestrator's parsimony_margin.
+        A challenger that barely clears the minimum gates but does not beat the
+        current production champion must NOT be auto-promoted to SHADOW.
+
+        Args:
+            orchestrator:        TrainingOrchestrator instance.
+            lifecycle_manager:   Champion/challenger lifecycle manager.
+            model_name:          Model family name.
+            dataset_id:          Frozen dataset ID to train on.
+            drift_action:        Drift recommendation ('MONITOR', 'TRAIN_CHALLENGER').
+            performance_degraded: Whether performance degradation was detected.
+            candidate_names:     Estimator names to evaluate.
+            champion_ic:         Current champion's OOS IC (for comparison gate).
+                                 If None, the comparison gate is skipped.
+
+        Returns a dict describing what happened.
+        The champion is only ever changed through the lifecycle manager's gated
+        promotion — this method stops at registering the challenger + promoting
+        it to SHADOW. Promotion to champion still requires the six-gate +
+        approval-token step, which is intentionally NOT auto-approved here.
         """
         decision = self.should_retrain(drift_action, performance_degraded)
         result: dict[str, Any] = {"decision": decision.to_dict()}
@@ -149,13 +166,13 @@ class SelfLearningLoop:
 
         self.mark_retrain_triggered()
 
-        # Train a challenger. The orchestrator enforces OOS + calibration gates
-        # and registers the artifact at CHALLENGER lifecycle stage (never
-        # PRODUCTION) — so it can never allocate capital before promotion.
+        # Pass champion_ic as baseline so orchestrator enforces the comparison gate.
+        # FIX NEW-P1-004: challenger must beat champion by parsimony_margin.
         report = orchestrator.train(
             model_name, dataset_id,
             candidate_names=candidate_names or ["logistic", "lightgbm"],
             register_champion=True,
+            baseline_ic=champion_ic,  # NEW: comparison gate
         )
         result["training"] = report.to_dict()
 
@@ -164,9 +181,72 @@ class SelfLearningLoop:
             lifecycle_manager.promote_to_shadow(model_name)
             result["challenger_registered"] = report.champion_version
             result["stage"] = "SHADOW"
+            logger.info(
+                "self_learning_challenger_promoted_to_shadow",
+                model_name=model_name,
+                version=report.champion_version,
+                challenger_ic=getattr(report, "champion_ic_mean", None),
+                champion_ic=champion_ic,
+            )
         else:
             result["stage"] = "REJECTED"
+            result["rejection_reason"] = report.rejection_reason
+            logger.info(
+                "self_learning_challenger_rejected",
+                model_name=model_name,
+                reason=report.rejection_reason,
+            )
         # NOTE: promotion SHADOW -> CHAMPION is intentionally NOT performed here.
-        # It requires the six-gate promotion + human approval token, which must
-        # not be auto-granted by the self-learning loop.
+        # It requires the six-gate promotion + human approval token.
+
+        # ── Phil integration: update feature_weights.json after retrain ──────
+        # When a challenger is accepted, automatically run a score threshold
+        # sweep on the resolved feedback records and update feature_weights.json.
+        # This is the "playbook self-edit after retro" pattern from Phil.
+        if report.passed_acceptance:
+            try:
+                from src.analytics.feature_weight_manager import FeatureWeightManager
+                from src.analytics.score_threshold_sweep import ScoreThresholdSweep
+
+                resolved = self._feedback.resolved_records()
+                if len(resolved) >= 20:
+                    # Build scores list from feedback (direction-as-score proxy)
+                    scores_proxy = [
+                        {"symbol": r.symbol, "score": 0.75 if r.action == "BUY" else 0.25,
+                         "direction": 1 if r.action == "BUY" else -1}
+                        for r in resolved if r.action in ("BUY", "SELL")
+                    ]
+                    outcomes = [
+                        {"symbol": r.symbol,
+                         "net_pct": float(r.realized_return_net or 0) * 100,
+                         "direction": 1 if r.action == "BUY" else -1}
+                        for r in resolved if r.action in ("BUY", "SELL")
+                        and r.realized_return_net is not None
+                    ]
+                    if scores_proxy and outcomes:
+                        sweep = ScoreThresholdSweep()
+                        sweep_report = sweep.run(
+                            scores=scores_proxy,
+                            resolved_outcomes=outcomes,
+                            date=datetime.now(tz=UTC).strftime("%Y-%m-%d"),
+                        )
+                        if sweep_report.optimal_threshold > 0:
+                            mgr = FeatureWeightManager()
+                            mgr.update_from_sweep(
+                                optimal_threshold=sweep_report.optimal_threshold,
+                                win_rate=sweep_report.optimal_win_rate,
+                                evidence=f"SelfLearningLoop after {len(resolved)} outcomes: {sweep_report.reasoning}",
+                            )
+                            result["feature_weights_updated"] = {
+                                "threshold": sweep_report.optimal_threshold,
+                                "win_rate":  sweep_report.optimal_win_rate,
+                            }
+                            logger.info(
+                                "self_learning_feature_weights_updated",
+                                threshold=sweep_report.optimal_threshold,
+                                n_outcomes=len(resolved),
+                            )
+            except Exception as e:
+                logger.warning("self_learning_feature_weight_update_failed", error=str(e))
+
         return result
