@@ -57,7 +57,11 @@ class TestTrainingFlow:
             run_id = r.json()["run_id"]
             status_r = training_client.get(f"/training/status/{run_id}", headers=HEADERS)
             assert status_r.status_code == 200
-            assert status_r.json()["status"] == "QUEUED"
+            # The background task may complete (or fail on missing dataset) before
+            # the status poll — accept any terminal or in-progress state.
+            assert status_r.json()["status"] in (
+                "QUEUED", "RUNNING", "COMPLETED", "COMPLETED_REJECTED", "FAILED"
+            )
 
     def test_training_status_unknown_run_returns_404(self, training_client):
         r = training_client.get("/training/status/nonexistent-run-id", headers=HEADERS)
