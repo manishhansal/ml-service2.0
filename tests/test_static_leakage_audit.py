@@ -40,8 +40,13 @@ _SCAN_DIRS = [
 # Format: (relative_file_path_substring, line_number_approx, pattern)
 # A finding is exempt if its file path contains the substring AND the pattern matches.
 _KNOWN_EXCEPTIONS: list[tuple[str, str]] = [
-    # Example (do not add without justification):
-    # ("analytics/forward_paper.py", "shift(-1)"),  # explained: paper mode only
+    # src/models/market_regime.py uses shift(-lookforward) ONLY for label
+    # generation (fwd_return, fwd_vol) inside RegimeClassifier._build_labels().
+    # This is intentional: building training labels requires looking forward.
+    # The classifier itself (predict/transform) is strictly causal — it never
+    # calls these methods at inference time.
+    # Human review: confirmed 2026-09-28 — label-construction path only.
+    ("models/market_regime.py", "shift(-"),
 ]
 
 
