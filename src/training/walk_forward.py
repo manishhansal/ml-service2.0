@@ -149,6 +149,14 @@ class WalkForwardValidator:
 
     ``symbols`` (optional): array aligned to rows giving symbol identifier.
     When provided, per-timestamp cross-sectional Rank IC is also computed.
+
+    ``horizon_bars`` (optional): the label look-ahead horizon in bars.
+    Used to correctly annualise per-bar Sharpe.  For h-bar labels the Sharpe
+    annualisation factor is ``sqrt(TRADING_DAYS / horizon_bars)`` rather than
+    the naive ``sqrt(TRADING_DAYS)`` used for 1-bar signals.  Default is 1
+    (backwards-compatible; explicitly pass your label horizon for correct numbers).
+
+    FIX NEW-P1-002: Sharpe annualization now accounts for label horizon.
     """
 
     def __init__(
@@ -157,6 +165,7 @@ class WalkForwardValidator:
         embargo_days: int = 10,
         cost_bps: float = 10.0,
         anchored: bool = True,
+        horizon_bars: int = 1,
     ) -> None:
         if n_windows < 5:
             raise ValueError("WalkForwardValidator requires n_windows >= 5 (Phase 31).")
@@ -164,6 +173,10 @@ class WalkForwardValidator:
         self.embargo_days = embargo_days
         self.cost_bps = cost_bps
         self.anchored = anchored
+        # horizon_bars: label look-ahead in bars.  Sharpe is annualised using
+        # sqrt(TRADING_DAYS / horizon_bars) — for h=5 this is sqrt(252/5)≈7.1
+        # not sqrt(252)≈15.87 which over-states Sharpe by a factor of sqrt(5).
+        self.horizon_bars = max(1, horizon_bars)
 
     def validate(
         self,
@@ -288,6 +301,7 @@ class WalkForwardValidator:
                 self._score_window(
                     w - 1, preds, test_ret, y_label[test_idx],
                     ts[train_idx], ts[test_idx], len(train_idx), cost, xs_ic,
+                    horizon_bars=self.horizon_bars,
                 )
             )
 
@@ -308,6 +322,7 @@ class WalkForwardValidator:
         n_train: int,
         cost: float,
         xs_ic: float = 0.0,
+        horizon_bars: int = 1,
     ) -> WindowResult:
         # PRIMARY: Spearman rank IC (outlier-robust, no distributional assumption)
         rank_ic = self._safe_corr(preds, test_ret, method="spearman")
@@ -325,7 +340,12 @@ class WalkForwardValidator:
         net = gross - cost * np.abs(position)
         mean_net = float(np.mean(net)) if len(net) else 0.0
         std_net = float(np.std(net))
-        net_sharpe = (mean_net / std_net * np.sqrt(TRADING_DAYS)) if std_net > 1e-12 else 0.0
+
+        # FIX NEW-P1-002: annualise by sqrt(TRADING_DAYS / horizon_bars).
+        # For h=1 (daily) this is sqrt(252).  For h=5 this is sqrt(252/5)≈7.1.
+        # Using sqrt(252) for h=5 overstates annualized Sharpe by sqrt(5)≈2.24.
+        ann_factor = float(np.sqrt(TRADING_DAYS / max(1, horizon_bars)))
+        net_sharpe = (mean_net / std_net * ann_factor) if std_net > 1e-12 else 0.0
 
         max_dd = self._max_drawdown(net)
 

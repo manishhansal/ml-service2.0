@@ -263,13 +263,19 @@ class DatasetBuilder:
             label_config.execution_model == "next_open"
         )
 
-        # ── Normalization (Gap 3 fix) ─────────────────────────────────────────
-        # Fit normalizer on the assembled feature matrix BEFORE leakage
-        # validation so the validator sees normalized values (better for
-        # correlation-based detection).  Normalizer is fit on the FULL
-        # combined frame here — in production walk-forward this should be
-        # called per fold; the DatasetBuilder.build() path is the baseline
-        # research/backtest path.
+        # ── Leakage validation on RAW features (FIX NEW-P3-004) ─────────────────
+        # MUST run BEFORE normalization: Winsorization can clip outliers and
+        # reduce apparent correlations, potentially masking real look-ahead leakage.
+        # The leakage validator must see raw (un-normalized) features.
+        leakage_ok = True
+        if self._validate_leakage:
+            leakage_ok = self._run_leakage(combined, feature_cols)
+
+        # ── Normalization (applied AFTER leakage validation) ──────────────────
+        # Fit normalizer on the assembled raw feature matrix after leakage is
+        # confirmed clean.  In production walk-forward this normalization is
+        # per-fold inside WalkForwardValidator; the DatasetBuilder path is the
+        # baseline research/backtest path.
         normalizer_state: dict[str, Any] = {}
         normalization_applied = False
         if self._normalize and feature_cols:
@@ -290,11 +296,6 @@ class DatasetBuilder:
                     "dataset_normalization_failed_continuing_raw",
                     error=str(exc),
                 )
-
-        # ── Leakage validation (per-symbol to avoid cross-sectional artifacts) ──
-        leakage_ok = True
-        if self._validate_leakage:
-            leakage_ok = self._run_leakage(combined, feature_cols)
 
         # ── Compute artifacts ────────────────────────────────────────────────
         dataset_id = f"ds-{timeframe}-{datetime.now(tz=UTC).strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}"

@@ -134,7 +134,7 @@ app.add_middleware(
 
 # Paths that do not require an API key
 _EXEMPT_PATHS: frozenset[str] = frozenset(
-    {"/health", "/docs", "/openapi.json", "/redoc"}
+    {"/health", "/metrics", "/docs", "/openapi.json", "/redoc"}
 )
 
 
@@ -239,6 +239,23 @@ async def health() -> dict[str, Any]:
         "timestamp": int(time.time() * 1000),
         "version": "2.0.0",
     }
+
+
+@app.get("/metrics", tags=["observability"])
+async def metrics() -> Response:
+    """Prometheus metrics endpoint (FIX NEW-P3-002).
+
+    Does not require ``X-API-KEY`` — standard Prometheus scraper convention.
+    Exposes: predictions_total, signals_total, no_trade_total, model_errors_total,
+    inference_latency_seconds, data_quality_score, drift_score_max,
+    model_health, alpha_ic_decay_fraction, drawdown_fraction, drawdown_state,
+    forward_paper_signals_total, forward_paper_resolved_total.
+
+    GET /metrics
+    """
+    from src.monitoring.metrics import metrics_output  # noqa: PLC0415
+    content, content_type = metrics_output()
+    return Response(content=content, media_type=content_type)
 
 
 # ── Router registration ───────────────────────────────────────────────────────
