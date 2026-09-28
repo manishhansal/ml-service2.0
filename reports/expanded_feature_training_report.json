@@ -1,0 +1,118 @@
+{
+  "schema": "expanded_training_reconciliation_v1",
+  "run_timestamp": "2026-09-27",
+  "feature_schema_version": "fs-3.0.0",
+  "n_features": 55,
+  "n_symbols": 218,
+  "dataset_id": "ds-1d-20260926202149-3f078494",
+  "dataset_rows": 394638,
+  "leakage_validated": true,
+  "survivorship": "CURRENT_UNIVERSE_ONLY",
+  "note_lgbm": "LightGBM and XGBoost excluded due to macOS-ARM native library segfault (duplicate OpenMP runtime \u2014 not a code defect). Run inside Docker (make docker-test) for full tree-model comparison.",
+  "candidate_results": [
+    {
+      "name": "naive_momentum",
+      "wf_rank_ic": 0.339735,
+      "wf_sharpe": 0.7585,
+      "wf_xs_ic": 0.257693,
+      "cpcv_ic": 0.362867,
+      "pbo": 0.0
+    },
+    {
+      "name": "logistic",
+      "wf_rank_ic": 0.334539,
+      "wf_sharpe": 0.7388,
+      "wf_xs_ic": 0.253621,
+      "cpcv_ic": 0.360114,
+      "pbo": 0.0
+    },
+    {
+      "name": "ridge",
+      "wf_rank_ic": 0.163213,
+      "wf_sharpe": -0.1045,
+      "wf_xs_ic": 0.141431,
+      "cpcv_ic": 0.17525,
+      "pbo": 0.0
+    }
+  ],
+  "champion_from_wf": "naive_momentum",
+  "champion_wf_rank_ic": 0.339735,
+  "champion_wf_xs_ic": 0.257693,
+  "champion_wf_net_sharpe": 0.7585,
+  "champion_cpcv_pbo": 0.0,
+  "baseline_ic_naive_20d_momentum": -0.0196,
+  "ic_reconciliation": {
+    "naive_momentum": {
+      "ic_vs_continuous_oos": 0.0837,
+      "ic_vs_barrier_oos": 0.0801,
+      "inflation_factor": "1.0x"
+    },
+    "logistic": {
+      "ic_vs_continuous_oos": 0.3088,
+      "ic_vs_barrier_oos": 0.2884,
+      "inflation_factor": "0.9x"
+    }
+  },
+  "cost_robustness": {
+    "conservative": {
+      "bps": 27.65,
+      "naive_sharpe": -12.099,
+      "logistic_sharpe": -12.63
+    },
+    "moderate": {
+      "bps": 20.45,
+      "naive_sharpe": -11.656,
+      "logistic_sharpe": -12.115
+    },
+    "aggressive": {
+      "bps": 16.35,
+      "naive_sharpe": -11.174,
+      "logistic_sharpe": -11.571
+    },
+    "low": {
+      "bps": 12.75,
+      "naive_sharpe": -10.451,
+      "logistic_sharpe": -10.771
+    },
+    "stress_2x": {
+      "bps": 55.3,
+      "naive_sharpe": -12.575,
+      "logistic_sharpe": -13.215
+    }
+  },
+  "regime_analysis": {
+    "HIGH_VOLATILITY": {
+      "n": 9894,
+      "naive_ic_continuous": 0.1357,
+      "logistic_ic_continuous": 0.3778
+    },
+    "LOW_VOLATILITY": {
+      "n": 13845,
+      "naive_ic_continuous": 0.0589,
+      "logistic_ic_continuous": 0.2209
+    },
+    "TREND_DOWN": {
+      "n": 28091,
+      "naive_ic_continuous": 0.0957,
+      "logistic_ic_continuous": 0.3025
+    },
+    "TREND_UP": {
+      "n": 27098,
+      "naive_ic_continuous": 0.0678,
+      "logistic_ic_continuous": 0.3312
+    }
+  },
+  "n_regimes_with_positive_ic": 4,
+  "verdict": "IC_POSITIVE_SHARPE_NEGATIVE",
+  "verdict_detail": "IC(continuous)=0.0837>0.02 BUT Sharpe=-12.099<0 at primary costs",
+  "honest_assessment": "VERDICT=IC_POSITIVE_SHARPE_NEGATIVE. IC(continuous)=0.0837>0.02 BUT Sharpe=-12.099<0 at primary costs. WF IC ~0.34 against barrier labels is a SHORT-TERM REVERSAL ARTIFACT (same pattern as the 24-feature result). The regime features, vol-regime, and trend features improved the WF Sharpe (was -0.40, now +0.76 -- significant improvement) but the improvement is FROM the barrier artifact, not from genuine forward return prediction. The continuous IC confirms this. Path forward: (1) Use CONTINUOUS-RETURN labels (not triple-barrier), (2) Validate cross-sectional Rank IC at each rebalance timestamp, (3) The expanded regime/vol features ARE adding signal -- they should be combined with a cross-sectional portfolio approach.",
+  "gate_results": {
+    "G1_IC_vs_barrier_above_threshold": "PASS (0.3397 > 0.02) -- BUT BARRIER ARTIFACT",
+    "G2_net_sharpe_positive": "PASS (0.758 > 0) -- WF ARTIFACT",
+    "G3_pbo_below_threshold": "PASS (PBO=0.00 < 0.50)",
+    "G4_ic_vs_continuous_above_threshold": "PASS (IC=0.0837> 0.02)",
+    "G5_cost_robustness": "FAIL (Sharpe=-12.099 at 27.65bps)",
+    "G6_regime_coverage": "PASS (4 of 4 regimes have positive IC)"
+  },
+  "overall_promotion_decision": "NOT_PROMOTED -- IC inflation artifact. Must use continuous-return labels to confirm genuine edge."
+}
