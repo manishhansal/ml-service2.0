@@ -22,6 +22,9 @@ from typing import Any
 LEDGER_PATH = Path("artifacts/ledger/RESEARCH_TRIAL_LEDGER.jsonl")
 LEDGER_INDEX_PATH = Path("artifacts/ledger/RESEARCH_TRIAL_LEDGER_index.json")
 
+from src.logging_config import get_logger  # noqa: E402
+logger = get_logger(__name__)
+
 
 @dataclass
 class TrialEntry:
@@ -62,11 +65,87 @@ class TrialEntry:
 
 
 class ResearchTrialLedger:
-    """Append-only research trial ledger."""
+    """Append-only research trial ledger with de-duplication gate (FIX NEW-P1-008)."""
 
     def __init__(self, path: Path = LEDGER_PATH) -> None:
         self._path = Path(path)
         self._path.parent.mkdir(parents=True, exist_ok=True)
+
+    # ── Duplication detection (FIX NEW-P1-008) ───────────────────────────────
+
+    def _hypothesis_fingerprint(self, entry: "TrialEntry") -> str:
+        """Compute a deterministic fingerprint of the experiment hypothesis.
+
+        Two experiments with the same fingerprint are structurally identical
+        and the second should be blocked (prevents repeated testing of failed
+        hypotheses which inflates the false-discovery rate).
+        """
+        key = "|".join([
+            entry.universe,
+            entry.timeframe,
+            entry.features,
+            entry.label,
+            entry.model,
+            entry.execution_convention,
+        ])
+        return hashlib.sha256(key.encode()).hexdigest()[:16]
+
+    def is_duplicate(self, entry: "TrialEntry") -> bool:
+        """Return True if a structurally identical experiment already exists."""
+        fingerprint = self._hypothesis_fingerprint(entry)
+        for existing in self.all_entries():
+            if self._hypothesis_fingerprint(existing) == fingerprint:
+                return True
+        return False
+
+    def check_and_append(self, entry: "TrialEntry", allow_rerun: bool = False) -> bool:
+        """
+        Append only if not a duplicate (FIX NEW-P1-008).
+
+        Args:
+            entry      : TrialEntry to append.
+            allow_rerun: When True, bypass de-duplication (for explicitly
+                         controlled re-runs with different hyperparameters).
+
+        Returns:
+            True if appended, False if rejected as duplicate.
+        """
+        if not allow_rerun and self.is_duplicate(entry):
+            logger.warning(
+                "ledger_duplicate_experiment_blocked",
+                model=entry.model,
+                label=entry.label,
+                universe=entry.universe,
+                features=entry.features,
+                experiment_id=entry.experiment_id,
+            )
+            return False
+        self.append(entry)
+        return True
+
+    # ── Research-adjusted acceptance threshold (FIX NEW-P1-008) ─────────────
+
+    def research_adjusted_min_ic(self, base_min_ic: float = 0.02) -> float:
+        """
+        Inflate the minimum IC threshold based on the number of experiments.
+
+        As the number of tested configurations grows, the probability of a
+        spurious positive result increases. A conservative adjustment:
+
+            adjusted_min_ic = base_min_ic + 0.005 × log(1 + n_experiments)
+
+        This is a first-order false-discovery correction.  A stricter approach
+        would use the Bonferroni correction or Benjamini-Hochberg, but those
+        require p-values not IC values.
+
+        At n=10 experiments: adjustment ≈ +0.012
+        At n=50 experiments: adjustment ≈ +0.020
+        At n=100 experiments: adjustment ≈ +0.023
+        """
+        import math
+        n = len(self.all_entries())
+        adjustment = 0.005 * math.log(1 + n)
+        return round(base_min_ic + adjustment, 4)
 
     def append(self, entry: TrialEntry) -> None:
         """Append one entry — never modifies existing lines."""

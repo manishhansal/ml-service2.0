@@ -39,6 +39,7 @@ RUN pip install --no-cache-dir --timeout=120 --retries=3 \
     "transformers==4.47.1" \
     "pytest-benchmark==5.1.0" \
     "ruff==0.8.4" \
+    "prometheus-client==0.21.1" \
     || echo "WARNING: Some optional packages failed to install — continuing"
 
 # Copy only what we need for tests (source is usually volume-mounted in CI)

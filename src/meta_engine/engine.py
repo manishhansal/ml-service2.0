@@ -55,12 +55,27 @@ class GoNoGoDecision(BaseSchema):
 class MetaEngine:
     """LangChain-based meta-decision engine — Phase 2 interface stub.
 
+    .. deprecated::
+        Use :class:`MetaEngineV3` (in this module) or
+        :class:`src.meta.engine.MetaDecisionEngine` for all production code.
+        This class intentionally raises ``NotImplementedError`` on every
+        method call (Phase 2 TDD contract preserved for backward-compat tests).
+
     Phase 2 TDD mandate: every public method raises ``NotImplementedError``.
     Tests in ``tests/test_meta_decision.py`` assert this behaviour and must
     continue to pass.
 
     Production use: see ``MetaEngineV3`` below.
     """
+
+    def __init__(self) -> None:
+        import warnings
+        warnings.warn(
+            "MetaEngine is a Phase-2 TDD stub that raises NotImplementedError. "
+            "Use MetaEngineV3 or src.meta.engine.MetaDecisionEngine for production.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     def decide(
         self,

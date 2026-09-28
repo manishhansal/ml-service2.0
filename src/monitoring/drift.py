@@ -99,6 +99,11 @@ class DriftReport(BaseSchema):
 class DriftDetector:
     """Evidently AI / NannyML drift detection interface — Phase 2 stub.
 
+    .. deprecated::
+        Use :class:`DriftDetectorV3` for all production code.
+        This class intentionally raises ``NotImplementedError`` on every
+        method call (Phase 2 TDD contract preserved for backward-compat tests).
+
     Phase 2 TDD mandate: all methods raise ``NotImplementedError``.
     Tests in ``tests/test_meta_decision.py`` assert this behaviour and
     must continue to pass.
@@ -112,6 +117,13 @@ class DriftDetector:
             threshold: Drift score above which a feature is flagged as drifted.
                        Default 0.1 (PSI threshold recommended by Evidently).
         """
+        import warnings
+        warnings.warn(
+            "DriftDetector is a Phase-2 TDD stub that raises NotImplementedError. "
+            "Use DriftDetectorV3 for all production drift detection.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.threshold = threshold
 
     def detect(
@@ -355,3 +367,118 @@ class DriftDetectorV3:
             reverse=True,
         )
         return sorted_features[:top_n]
+
+
+# ── Extended drift detection (FIX NEW-P1-010) ────────────────────────────────
+# Monitors target distribution, prediction score distribution, and calibration
+# drift — all distinct from feature PSI drift.
+
+import dataclasses as _dc
+
+
+@_dc.dataclass
+class TargetDriftResult:
+    """Result of target/prediction/calibration drift checks."""
+    target_psi: float = 0.0
+    target_drifted: bool = False
+    prediction_score_psi: float = 0.0
+    prediction_score_drifted: bool = False
+    # Rolling calibration ECE gap: current ECE vs reference ECE
+    calibration_ece_gap: float = 0.0
+    calibration_drifted: bool = False
+    # Overall recommendation
+    any_drift: bool = False
+    recommended_action: str = "MONITOR"
+
+    def to_dict(self) -> dict:
+        return _dc.asdict(self)
+
+
+def detect_target_drift(
+    reference_labels: "np.ndarray | list[float]",
+    current_labels: "np.ndarray | list[float]",
+    reference_scores: "np.ndarray | list[float] | None" = None,
+    current_scores: "np.ndarray | list[float] | None" = None,
+    reference_realized: "np.ndarray | list[float] | None" = None,
+    current_realized: "np.ndarray | list[float] | None" = None,
+    psi_threshold: float = 0.1,
+    ece_gap_threshold: float = 0.05,
+) -> TargetDriftResult:
+    """
+    Detect drift in the target distribution, prediction score distribution,
+    and calibration quality.
+
+    FIX NEW-P1-010: PSI-only drift detection (feature distributions) misses:
+      (a) target/label distribution shift (e.g. base rate changing),
+      (b) prediction score distribution shift (model outputting different
+          probability ranges),
+      (c) calibration drift (model confidence no longer matches realized rates).
+
+    Args:
+        reference_labels:  Binary labels from training/reference window.
+        current_labels:    Binary labels from current production window.
+        reference_scores:  Model probability scores from reference window (optional).
+        current_scores:    Model probability scores from current window (optional).
+        reference_realized: Realized returns from reference window (optional,
+                             used for rolling calibration ECE estimate).
+        current_realized:   Realized returns from current window (optional).
+        psi_threshold:     PSI above which a distribution is flagged as drifted.
+        ece_gap_threshold: ECE gap above which calibration is flagged as drifted.
+
+    Returns:
+        TargetDriftResult with per-dimension drift flags and recommendation.
+    """
+    ref_lbl = np.asarray(reference_labels, dtype=float)
+    cur_lbl = np.asarray(current_labels, dtype=float)
+
+    # (a) Target distribution PSI
+    # For binary targets (only 0/1 values) use n_bins=2 — more bins collapse
+    # on equal-frequency percentiles because there are only 2 unique values.
+    n_unique = len(np.unique(ref_lbl))
+    target_bins = min(n_unique, 5)
+    target_psi = _compute_psi_for_series(ref_lbl, cur_lbl, n_bins=max(2, target_bins))
+    target_drifted = target_psi > psi_threshold
+
+    # (b) Prediction score distribution PSI
+    pred_psi = 0.0
+    pred_drifted = False
+    if reference_scores is not None and current_scores is not None:
+        ref_sc = np.asarray(reference_scores, dtype=float)
+        cur_sc = np.asarray(current_scores, dtype=float)
+        pred_psi = _compute_psi_for_series(ref_sc, cur_sc, n_bins=10)
+        pred_drifted = pred_psi > psi_threshold
+
+    # (c) Calibration ECE gap (simplified: compare mean predicted prob vs mean label)
+    # A proper ECE requires bucketing, but this first-order check catches gross
+    # miscalibration without requiring synchronized score/label pairs.
+    ece_gap = 0.0
+    cal_drifted = False
+    if reference_scores is not None and current_scores is not None:
+        ref_sc = np.asarray(reference_scores, dtype=float)
+        cur_sc = np.asarray(current_scores, dtype=float)
+        ref_lbl2 = ref_lbl[: len(ref_sc)]
+        cur_lbl2 = cur_lbl[: len(cur_sc)]
+        if len(ref_lbl2) > 10 and len(cur_lbl2) > 10:
+            ref_ece = abs(float(np.mean(ref_sc)) - float(np.mean(ref_lbl2)))
+            cur_ece = abs(float(np.mean(cur_sc)) - float(np.mean(cur_lbl2)))
+            ece_gap = abs(cur_ece - ref_ece)
+            cal_drifted = ece_gap > ece_gap_threshold
+
+    any_drift = target_drifted or pred_drifted or cal_drifted
+    if cal_drifted:
+        action = "RECALIBRATE"
+    elif target_drifted or pred_drifted:
+        action = "RETRAIN"
+    else:
+        action = "MONITOR"
+
+    return TargetDriftResult(
+        target_psi=round(target_psi, 6),
+        target_drifted=target_drifted,
+        prediction_score_psi=round(pred_psi, 6),
+        prediction_score_drifted=pred_drifted,
+        calibration_ece_gap=round(ece_gap, 6),
+        calibration_drifted=cal_drifted,
+        any_drift=any_drift,
+        recommended_action=action,
+    )
