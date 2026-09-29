@@ -16,6 +16,12 @@ env = {k.strip(): v.strip() for line in Path(".env").read_text().splitlines()
 DATA_KEY = env.get("DATA_SERVICE_API_KEY", "")
 DATA_URL = env.get("DATA_SERVICE_2_URL", "http://localhost:8200")
 
+# Dynamic cutoff — FIX P0-INGEST-001: was hardcoded "2026-09-23", which caused
+# exactly 0 symbols to be updated after that date. Now computes last completed
+# trading day dynamically so every post-close run refreshes all symbols that
+# haven't received that day's bar yet.
+yesterday = (datetime.now(tz=timezone.utc) - pd.offsets.BDay(1)).strftime("%Y-%m-%d")
+
 
 def get_historical(symbol: str) -> list[dict]:
     url = f"{DATA_URL}/v1/india/historical?symbol={symbol}&interval=1d"
@@ -81,8 +87,8 @@ def main():
             df.index = df.index.tz_localize("UTC")
         dates[pf.stem] = str(df.index.max().date())
 
-    outdated = [s for s, d in dates.items() if d < "2026-09-23"]
-    print(f"Symbols to update: {len(outdated)} (last bar < 2026-09-23)")
+    outdated = [s for s, d in dates.items() if d < yesterday]
+    print(f"Symbols to update: {len(outdated)} (last bar < {yesterday})")
     print(f"All symbols on disk: {len(all_parquets)}")
     print()
 
