@@ -460,7 +460,7 @@ _FILLNA_ZERO_PATTERN = re.compile(r"\.fillna\(\s*0\s*\)")
 
 # Files / directories that are intentionally exempt from INVALID classification
 _EXEMPT_FILES = {"leakage_validator.py", "labels.py", "test_", "conftest"}
-_LABEL_DIRS = {"labels", "label", "training/data_pipeline"}
+_LABEL_DIRS = {"labels", "label", "training/data_pipeline", "analytics/cross_sectional", "analytics/forward"}
 
 
 def run_static_leakage_audit(

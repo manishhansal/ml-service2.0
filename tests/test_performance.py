@@ -43,11 +43,10 @@ class TestConcurrentRequests:
 
     def test_training_endpoint_concurrent(self, perf_client):
         """5 concurrent training run requests should all return 200."""
+        # Uses OrchestratorTrainingConfig (FIX NEW-P1-003: API now routes to Orchestrator)
         payload = {
             "model_name": "market_regime",
-            "feature_version": "latest",
-            "start_date": "2023-01-01",
-            "end_date": "2024-01-01",
+            "dataset_id": "ds-test-concurrent",
         }
         results = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
