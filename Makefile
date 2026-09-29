@@ -270,7 +270,15 @@ docker-test-fast:  ## Run fast subset of Docker tests (unit + pit markers only)
 # DATA INGESTION
 # ─────────────────────────────────────────────────────────────────────────────
 
-ingest:  ## Ingest latest close bars for all 218 symbols (fast, resumes from parquets)
+check-token:  ## Check Upstox token status + data freshness across all 218 symbols
+	@python3 scripts/check_upstox_token.py
+
+refresh-data:  ## Full universe data refresh: backfill via data-service + ingest into parquets
+	@echo "▶  Refreshing data for all 218 F&O symbols ..."
+	@echo "   Step 1: Backfilling via data-service (Angel One + Upstox)"
+	@echo "   Step 2: Ingesting fresh bars into parquets"
+	@echo "   Step 3: Phantom bar cleanup"
+	PYTHONPATH=. $(PYTHON) scripts/refresh_all_universe_data.py
 	@echo "▶  Ingesting latest bars ..."
 	PYTHONPATH=. $(PYTHON) scripts/fast_ingest.py
 	@echo "✓  Ingestion complete."
