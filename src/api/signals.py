@@ -192,21 +192,107 @@ async def get_signal_history(
     limit: int = 218,
     status: str | None = None,
 ) -> JSONResponse:
-    """Today's ForecastLedger records for all scored symbols.
+    """ForecastLedger records for a session date.
+
+    When ``date`` is omitted, defaults to today IST.  If today has no
+    records (e.g. before the first session of the day), automatically
+    falls back to the most recent date that does have records.
 
     Optional query parameters:
-      - ``date``   — YYYY-MM-DD to filter by session date (default: today IST)
-      - ``limit``  — max records to return (default: 218)
-      - ``status`` — filter by status: "open" | "won" | "lost" | "superseded"
+      - ``date``   — YYYY-MM-DD (default: today IST, with automatic fallback)
+      - ``limit``  — max records returned (default: 218)
+      - ``status`` — filter: "open" | "won" | "lost"
 
-    Each record has: id, ts, session_date, symbol, score, direction, est_prob,
-    market_prior, data_date, nifty_chg_at_record, model_version, status,
-    and after resolution: realized, net_pct, resolved_at, brier_delta.
-
-    GET /v2/signals/history?date=2026-09-30&status=won
+    GET /v2/signals/history?date=2026-09-29&status=won
     """
     if not _FORECASTS_PATH.exists():
-        return JSONResponse(content={"records": [], "n": 0, "date": date})
+        return JSONResponse(content={"records": [], "n": 0, "date": date or _today_ist(),
+                                     "stats": {}, "is_fallback": False})
+
+    requested_date = date or _today_ist()
+
+    try:
+        # ── Single-pass read: group all records by session_date ────────
+        by_date: dict[str, list[dict]] = {}
+        for line in _FORECASTS_PATH.read_text().splitlines():
+            if not line.strip():
+                continue
+            try:
+                rec = json.loads(line)
+                d = rec.get("session_date", "")
+                if d:
+                    by_date.setdefault(d, []).append(rec)
+            except Exception:
+                continue
+
+        # Auto-fallback: if requested date has no records, use latest available
+        target_date  = requested_date
+        is_fallback  = False
+        if not by_date.get(target_date) and date is None and by_date:
+            target_date = max(by_date.keys())
+            is_fallback = (target_date != requested_date)
+
+        STATUS_RANK = {"won": 3, "lost": 3, "open": 2, "superseded": 1}
+
+        # ── Deduplicate: best status per symbol, then latest ts ────────
+        seen: dict[str, dict] = {}
+        for rec in by_date.get(target_date, []):
+            sym = rec.get("symbol", "")
+            if not sym:
+                continue
+            existing = seen.get(sym)
+            if existing is None:
+                seen[sym] = rec
+                continue
+            cur_rank = STATUS_RANK.get(rec.get("status", ""), 0)
+            ex_rank  = STATUS_RANK.get(existing.get("status", ""), 0)
+            if cur_rank > ex_rank:
+                seen[sym] = rec
+            elif cur_rank == ex_rank and rec.get("ts", "") > existing.get("ts", ""):
+                seen[sym] = rec
+
+        # ── Filter by status, sort, limit ──────────────────────────────
+        deduped_all = list(seen.values())
+        if status:
+            deduped_all = [r for r in deduped_all if r.get("status") == status]
+        deduped_all.sort(key=lambda r: abs(r.get("score", 0.5) - 0.5), reverse=True)
+        deduped = deduped_all[:limit]
+
+        # ── Session stats ──────────────────────────────────────────────
+        resolved = [r for r in deduped if r.get("net_pct") is not None]
+        stats: dict = {
+            "n_total":    len(deduped),
+            "n_resolved": len(resolved),
+            "n_open":     sum(1 for r in deduped if r.get("status") == "open"),
+            "n_won":      sum(1 for r in deduped if r.get("status") == "won"),
+            "n_lost":     sum(1 for r in deduped if r.get("status") == "lost"),
+        }
+        if resolved:
+            net_pcts = [r["net_pct"] for r in resolved]
+            stats["win_rate"]          = round(sum(1 for p in net_pcts if p > 0) / len(net_pcts) * 100, 1)
+            stats["mean_net"]          = round(sum(net_pcts) / len(net_pcts), 4)
+            stats["best_net"]          = round(max(net_pcts), 4)
+            stats["worst_net"]         = round(min(net_pcts), 4)
+            bd_vals = [r.get("brier_delta") for r in resolved if r.get("brier_delta") is not None]
+            stats["brier_delta_mean"]  = round(sum(bd_vals) / len(bd_vals), 6) if bd_vals else None
+
+        # List available session dates for the date picker
+        available_dates = sorted(by_date.keys(), reverse=True)
+
+        return JSONResponse(content={
+            "date":            target_date,
+            "requested_date":  requested_date,
+            "is_fallback":     is_fallback,
+            "n":               len(deduped),
+            "stats":           stats,
+            "records":         deduped,
+            "available_dates": available_dates,
+        })
+    except Exception as exc:
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(exc), "records": [], "n": 0, "date": requested_date},
+        )
 
     target_date = date or _today_ist()
 
@@ -255,37 +341,19 @@ async def get_signal_history(
             deduped_all = [r for r in deduped_all if r.get("status") == status]
 
         # Sort by conviction (distance from 0.5), then apply limit
-        deduped_all.sort(key=lambda r: abs(r.get("score", 0.5) - 0.5), reverse=True)
-        deduped = deduped_all[:limit]
-
-        # Compute session stats for the UI header
-        resolved = [r for r in deduped if r.get("net_pct") is not None]
-        stats: dict = {
-            "n_total": len(deduped),
-            "n_resolved": len(resolved),
-            "n_open": sum(1 for r in deduped if r.get("status") == "open"),
-            "n_won": sum(1 for r in deduped if r.get("status") == "won"),
-            "n_lost": sum(1 for r in deduped if r.get("status") == "lost"),
-        }
-        if resolved:
-            net_pcts = [r["net_pct"] for r in resolved]
-            stats["win_rate"]    = round(sum(1 for p in net_pcts if p > 0) / len(net_pcts) * 100, 1)
-            stats["mean_net"]    = round(sum(net_pcts) / len(net_pcts), 4)
-            stats["best_net"]    = round(max(net_pcts), 4)
-            stats["worst_net"]   = round(min(net_pcts), 4)
-            bd_vals = [r.get("brier_delta") for r in resolved if r.get("brier_delta") is not None]
-            stats["brier_delta_mean"] = round(sum(bd_vals) / len(bd_vals), 6) if bd_vals else None
-
         return JSONResponse(content={
-            "date": target_date,
-            "n": len(deduped),
-            "stats": stats,
-            "records": deduped,
+            "date":            target_date,
+            "requested_date":  requested_date,
+            "is_fallback":     is_fallback,
+            "n":               len(deduped),
+            "stats":           stats,
+            "records":         deduped,
+            "available_dates": available_dates,
         })
     except Exception as exc:
         return JSONResponse(
             status_code=500,
-            content={"error": str(exc), "records": [], "n": 0},
+            content={"error": str(exc), "records": [], "n": 0, "date": requested_date},
         )
 
 
