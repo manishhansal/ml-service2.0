@@ -35,7 +35,7 @@ services:
       - SENTINEL_PULSE_API_KEY=${SENTINEL_PULSE_API_KEY:-}
       - REDIS_URL=redis://redis:6379
       - MLFLOW_TRACKING_URI=http://mlflow:5000
-      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-research}
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-shadow}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - DOCKER_IMAGE_DIGEST=${DOCKER_IMAGE_DIGEST:-dev-local}
     volumes:
@@ -44,6 +44,12 @@ services:
       - ./tests:/app/tests
       # Persist trained model artifacts across restarts
       - ./artifacts:/app/artifacts
+      # Agent-editable signal filters — mounted so runtime edits persist
+      - ./strategy:/app/strategy
+      # NSEEventWatcher state files and trigger logs
+      - ./journal:/app/journal
+      # Parquet data directory (read by scoring pipeline)
+      - ./data:/app/data
     depends_on:
       redis:
         condition: service_healthy

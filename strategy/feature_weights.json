@@ -1,0 +1,109 @@
+{
+  "_schema_version": "1.0",
+  "_description": "Agent-editable signal filters. Updated by SelfLearningLoop after each resolved batch. Commit each change — git log is the learning record.",
+  "_last_updated": "2026-09-28",
+  "_last_updated_by": "post_live_session_analysis",
+  "_evidence": "Sep 28 live session: DRREDDY +1.67% on SHORT (pharma defensive), ASIANPAINT -0.65% on SHORT (paints defensive), MARUTI -0.22% on SHORT (auto defensive). All 3 misses are defensive sectors that rotate up in HIGH_CORR_BEAR regime.",
+
+  "score_threshold": {
+    "_description": "Minimum distance from 0.50 neutral to open a position.",
+    "default": 0.00,
+    "current": 0.00,
+    "optimal_from_sweep": null,
+    "_note": "Set to 0.15 after first threshold_sweep confirms improvement."
+  },
+
+  "reversal_detection": {
+    "_description": "ReversalDetector configuration. Reversal signals OVERRIDE momentum when score >= override_threshold AND they contradict momentum direction.",
+    "_evidence": "Sep 29: ADANIENT RSI=28 + 5 consec down + at lower BB → REVERSAL_LONG → +5.01%. PAYTM RSI=32 + 4 consec down → REVERSAL_LONG → +2.89%. IEX RSI=72 + 4 consec up → REVERSAL_SHORT → -4.45%.",
+    "enabled": true,
+    "override_threshold": 0.60,
+    "rsi_oversold_threshold": 32,
+    "rsi_overbought_threshold": 68,
+    "consec_bars_threshold": 3,
+    "bb_oversold_threshold": 0.10,
+    "bb_overbought_threshold": 0.90,
+    "_override_logic": "Reversal ONLY overrides momentum when they DISAGREE. When momentum and reversal AGREE, both fire in same direction — higher conviction, no change needed."
+  },
+
+  "sector_regime_filters": {
+    "_description": "Sector-specific signal dimmers applied when market regime matches. Multiplier applied to |score - 0.50| conviction before position sizing. 1.0 = no change, 0.0 = fully suppressed.",
+    "HIGH_CORR_BEAR": {
+      "_description": "Active when NIFTY intraday change < -1.5% — classic risk-off selloff. Defensive sectors rotate UP; shorting them loses.",
+      "_evidence": "Sep 28: DRREDDY +1.67%, ASIANPAINT -0.65%, MARUTI -0.22% — all defensive sector longs/neutral in broad selloff.",
+      "PHARMA":       {"multiplier": 0.20, "direction": -1, "_note": "Dim SHORT signals on pharma in HIGH_CORR_BEAR — rotates defensive"},
+      "PAINTS":       {"multiplier": 0.20, "direction": -1, "_note": "ASIANPAINT type — defensive in broad selloff"},
+      "AUTO":         {"multiplier": 0.40, "direction": -1, "_note": "MARUTI type — auto is defensive relative to cyclicals"},
+      "PRIVATE_BANK": {"multiplier": 0.70, "direction": -1, "_note": "AXISBANK underperformed SHORT expectation — partial dim only"}
+    },
+    "LOW_VOL": {
+      "_description": "Low-volatility regime. Momentum signals are weaker; reduce all convictions slightly.",
+      "ALL":          {"multiplier": 0.80, "direction": 0, "_note": "Slight across-the-board reduction in low-vol regimes"}
+    }
+  },
+
+  "symbol_overrides": {
+    "_description": "Per-symbol signal overrides. Use sparingly — prefer sector_regime_filters.",
+    "TATAMOTORS": {
+      "enabled": false,
+      "reason": "DQ-001: DVR price mismatch (295 vs 961). Excluded until instrument token fixed."
+    }
+  },
+
+  "long_book_limits": {
+    "_description": "Maximum LONG positions by regime. Reduces LONG count in bear days to limit beta drag.",
+    "_evidence": "Sep 28: all 6 LONG positions lost in -1.52% NIFTY day (unhedged market beta).",
+    "NORMAL":           {"max_positions": 11},
+    "HIGH_CORR_BEAR":   {"max_positions": 3,  "_note": "Limit LONG to 3 in bear days; rest are FLAT"},
+    "TRENDING_BEAR":    {"max_positions": 5},
+    "LOW_VOL":          {"max_positions": 8}
+  },
+
+  "sector_map": {
+    "_description": "NSE F&O symbol → sector classification for regime filters.",
+    "DRREDDY":     "PHARMA",
+    "SUNPHARMA":   "PHARMA",
+    "AUROPHARMA":  "PHARMA",
+    "CIPLA":       "PHARMA",
+    "LUPIN":       "PHARMA",
+    "GLENMARK":    "PHARMA",
+    "BIOCON":      "PHARMA",
+    "ALKEM":       "PHARMA",
+    "DIVISLAB":    "PHARMA",
+    "ASIANPAINT":  "PAINTS",
+    "BERGER":      "PAINTS",
+    "MARUTI":      "AUTO",
+    "BAJAJ-AUTO":  "AUTO",
+    "HEROMOTOCO":  "AUTO",
+    "MOTHERSON":   "AUTO",
+    "TVSMOTOR":    "AUTO",
+    "AXISBANK":    "PRIVATE_BANK",
+    "HDFCBANK":    "PRIVATE_BANK",
+    "KOTAKBANK":   "PRIVATE_BANK",
+    "ICICIBANK":   "PRIVATE_BANK",
+    "INDUSINDBK":  "PRIVATE_BANK",
+    "BANDHANBNK":  "PRIVATE_BANK",
+    "SBIN":        "PSU_BANK",
+    "BANKBARODA":  "PSU_BANK",
+    "CANBK":       "PSU_BANK",
+    "RELIANCE":    "ENERGY",
+    "ONGC":        "ENERGY",
+    "BPCL":        "ENERGY",
+    "HINDPETRO":   "ENERGY",
+    "IOC":         "ENERGY",
+    "INFY":        "IT",
+    "TCS":         "IT",
+    "WIPRO":       "IT",
+    "HCLTECH":     "IT",
+    "TECHM":       "IT",
+    "LT":          "INDUSTRIAL",
+    "BHEL":        "INDUSTRIAL",
+    "SIEMENS":     "INDUSTRIAL",
+    "HINDUNILVR":  "FMCG",
+    "NESTLEIND":   "FMCG",
+    "BRITANNIA":   "FMCG",
+    "DABUR":       "FMCG",
+    "MARICO":      "FMCG",
+    "ITC":         "FMCG"
+  }
+}

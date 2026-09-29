@@ -129,6 +129,7 @@ class TrainingOrchestrator:
         parsimony_margin: float = 0.005,
         max_ece: float = 0.10,
         enforce_calibration_gate: bool = True,
+        horizon_bars: int = 1,
     ) -> None:
         self._builder = dataset_builder
         self._registry = registry or ModelRegistry()
@@ -140,6 +141,10 @@ class TrainingOrchestrator:
         self.parsimony_margin = parsimony_margin
         self.max_ece = max_ece
         self.enforce_calibration_gate = enforce_calibration_gate
+        # FIX NEW-P1-002: horizon_bars used to correctly annualise Sharpe in WF.
+        self.horizon_bars = max(1, horizon_bars)
+        # FIX NEW-P2-006: baseline IC for comparison gate (set per train() call)
+        self._baseline_ic: float | None = None
 
     def train(
         self,
@@ -147,7 +152,22 @@ class TrainingOrchestrator:
         dataset_id: str,
         candidate_names: list[str] | None = None,
         register_champion: bool = True,
+        baseline_ic: float | None = None,
     ) -> TrainingReport:
+        """Train, validate, and optionally register a champion model.
+
+        Args:
+            model_name:      Identifier for this model family.
+            dataset_id:      ID of the frozen dataset to train on.
+            candidate_names: List of estimator names to evaluate.
+            register_champion: Whether to persist the champion artifact.
+            baseline_ic:     Optional IC of the best naive baseline (mandate §47).
+                             When provided, the champion must exceed this by
+                             at least `parsimony_margin` to pass acceptance.
+                             If None, the baseline gate is skipped.
+        """
+        # Store baseline_ic for use in _acceptance() (FIX NEW-P2-006)
+        self._baseline_ic = baseline_ic
         candidate_names = candidate_names or ["logistic", "lightgbm", "xgboost"]
 
         frame = self._builder.load_frame(dataset_id)
@@ -185,7 +205,12 @@ class TrainingOrchestrator:
         else:
             # Raw dataset — enable per-fold normalization
             from src.features.normalizer import FeatureNormalizer
-            normalizer_factory = lambda: FeatureNormalizer(winsor_pct=(1.0, 99.0))  # noqa: E731
+
+            def _make_normalizer() -> "FeatureNormalizer":
+                """Named factory so the function is picklable (FIX NEW-P3-005)."""
+                return FeatureNormalizer(winsor_pct=(1.0, 99.0))
+
+            normalizer_factory = _make_normalizer
             X_raw = frame[feature_cols].to_numpy(dtype=float)
 
         X       = X_raw
@@ -206,7 +231,8 @@ class TrainingOrchestrator:
         )
 
         wf   = WalkForwardValidator(
-            n_windows=self.n_windows, embargo_days=self.embargo_days, cost_bps=self.cost_bps
+            n_windows=self.n_windows, embargo_days=self.embargo_days, cost_bps=self.cost_bps,
+            horizon_bars=getattr(self, "horizon_bars", 1),
         )
         cpcv = CombinatorialPurgedCV(n_groups=6, k_test_groups=2, embargo=self.embargo_days)
 
@@ -358,6 +384,17 @@ class TrainingOrchestrator:
             and champion.calibration_ece > self.max_ece
         ):
             return False, "POOR_CALIBRATION"
+        # Baseline comparison gate (FIX NEW-P2-006, mandate §47):
+        # The champion must beat the best naive baseline by at least parsimony_margin.
+        # If baseline_ic is provided, enforce this gate.
+        if hasattr(self, "_baseline_ic") and self._baseline_ic is not None:
+            if champion.wf_ic_mean <= self._baseline_ic + self.parsimony_margin:
+                return (
+                    False,
+                    f"FAILS_BASELINE_COMPARISON "
+                    f"(champion IC={champion.wf_ic_mean:.4f} "
+                    f"<= baseline IC={self._baseline_ic:.4f} + margin={self.parsimony_margin:.4f})",
+                )
         return True, ""
 
     # ── Fit + register ─────────────────────────────────────────────────────
@@ -429,6 +466,58 @@ class TrainingOrchestrator:
         staging.mkdir(parents=True, exist_ok=True)
         staged_file = staging / f"{model_name}_{version}_model.pkl"
 
+        # ── Step 3b: SHAP feature importances (P2-008 fix) ───────────────────
+        # Compute SHAP values for the champion model on a representative
+        # sample (≤2000 rows) of the training data.  Store top-30 importances
+        # in the artifact payload so downstream tools (reports, dashboards,
+        # drift monitors) can access them without re-running training.
+        shap_importances: dict[str, float] = {}
+        try:
+            import shap as _shap  # optional dependency
+
+            feat_names = list(self._builder._ff.FEATURE_NAMES)
+            sample_size = min(2000, len(X_to_fit))
+            rng = np.random.default_rng(42)
+            idx = rng.choice(len(X_to_fit), size=sample_size, replace=False)
+            X_sample = X_to_fit[idx]
+
+            # TreeExplainer for tree models; KernelExplainer as fallback.
+            try:
+                explainer = _shap.TreeExplainer(model)
+                shap_vals = explainer.shap_values(X_sample)
+            except Exception:
+                explainer = _shap.KernelExplainer(
+                    model.predict, _shap.sample(X_sample, 100)
+                )
+                shap_vals = explainer.shap_values(X_sample, nsamples=100)
+
+            # For classifiers shap_values may be a list [class0, class1]
+            if isinstance(shap_vals, list):
+                shap_vals = shap_vals[-1]
+
+            mean_abs = np.abs(shap_vals).mean(axis=0)
+            top_n = min(30, len(feat_names))
+            order = np.argsort(mean_abs)[::-1][:top_n]
+            shap_importances = {
+                feat_names[i]: round(float(mean_abs[i]), 6) for i in order
+            }
+            logger.info(
+                "orchestrator_shap_computed",
+                top_feature=feat_names[order[0]],
+                top_importance=round(float(mean_abs[order[0]]), 6),
+                n_features=len(shap_importances),
+            )
+        except ImportError:
+            logger.warning(
+                "orchestrator_shap_skipped",
+                reason="shap package not installed — pip install shap",
+            )
+        except Exception as exc:
+            logger.warning(
+                "orchestrator_shap_failed",
+                error=str(exc),
+            )
+
         payload = {
             "estimator":          model,
             "estimator_name":     cand_name,
@@ -440,6 +529,8 @@ class TrainingOrchestrator:
             "normalizer_state":   normalizer_state,
             "normalization_applied": production_normalizer is not None,
             "feature_schema_version": meta.feature_schema_version,
+            # P2-008 fix: SHAP importances stored in artifact.
+            "shap_importances":   shap_importances,
         }
         with staged_file.open("wb") as fh:
             pickle.dump(payload, fh)
@@ -466,6 +557,8 @@ class TrainingOrchestrator:
                 "cost_bps":               self.cost_bps,
                 "normalization_applied":  production_normalizer is not None,
                 "training_metrics":       champion.to_dict(),
+                # P2-008: top SHAP features for dashboards / drift monitoring
+                "shap_importances":       shap_importances,
             },
         )
         final_stage = staging / "model.pkl"

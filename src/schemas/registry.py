@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from src.schemas.base import (
     BaseSchema,
@@ -103,7 +103,13 @@ class TrainingRunStatus(BaseSchema):
     ``status`` follows the lifecycle: RUNNING → COMPLETED | FAILED | ABORTED.
     ``current_stage`` is a human-readable description of the active pipeline
     step (e.g. "purged_kfold_fold_3_of_5", "optuna_trial_42_of_50").
+
+    NOTE: intentionally NOT frozen — the background training task mutates
+    this object in-place via ``_training_registry[run_id].status = ...``.
     """
+
+    # Override the frozen=True from BaseSchema so background tasks can update status.
+    model_config = ConfigDict(strict=True, frozen=False)
 
     run_id: str
     model_name: str

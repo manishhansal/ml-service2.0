@@ -18,11 +18,22 @@ Provides:
 from __future__ import annotations
 
 import os
+import warnings
 from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+# ── Suppress known noisy warnings that don't indicate real failures ────────────
+# NEW-P3-001: scikit-learn LogisticRegression convergence warning with small datasets
+warnings.filterwarnings("ignore", message="lbfgs failed to converge", category=UserWarning)
+warnings.filterwarnings("ignore", message="Number of distinct clusters", category=UserWarning)
+# LightGBM/XGBoost verbosity
+warnings.filterwarnings("ignore", category=UserWarning, module="lightgbm")
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="pydantic")
+
 
 # ── Env-var bootstrap ─────────────────────────────────────────────────────────
 # Must be set before any `src.*` import so pydantic-settings does not raise

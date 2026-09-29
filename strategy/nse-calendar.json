@@ -1,0 +1,32 @@
+[
+  {
+    "label": "RBI_OCT_2026",
+    "fire_at": "2026-10-01T10:00:00+05:30",
+    "window_min": 120,
+    "event_type": "RBI_POLICY"
+  },
+  {
+    "label": "FO_EXPIRY_OCT_2026",
+    "fire_at": "2026-10-29T09:15:00+05:30",
+    "window_min": 30,
+    "event_type": "FO_EXPIRY"
+  },
+  {
+    "label": "FO_EXPIRY_NOV_2026",
+    "fire_at": "2026-11-26T09:15:00+05:30",
+    "window_min": 30,
+    "event_type": "FO_EXPIRY"
+  },
+  {
+    "label": "RBI_DEC_2026",
+    "fire_at": "2026-12-04T10:00:00+05:30",
+    "window_min": 120,
+    "event_type": "RBI_POLICY"
+  },
+  {
+    "label": "FO_EXPIRY_DEC_2026",
+    "fire_at": "2026-12-31T09:15:00+05:30",
+    "window_min": 30,
+    "event_type": "FO_EXPIRY"
+  }
+]
