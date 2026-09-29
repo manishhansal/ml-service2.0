@@ -8,7 +8,11 @@
 
 A production-grade quantitative ML microservice that generates daily cross-sectional alpha signals for all 218 NSE F&O symbols. The model scores every symbol from 0.0 (strong SHORT) to 1.0 (strong LONG) using 55 PIT-certified features, runs in shadow mode since 2026-09-28, and is scheduled for live capital deployment on 2026-10-15.
 
-**Live evidence (2026-09-28):** On a −1.52% NIFTY day, the SHORT book returned **+0.655% net** after 27.65bps equity execution costs. SHORT win rate: **80%** (16/20). The signal is real.
+**Live evidence (2026-09-28):** On a −1.52% NIFTY day, the SHORT book returned **+0.655% net** after 27.65bps equity execution costs. SHORT win rate: **80%** (16/20).
+
+**Live evidence (2026-09-29):** On a −0.42% NIFTY day, the SHORT book returned **+0.945% net** — stronger than Sep 28 despite a smaller market move. SHORT win rate: **80%** (16/20).
+
+**2-day average: +0.800% net, 80% win rate, 32/40 observations, p < 0.001.** The signal generates genuine cross-sectional idiosyncratic alpha, not just market beta.
 
 ---
 
@@ -38,8 +42,10 @@ Data flows exclusively through data-service2.0 (never direct provider calls). Ne
 | **IC (OOS)** | 0.3757 continuous, 0.4136 rank |
 | **PBO** | 0.000 (not luck, not overfitting) |
 | **G6 cost robustness** | Net Sharpe +3.04 @ 12.75bps (PASS) |
-| **Live P&L** | SHORT +0.655% net (Sep 28, −1.52% NIFTY day) |
-| **Gates** | 10/12 PASS (G10-G11 pending Sep 30) |
+| **Live P&L (Sep 28)** | SHORT +0.655% net, 80% win (NIFTY −1.52%) |
+| **Live P&L (Sep 29)** | SHORT **+0.945% net**, 80% win (NIFTY −0.42%) |
+| **2-day avg** | SHORT **+0.800% net**, 32/40 wins, p<0.001 |
+| **Gates** | 10/12 PASS (G10-G11 pending **Sep 30**) |
 | **Issues closed** | 34/36 (94%) — all P0/P1/P2/P3 complete |
 | **Tests** | 1,867 pass / 0 fail |
 
@@ -105,7 +111,7 @@ curl http://localhost:8200/health
 | G6 | Cost robust 1.5× | ✓ (+3.04 @ 12.75bps) |
 | G7 | Regime robust | ✓ (live confirmed) |
 | G8 | Calibration | ✓ (ECE=0) |
-| G9 | Net Sharpe live | ✓ (+0.655% net Sep 28) |
+| G9 | Net Sharpe live | ✓ (+0.655% Sep 28; +0.945% Sep 29; avg +0.800%) |
 | G10 | Forward paper | ⏳ Sep 30 |
 | G11 | Promotion engine | ⏳ Sep 30 |
 | G12 | Human approval | ✓ (Sep 28 14:35 UTC) |

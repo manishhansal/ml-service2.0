@@ -1,6 +1,51 @@
 # DATA CERTIFICATION REPORT
 **AlphaForge ml-service2.0 — Data Pipeline Certification**
-**Date:** 2026-09-28 (post-close) | **Status:** CERTIFIED | **Revision:** v3.0
+**Date:** 2026-09-29 (post-close) | **Status:** CERTIFIED | **Revision:** v4.0
+
+---
+
+## Data Sources
+
+| Source | Role | Status |
+|--------|------|--------|
+| data-service2.0 (port 8200) | Sole market data authority | ✓ VERIFIED |
+| SentinelPulse (port 3001) | News/NLP context | ✓ VERIFIED |
+| On-disk parquets (`data/1d/1d/`) | Primary training + scoring source | ✓ VERIFIED |
+
+---
+
+## Universe Coverage
+
+| Metric | Value |
+|--------|-------|
+| NSE F&O universe | 218 / ~220 (99%) |
+| Parquet data range | 2021-09-20 → 2026-09-25 |
+| Total rows | ~394,638 (5yr daily) |
+| Sep 28-29 bars | **Not yet synced** — ingest Oct 1 |
+| TATAMOTORS DVR flag | Excluded (226% price mismatch) |
+
+**Sep 29 session note:** Data still uses Sep 23-24 parquets for scoring. Live LTP quotes flowed correctly from data-service via `/v1/india/quotes/{symbol}` endpoint (restored after restart). Angel One re-authenticated with TOTP at startup.
+
+---
+
+## PIT Compliance
+
+| Contract | Status |
+|----------|--------|
+| Features causal at bar i | ✓ 0 INVALID in CI |
+| Sep 29 scoring used Sep 23-24 data | ✓ Correct |
+| Forward paper entry prices | ✓ next_open after signal_ts |
+
+---
+
+## Action Required
+
+```bash
+make ingest          # Oct 1: refresh Sep 28-29-30 bars
+make universe-coverage  # Verify all 218 updated
+```
+
+*Generated: 2026-09-29 | Universe: 218/220 NSE F&O*
 
 ---
 

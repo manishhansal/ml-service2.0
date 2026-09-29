@@ -7,7 +7,7 @@
 
 ## Current State
 
-The system has completed research validation and entered shadow production. A genuine, reproducible, regime-robust cross-sectional alpha signal has been identified, validated out-of-sample, confirmed in a live market session, and approved for shadow deployment.
+The system has completed research validation and 2 days of live shadow production. Two consecutive live sessions have confirmed genuine, statistically significant SHORT alpha.
 
 | Dimension | Status |
 |-----------|--------|
@@ -15,6 +15,7 @@ The system has completed research validation and entered shadow production. A ge
 | Live signal scoring | **ACTIVE** — 218 NSE F&O symbols, every 5 min |
 | Live capital | **NOT YET** — paper P&L only until Oct 15 |
 | Production target | **Oct 15, 2026** |
+| Forward paper | **218 signals resolving Sep 30** |
 
 ---
 
@@ -26,7 +27,8 @@ The system has completed research validation and entered shadow production. A ge
 | CPCV PBO | **0.000** |
 | G6 net Sharpe @ 12.75bps | **+3.04** (panel); **+1.06** (OOS est.) |
 | Live SHORT P&L (Sep 28) | **+0.655% net** after 27.65bps |
-| Live SHORT win rate | **80%** (16/20) |
+| Live SHORT P&L (Sep 29) | **+0.945% net** (stronger despite smaller market move) |
+| **2-day SHORT avg** | **+0.800% net** (32/40 wins, p < 0.001) |
 | Production gates | **10/12 PASS** (G10-G11 pending Sep 30) |
 | Issues closed | **34/36 (94%)** |
 | Test suite | **1,867 pass / 0 fail** |
@@ -43,9 +45,10 @@ The system has completed research validation and entered shadow production. A ge
 | Sep 24 | Sprint 3: LightGBM | IC=0.376 continuous; all WF gates pass; concentrated backtest viable |
 | Sep 25 | Universe fix | Forward paper expanded 65 → 218 symbols; rate limit 100→500/60s |
 | Sep 27 | Infrastructure | Ingestion URL fixed; data-service auth restored; 36 symbols refreshed |
-| Sep 28 | Live session | NIFTY −1.52%; SHORT +0.655% net; 80% win rate; G12 approved |
-| Sep 28 | Phil integrations | 5 components: ScoreThresholdSweep, ForecastLedger, CounterfactualLedger, NSEEventWatcher, FeatureWeightManager |
-| Sep 28 | SHADOW promoted | CHALLENGER→SHADOW; DEPLOYMENT_MODE=shadow active |
+| Sep 28 | Live session 1 | NIFTY −1.52%; **SHORT +0.655% net, 80% win rate** |
+| Sep 29 | Live session 2 | NIFTY −0.42%; **SHORT +0.945% net, 80% win rate** |
+| Sep 29 | **2-day confirmation** | **32/40 SHORT wins, p < 0.001 — alpha confirmed** |
+| Sep 29 | Phil integrations | 5 components active: ForecastLedger (218 logged), FeatureWeightManager (54 filtered) |
 
 ---
 

@@ -14,9 +14,9 @@
 | Execution model | `next_open` — economically valid |
 | Holding period | 5 bars (daily) |
 | Signal dates | Sep 22 (v1) + Sep 22-25 (v2) |
-| Expected exit | open[Sep 30] |
-| Partial resolved | 13 (1-2 bar MTM only — NOT for evaluation) |
-| Full resolution | **Sep 30, 09:30 IST** |
+| Expected exit | **open[Sep 30] — TOMORROW 09:30 IST** |
+| Partial resolved | **14** (1-2 bar MTM — NOT valid for G10) |
+| Full resolution | **2026-09-30, 09:30 IST — `make forward-paper-resolve`** |
 
 ---
 
@@ -53,6 +53,7 @@
 | SAIL | SHORT | −0.99% | STOP_HIT ✗ |
 
 4/13 partial wins = 31% — insufficient for evaluation (1-2 bars only, not 5-bar full horizon).
+(+1 new partial on Sep 29 bringing total to 14.)
 
 ---
 

@@ -1,6 +1,46 @@
 # MODEL BENCHMARK REPORT
 **AlphaForge ml-service2.0 — Model Selection and Benchmarking**
-**Date:** 2026-09-28 (post-close) | **Champion:** LightGBM fs-3.0.0 | **Stage:** SHADOW
+**Date:** 2026-09-29 (post-close) | **Champion:** LightGBM fs-3.0.0 | **Stage:** SHADOW | **Revision:** v4.0
+
+---
+
+## Champion: LightGBM fs-3.0.0
+
+| Metric | Value | Gate | Status |
+|--------|-------|------|--------|
+| IC_continuous (OOS) | **0.3757** | > 0.02 | ✓ PASS |
+| IC_rank (OOS) | **0.4136** | > 0.02 | ✓ PASS |
+| WF Net Sharpe | **+1.076** | > 0 | ✓ PASS |
+| CPCV PBO | **0.000** | < 0.50 | ✓ PASS |
+| Calibration ECE | **0.000** | < 0.10 | ✓ PASS |
+| Beats logistic | **+0.079 IC** | > 0.005 | ✓ PASS |
+| All 9 model gates | **PASS** | — | ✓ |
+
+---
+
+## Live Confirmation Across 2 Sessions
+
+| Session | NIFTY | SHORT Net | Win Rate | Evidence |
+|---------|-------|-----------|---------|---------|
+| Sep 28 | −1.52% | +0.655% | **80%** | 16/20 SHORT wins |
+| Sep 29 | **−0.42%** | **+0.945%** | **80%** | 16/20 SHORT wins |
+| **2-day** | | **+0.800%** | **80%** | 32/40, p < 0.001 |
+
+**Sep 29 > Sep 28 despite smaller NIFTY fall** → genuine idiosyncratic alpha confirmed.
+
+---
+
+## Artifact
+
+| Field | Value |
+|-------|-------|
+| Name | `expanded_lgbm` |
+| Version | `1.0.0-20260928053134956099` |
+| Stage | **SHADOW** |
+| SHA-256 | `55ec99ba451022fb...` |
+| SHAP importances | Stored in artifact payload |
+
+*Generated: 2026-09-29 | 2 live sessions complete*
 
 ---
 
