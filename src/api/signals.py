@@ -141,6 +141,16 @@ async def get_latest_signals() -> JSONResponse:
     if snapshot is None:
         return JSONResponse(content=_no_session_response())
 
+    # Normalize direction: 0 is a ForecastLedger sentinel; derive from score.
+    for sig in snapshot.get("signals", []):
+        raw = sig.get("direction", 0)
+        if raw not in (1, -1):
+            sig["direction"] = 1 if sig.get("score", 0.5) >= 0.5 else -1
+        # Re-compute n_long/n_short after normalization
+    sigs = snapshot.get("signals", [])
+    snapshot["n_long"]  = sum(1 for s in sigs if s.get("direction") == 1)
+    snapshot["n_short"] = sum(1 for s in sigs if s.get("direction") == -1)
+
     # Annotate staleness — useful for UI "last updated" badge
     snapshot["stale"] = _is_stale(snapshot)
 
