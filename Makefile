@@ -48,6 +48,7 @@ TEST_IGNORES = \
 	build rebuild up down restart logs logs-ml logs-redis logs-mlflow logs-all \
 	health shell docker-test docker-shell prune reset \
 	ingest ingest-resume ingest-universe universe-coverage \
+	refresh-data fast-backfill fast-backfill-today \
 	forward-paper forward-paper-resolve signal-promote \
 	promote-shadow g6-test watcher threshold-sweep session \
 	clean clean-docker help
@@ -282,6 +283,17 @@ refresh-data:  ## Full universe data refresh: backfill via data-service + ingest
 	@echo "▶  Ingesting latest bars ..."
 	PYTHONPATH=. $(PYTHON) scripts/fast_ingest.py
 	@echo "✓  Ingestion complete."
+
+fast-backfill:  ## Fast parallel backfill (5d lookback, 8 workers) — use after token refresh
+	@echo "▶  Fast parallel backfill for recent bars (last 5 days) ..."
+	@echo "   Tip: run 'make check-token' first to ensure Upstox token is valid"
+	PYTHONPATH=. $(PYTHON) scripts/fast_backfill_recent.py --days 5 --workers 8
+	@echo "✓  Fast backfill complete."
+
+fast-backfill-today:  ## Backfill only today's bars (2d lookback, 10 workers) — urgent recovery
+	@echo "▶  Targeted backfill for today's bars ..."
+	PYTHONPATH=. $(PYTHON) scripts/fast_backfill_recent.py --days 2 --workers 10
+	@echo "✓  Done."
 
 ingest-universe:  ## Full 218-symbol F&O universe ingestion (resumable, ~10 min)
 	@echo "▶  Running broad-universe ingestion (rate: 2 req/s, 218 symbols) ..."
