@@ -211,7 +211,11 @@ async def get_signal_history(
     target_date = date or _today_ist()
 
     try:
-        records = []
+        # Read ALL records for the target date — limit applied AFTER deduplication.
+        # The ForecastLedger appends records chronologically; resolved (won/lost)
+        # records are written at EOD and sit at the end of the file.  Applying
+        # limit during read would truncate before reaching them.
+        all_records: list[dict] = []
         for line in _FORECASTS_PATH.read_text().splitlines():
             if not line.strip():
                 continue
@@ -219,29 +223,63 @@ async def get_signal_history(
                 rec = json.loads(line)
                 if rec.get("session_date") != target_date:
                     continue
-                if status and rec.get("status") != status:
-                    continue
-                records.append(rec)
-                if len(records) >= limit:
-                    break
+                all_records.append(rec)
             except Exception:
                 continue
 
-        # Deduplicate per symbol — keep latest non-superseded record
-        seen: dict[str, dict] = {}
-        for rec in records:
-            sym = rec["symbol"]
-            if rec.get("status") == "superseded":
-                if sym not in seen:
-                    seen[sym] = rec  # keep if nothing better yet
-            else:
-                seen[sym] = rec  # non-superseded always wins
+        # Deduplicate per symbol — precedence: won/lost > open > superseded.
+        # When multiple records have the same status, keep the one with the
+        # latest timestamp so re-scored sessions use the freshest data.
+        STATUS_RANK = {"won": 3, "lost": 3, "open": 2, "superseded": 1}
 
-        deduped = sorted(seen.values(), key=lambda r: abs(r.get("score", 0.5) - 0.5), reverse=True)
+        seen: dict[str, dict] = {}
+        for rec in all_records:
+            sym = rec.get("symbol", "")
+            if not sym:
+                continue
+            existing = seen.get(sym)
+            if existing is None:
+                seen[sym] = rec
+                continue
+            # Prefer higher-ranked status; break ties by latest ts
+            cur_rank = STATUS_RANK.get(rec.get("status", ""), 0)
+            ex_rank  = STATUS_RANK.get(existing.get("status", ""), 0)
+            if cur_rank > ex_rank:
+                seen[sym] = rec
+            elif cur_rank == ex_rank and rec.get("ts", "") > existing.get("ts", ""):
+                seen[sym] = rec
+
+        # Optional status filter applied AFTER deduplication
+        deduped_all = list(seen.values())
+        if status:
+            deduped_all = [r for r in deduped_all if r.get("status") == status]
+
+        # Sort by conviction (distance from 0.5), then apply limit
+        deduped_all.sort(key=lambda r: abs(r.get("score", 0.5) - 0.5), reverse=True)
+        deduped = deduped_all[:limit]
+
+        # Compute session stats for the UI header
+        resolved = [r for r in deduped if r.get("net_pct") is not None]
+        stats: dict = {
+            "n_total": len(deduped),
+            "n_resolved": len(resolved),
+            "n_open": sum(1 for r in deduped if r.get("status") == "open"),
+            "n_won": sum(1 for r in deduped if r.get("status") == "won"),
+            "n_lost": sum(1 for r in deduped if r.get("status") == "lost"),
+        }
+        if resolved:
+            net_pcts = [r["net_pct"] for r in resolved]
+            stats["win_rate"]    = round(sum(1 for p in net_pcts if p > 0) / len(net_pcts) * 100, 1)
+            stats["mean_net"]    = round(sum(net_pcts) / len(net_pcts), 4)
+            stats["best_net"]    = round(max(net_pcts), 4)
+            stats["worst_net"]   = round(min(net_pcts), 4)
+            bd_vals = [r.get("brier_delta") for r in resolved if r.get("brier_delta") is not None]
+            stats["brier_delta_mean"] = round(sum(bd_vals) / len(bd_vals), 6) if bd_vals else None
 
         return JSONResponse(content={
             "date": target_date,
             "n": len(deduped),
+            "stats": stats,
             "records": deduped,
         })
     except Exception as exc:
