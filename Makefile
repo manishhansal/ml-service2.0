@@ -365,7 +365,19 @@ g6-test:  ## Run G6 cost robustness test (confirms strategy viable at 1.5× prim
 	PYTHONPATH=. $(PYTHON) scripts/run_g6_robustness_test.py
 	@echo "✓  Report: reports/g6_cost_robustness_test.json"
 
-watcher:  ## Run NSE event watcher check (fires on NIFTY move ≥0.75%, calendar events)
+reversal-scan:  ## Run real-time reversal scan — detect oversold bounces and overbought drops
+	@echo "▶  Scanning 218 symbols for reversal setups ..."
+	PYTHONPATH=. $(PYTHON) -c "\
+import sys; sys.path.insert(0,'.'); \
+from src.analytics.reversal_detector import ReversalDetector; \
+d = ReversalDetector(override_threshold=0.60); \
+r = d.scan(); \
+s = d.top_setups(r, n=10); \
+print('OVERSOLD BOUNCE candidates (LONG reversal):'); \
+[print(f'  {x[\"symbol\"]:15} score={x[\"score\"]:.2f}  {x[\"evidence\"]}') for x in s['oversold_bounce']]; \
+print(); print('OVERBOUGHT DROP candidates (SHORT reversal):'); \
+[print(f'  {x[\"symbol\"]:15} score={x[\"score\"]:.2f}  {x[\"evidence\"]}') for x in s['overbought_drop']]; \
+print(f'\nTotal: {len(r)} reversal setups | Strong (>=0.60): {sum(1 for x in r if x.reversal_score>=0.6)}')"
 	@echo "▶  NSE event watcher check ..."
 	PYTHONPATH=. $(PYTHON) scripts/nse_event_watcher.py check
 
