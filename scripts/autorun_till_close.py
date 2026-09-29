@@ -83,6 +83,7 @@ COST_BPS     = 27.65  # equity round-trip
 SAMPLE_MINS  = 5      # sample every 5 minutes
 
 SESSION_DIR.mkdir(parents=True, exist_ok=True)
+LATEST_SCORES_PATH = SESSION_DIR / "latest_scores.json"
 
 # ── Load env ──────────────────────────────────────────────────────────────────
 env = {}
@@ -508,6 +509,13 @@ def main():
 
             print_dashboard(sample_n + 1, now, nifty_q, final_scores, final_pnl, 0)
 
+            # ── AlphaForge: write final close snapshot ───────────────────────
+            _write_latest_scores(
+                scores=final_scores, session_date=session_date, schema=schema,
+                nifty_chg=nifty_q.get("changePct", 0), nifty_ltp=nifty_q.get("ltp"),
+                market_open=False, pnl=final_pnl,
+            )
+
             # Summary
             print(f"\n{'='*70}")
             print("  END-OF-DAY SUMMARY")
@@ -605,6 +613,13 @@ def main():
         live_quotes.update(all_fp_quotes)
         pnl = calc_pnl(fp_signals, live_quotes, excluded)
 
+        # ── AlphaForge: write latest_scores.json for UI consumption ──────────
+        _write_latest_scores(
+            scores=scores, session_date=session_date, schema=schema,
+            nifty_chg=nifty_chg_now, nifty_ltp=nifty_q.get("ltp"),
+            market_open=True, pnl=pnl,
+        )
+
         # Dashboard
         print_dashboard(sample_n, now, nifty_q, scores, pnl, mins)
 
@@ -633,7 +648,83 @@ def main():
     print("\nAutorun complete.")
 
 
-def _append_close_to_report(now: datetime, nifty_q: dict, pnl: dict, n_samples: int) -> None:
+def _write_latest_scores(
+    scores: list[dict],
+    session_date: str,
+    schema: str,
+    nifty_chg: float,
+    nifty_ltp: float | None,
+    market_open: bool,
+    pnl: dict | None = None,
+) -> None:
+    """Atomic snapshot of all scored symbols written after every cycle.
+
+    AlphaForge reads this file via GET /v2/signals/latest — always fresh,
+    never requires replaying the session log.  Written via a temp file so
+    any concurrent reader never sees a partial write.
+    """
+    try:
+        def _conviction(score: float) -> str:
+            dist = abs(score - 0.5)
+            if dist >= 0.40: return "S"
+            if dist >= 0.30: return "A"
+            if dist >= 0.20: return "B"
+            if dist >= 0.10: return "C"
+            return "D"
+
+        # Rank by conviction (distance from 0.5); ties broken by symbol
+        ranked = sorted(scores, key=lambda s: abs(s["score"] - 0.5), reverse=True)
+        # Build per-symbol live P&L lookup for the UI
+        pnl_by_sym: dict[str, dict] = {}
+        if pnl:
+            for pos in pnl.get("positions", []):
+                pnl_by_sym[pos["symbol"]] = {
+                    "net_pct":    pos.get("net_pct"),
+                    "gross_pct":  pos.get("gross_pct"),
+                    "entry":      pos.get("entry"),
+                    "ltp":        pos.get("ltp"),
+                    "chg_today_pct": pos.get("chg_today_pct"),
+                }
+
+        signals_out = []
+        for i, s in enumerate(ranked):
+            entry = {
+                "symbol":     s["symbol"],
+                "score":      s["score"],
+                "direction":  s["direction"],   # +1 LONG | -1 SHORT
+                "data_date":  s.get("data_date", ""),
+                "rank":       i + 1,
+                "conviction": _conviction(s["score"]),
+            }
+            if s["symbol"] in pnl_by_sym:
+                entry["live_pnl"] = pnl_by_sym[s["symbol"]]
+            signals_out.append(entry)
+
+        snapshot = {
+            "session_date": session_date,
+            "generated_at": datetime.now(tz=timezone.utc).isoformat(),
+            "market_open":  market_open,
+            "model_version": schema,
+            "n_scored":     len(signals_out),
+            "n_long":       sum(1 for s in signals_out if s["direction"] == 1),
+            "n_short":      sum(1 for s in signals_out if s["direction"] == -1),
+            "nifty_chg":    round(nifty_chg, 4),
+            "nifty_ltp":    nifty_ltp,
+            "session_pnl":  {
+                "mean_net":   pnl.get("mean_net", 0) if pnl else None,
+                "win_rate":   pnl.get("win_rate", 0) if pnl else None,
+                "n_positions": pnl.get("n", 0) if pnl else 0,
+            },
+            "signals": signals_out,
+        }
+        tmp = LATEST_SCORES_PATH.with_suffix(".tmp")
+        tmp.write_text(json.dumps(snapshot, default=str))
+        tmp.replace(LATEST_SCORES_PATH)
+    except Exception as e:
+        print(f"[warn] Could not write latest_scores.json: {e}", file=sys.stderr)
+
+
+(now: datetime, nifty_q: dict, pnl: dict, n_samples: int) -> None:
     """Append end-of-day close summary to LIVE_SESSION_REPORT.md."""
     try:
         existing = REPORT_PATH.read_text() if REPORT_PATH.exists() else ""

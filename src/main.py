@@ -262,13 +262,14 @@ async def metrics() -> Response:
 # Routers are imported here (after `app` is created) to avoid circular imports
 # while keeping the module layout consistent with the design spec.
 
-from src.api import analytics, explain, meta, monitoring, predict, training  # noqa: E402
+from src.api import analytics, explain, meta, monitoring, predict, signals, training  # noqa: E402
 from src.streaming.streamer import SignalStreamer  # noqa: E402
 
 app.include_router(predict.router, prefix="/v2")
 app.include_router(meta.router, prefix="/v2")
 app.include_router(analytics.router, prefix="/v2")
 app.include_router(explain.router, prefix="/v2")
+app.include_router(signals.router, prefix="/v2")
 app.include_router(training.router)
 app.include_router(monitoring.router)
 
