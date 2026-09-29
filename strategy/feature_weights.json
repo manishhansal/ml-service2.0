@@ -6,11 +6,24 @@
   "_evidence": "Sep 28 live session: DRREDDY +1.67% on SHORT (pharma defensive), ASIANPAINT -0.65% on SHORT (paints defensive), MARUTI -0.22% on SHORT (auto defensive). All 3 misses are defensive sectors that rotate up in HIGH_CORR_BEAR regime.",
 
   "score_threshold": {
-    "_description": "Minimum distance from 0.50 neutral to open a position. Signals within [0.50-t, 0.50+t] are filtered (FLAT). Updated by score_threshold_sweep after each resolved batch.",
+    "_description": "Minimum distance from 0.50 neutral to open a position.",
     "default": 0.00,
     "current": 0.00,
     "optimal_from_sweep": null,
-    "_note": "Set to 0.15 after first threshold_sweep confirms improvement. Use ScoreThresholdSweep.run() to find optimal."
+    "_note": "Set to 0.15 after first threshold_sweep confirms improvement."
+  },
+
+  "reversal_detection": {
+    "_description": "ReversalDetector configuration. Reversal signals OVERRIDE momentum when score >= override_threshold AND they contradict momentum direction.",
+    "_evidence": "Sep 29: ADANIENT RSI=28 + 5 consec down + at lower BB → REVERSAL_LONG → +5.01%. PAYTM RSI=32 + 4 consec down → REVERSAL_LONG → +2.89%. IEX RSI=72 + 4 consec up → REVERSAL_SHORT → -4.45%.",
+    "enabled": true,
+    "override_threshold": 0.60,
+    "rsi_oversold_threshold": 32,
+    "rsi_overbought_threshold": 68,
+    "consec_bars_threshold": 3,
+    "bb_oversold_threshold": 0.10,
+    "bb_overbought_threshold": 0.90,
+    "_override_logic": "Reversal ONLY overrides momentum when they DISAGREE. When momentum and reversal AGREE, both fire in same direction — higher conviction, no change needed."
   },
 
   "sector_regime_filters": {

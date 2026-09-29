@@ -91,6 +91,23 @@ class ExpandedFeatureFactory(FeatureFactory):
         "garman_klass_vol",    # Garman-Klass OHLC estimator
         "vol_of_vol_20",       # volatility of volatility (vol_5 rolling std over 20 bars)
         "atr_zscore",          # ATR z-score vs 60-bar ATR history
+        # GROUP F: Reversal / Mean-Reversion features (NEW — fs-4.0.0)
+        # These capture oversold/overbought conditions that PRECEDE reversals.
+        # Complement Group A momentum: LightGBM learns to weight each group
+        # by regime — momentum features dominate in trends, reversal features
+        # dominate at extremes.
+        "rsi_oversold_flag",       # 1 if RSI < 30 → potential LONG reversal
+        "rsi_overbought_flag",     # 1 if RSI > 70 → potential SHORT reversal
+        "rsi_extreme_distance",    # (50-RSI)/50, +1=max oversold, -1=max OB
+        "bb_pct_b",                # Bollinger %B: 0=at lower band, 1=at upper
+        "bb_below_lower",          # 1 if price < lower Bollinger Band
+        "bb_above_upper",          # 1 if price > upper Bollinger Band
+        "consec_down_bars",        # consecutive down closes (3+ = oversold)
+        "consec_up_bars",          # consecutive up closes (3+ = overbought)
+        "vol_spike_ratio",         # today vol / 20d avg vol (>2 = abnormal)
+        "price_from_20d_low_pct",  # dist from 20d low (0% = at low = oversold)
+        "price_from_20d_high_pct", # dist from 20d high (0% = at high = OB)
+        "stoch_reversal_signal",   # +1=bullish stoch cross, -1=bearish stoch cross
     ]
 
     @property
@@ -202,6 +219,12 @@ class ExpandedFeatureFactory(FeatureFactory):
         atr_60_mean = atr_14.rolling(60).mean()
         atr_60_std = atr_14.rolling(60).std()
         ext["atr_zscore"] = (atr_14 - atr_60_mean) / atr_60_std.replace(0, np.nan)
+
+        # ── GROUP F: Reversal / Mean-Reversion features ───────────────────
+        from src.features.families.reversal import compute_reversal_features  # noqa: PLC0415
+        rev_feats = compute_reversal_features(close, high, low, df.get("volume", pd.Series(1, index=df.index)))
+        for k, v in rev_feats.items():
+            ext[k] = v
 
         # ── Assemble and clean ─────────────────────────────────────────────
         ext = ext.replace([np.inf, -np.inf], np.nan)

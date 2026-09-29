@@ -67,6 +67,7 @@ try:
     from src.analytics.counterfactual_ledger import CounterfactualLedger
     from src.analytics.score_threshold_sweep import ScoreThresholdSweep
     from src.analytics.feature_weight_manager import FeatureWeightManager
+    from src.analytics.reversal_detector import ReversalDetector
     _PHIL_IMPORTS_OK = True
 except Exception as _e:
     _PHIL_IMPORTS_OK = False
@@ -389,9 +390,10 @@ def main():
     _forecast_ledger    = ForecastLedger()    if _PHIL_IMPORTS_OK else None
     _cfactual_ledger    = CounterfactualLedger() if _PHIL_IMPORTS_OK else None
     _weight_mgr         = FeatureWeightManager() if _PHIL_IMPORTS_OK else None
+    _reversal_detector  = ReversalDetector(override_threshold=0.60) if _PHIL_IMPORTS_OK else None
     session_date        = ist_now().strftime("%Y-%m-%d")
     if _PHIL_IMPORTS_OK:
-        print(f"  Phil integrations: ForecastLedger ✓ | CounterfactualLedger ✓ | FeatureWeightManager ✓")
+        print(f"  Phil integrations: ForecastLedger ✓ | CounterfactualLedger ✓ | FeatureWeightManager ✓ | ReversalDetector ✓")
 
     # Load forward paper signals and exclusions
     fp_signals = load_fp_signals()
@@ -569,6 +571,25 @@ def main():
                 print(f"[{now.strftime('%H:%M')}] Feature weights: regime={regime}, "
                       f"{n_filtered} signals filtered (sector_dim={_wt_summary.get('n_sector_dimmed',0)} "
                       f"threshold={_wt_summary.get('n_threshold',0)})")
+
+        # ── Reversal detection: scan for oversold bounces / overbought drops ──
+        if _reversal_detector is not None and scores:
+            reversals = _reversal_detector.scan([s["symbol"] for s in scores])
+            strong = [r for r in reversals if r.reversal_score >= 0.60]
+            if strong:
+                setups = _reversal_detector.top_setups(reversals, n=3)
+                ob = setups["oversold_bounce"]; od = setups["overbought_drop"]
+                if ob or od:
+                    print(f"[{now.strftime('%H:%M')}] ReversalDetector: {len(strong)} "
+                          f"setups (oversold={len(ob)} overbought={len(od)})")
+                    for s in ob[:2]:
+                        print(f"   BOUNCE {s['symbol']:12}: score={s['score']:.2f}  {s['evidence']}")
+                    for s in od[:2]:
+                        print(f"   DROP   {s['symbol']:12}: score={s['score']:.2f}  {s['evidence']}")
+            scores = _reversal_detector.merge_with_momentum(scores, reversals)
+            n_rev = sum(1 for s in scores if s.get("reversal_override"))
+            if n_rev:
+                print(f"[{now.strftime('%H:%M')}] Reversal overrides: {n_rev} signals flipped")
 
         # ── Phil: log ALL 218 forecasts (not just 26 tracked positions) ───────
         if _forecast_ledger is not None:
