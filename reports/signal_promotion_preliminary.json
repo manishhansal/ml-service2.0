@@ -1,9 +1,9 @@
 {
-  "run_timestamp": "2026-09-28T13:56:58.256312+00:00",
-  "n_outcomes": 13,
-  "n_partial_resolutions": 13,
-  "win_rate": 0.3077,
-  "mean_net_return": -0.004385,
+  "run_timestamp": "2026-09-29T10:00:16.163858+00:00",
+  "n_outcomes": 14,
+  "n_partial_resolutions": 14,
+  "win_rate": 0.3571,
+  "mean_net_return": -0.003056,
   "max_drawdown": -0.05169,
   "regimes_tested": [
     "UNKNOWN"
@@ -12,9 +12,9 @@
   "preliminary_reason": "Failed gates: G2_NET_EXPECTANCY, G4_COST_ROBUST",
   "gate_results": {
     "G1_TRADE_COUNT": "PASS",
-    "G2_NET_EXPECTANCY": "FAIL (expectancy=-0.004385 <= min=0.0)",
+    "G2_NET_EXPECTANCY": "FAIL (expectancy=-0.003056 <= min=0.0)",
     "G3_CALIBRATION": "PASS",
-    "G4_COST_ROBUST": "FAIL (expectancy at 1.5\u00d7cost=-0.005768)",
+    "G4_COST_ROBUST": "FAIL (expectancy at 1.5\u00d7cost=-0.004438)",
     "G5_REGIME_COVERAGE": "PASS",
     "G6_DRAWDOWN": "PASS"
   },
@@ -289,6 +289,27 @@
       "execution_model": "next_open",
       "data_source": "on_disk_parquet",
       "outcome": "STOP_HIT",
+      "regime": "UNKNOWN",
+      "note": "partial_mark_to_market"
+    },
+    {
+      "signal_id": "bce7b830fd52393c24e1f7a9e789108f415e",
+      "symbol": "TATAMOTORS",
+      "signal_ts": "2026-09-21T18:30:00+00:00",
+      "resolve_after": "2026-09-28T18:30:00+00:00",
+      "resolved_at": "2026-09-29T10:00:15.965833+00:00",
+      "direction": -1,
+      "horizon_bars": 5,
+      "bars_elapsed": 2,
+      "partial_resolution": true,
+      "entry_price": 300.1,
+      "exit_price": 295.0,
+      "gross_return": 0.016994,
+      "net_return": 0.014229,
+      "cost_bps": 27.65,
+      "execution_model": "next_open",
+      "data_source": "on_disk_parquet",
+      "outcome": "TARGET_HIT",
       "regime": "UNKNOWN",
       "note": "partial_mark_to_market"
     }

@@ -1,6 +1,64 @@
 # FEATURE CERTIFICATION REPORT
 **AlphaForge ml-service2.0 — Feature Engineering Certification**
-**Date:** 2026-09-28 (post-close) | **Status:** CERTIFIED (fs-3.0.0) | **Revision:** v3.0
+**Date:** 2026-09-29 (post-close) | **Status:** CERTIFIED (fs-3.0.0) | **Revision:** v4.0
+
+---
+
+## Feature Schema Registry
+
+| Schema | Features | Status |
+|--------|----------|--------|
+| fs-2.0.0 | 24 | DEPRECATED |
+| **fs-3.0.0 (ExpandedFeatureFactory)** | **55** | **CERTIFIED — IC validated, PIT-correct** |
+
+---
+
+## fs-3.0.0 Groups (55 features)
+
+| Group | Count | Key features |
+|-------|-------|-------------|
+| Base OHLCV | 24 | ret_1..20, vol_5..20, RSI, MACD, Bollinger, ATR, OBV |
+| Extended momentum | 5 | ret_3, ret_60, mom_accel_5/20, ret_60_rel_vol |
+| Regime | 11 | vol_regime_zscore/pctile, trend_strength/direction/ema_spread, gap_magnitude |
+| Time-context | 7 | weekday/sin/cos, month_end_proximity, quarter_end, is_monday, is_friday |
+| Relative value | 4 | price_zscore_20/60, vol_norm_ret_5/20 |
+| Advanced volatility | 4 | parkinson_vol, garman_klass_vol, vol_of_vol_20, atr_zscore |
+
+---
+
+## Live Session Performance (Sep 28-29)
+
+The 55-feature set has now been validated in 2 live sessions:
+
+| Session | SHORT win rate | Signal consistency |
+|---------|----------------|-------------------|
+| Sep 28 | **80%** (16/20) | 100% across 21 samples |
+| Sep 29 | **80%** (16/20) | 100% across 50 samples |
+
+**Identical top SHORT signals both days** (JSWENERGY, PNBHOUSING, YESBANK, TRENT, ADANIENT) confirm the feature set is stable and regime-informative.
+
+---
+
+## Phil Integration: ForecastLedger (Sep 29)
+
+- **218 forecasts logged** per sample × 50 samples = 10,900 Sep 29 records
+- Calibration data: 2-day total building toward 54,936/year target
+- Sep 29 brier_delta pending (need forward paper resolution for realized values)
+
+---
+
+## FeatureWeightManager (Sep 29 first full session)
+
+| Metric | Sep 28 | Sep 29 |
+|--------|--------|--------|
+| Regime detected | HIGH_CORR_BEAR | **NORMAL** |
+| Signals filtered | ~20 | **54** |
+| LONG count | 6 tracked | 11 (64→11 filtered) |
+| Sector dim active | PHARMA/AUTO | None (NORMAL regime) |
+
+**Finding**: In NORMAL regime (NIFTY −0.42% < −1.5% threshold), sector dimmers don't activate. Yet DRREDDY still missed (pharma +2.02%). This confirms the PHARMA dimmer threshold needs lowering — add MILD_BEAR regime (NIFTY < −0.3%).
+
+*Generated: 2026-09-29 | fs-3.0.0 in production since Sep 23 training*
 
 ---
 

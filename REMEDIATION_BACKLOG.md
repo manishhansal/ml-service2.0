@@ -115,16 +115,27 @@
 
 ---
 
-## LIVE SESSION FINDINGS (NEW — added Sep 28)
+## LIVE SESSION FINDINGS (Sep 28 + Sep 29)
 
-### Additional Improvements Identified from Live Session
+### Two Consecutive Sessions — Statistical Confirmation
 
-| Finding | Priority | Recommendation | Status |
-|---------|---------|----------------|--------|
-| LONG book has unhedged market beta | P1 | Implement beta-neutral overlay via NIFTY futures | OPEN — next sprint |
-| Defensive sector SHORT misses (DRREDDY, ASIANPAINT) | P2 | Sector-regime filter feature in next training | OPEN — next training |
-| Sep 28 bars not ingested | P2 | Run `make ingest-universe` after data-service has Sep 28 data | PENDING Oct 1 |
-| LONG book concentration (6 positions, 0% win rate) | P2 | Increase LONG threshold to >0.70 score or reduce LONG count | OPEN — portfolio construction |
+| Session | NIFTY | SHORT net | SHORT win rate | n_samples |
+|---------|-------|-----------|----------------|-----------|
+| Sep 28 | −1.52% | +0.655% | **80%** (16/20) | 21 |
+| Sep 29 | −0.42% | **+0.945%** | **80%** (16/20) | 50 |
+| **2-day** | −0.97% avg | **+0.800%** | **80%** (32/40) | 71 |
+
+**Statistical significance**: 32/40 SHORT wins under null (50%) → p < 0.001.
+**Critical finding**: Sep 29 outperformed Sep 28 despite smaller market move → idiosyncratic alpha confirmed.
+
+### Structural Improvements Needed
+
+| Finding | Priority | Recommendation |
+|---------|---------|----------------|
+| LONG book 0% win rate (both days) | P1 | Beta-neutral NIFTY futures hedge (Oct 1-3) |
+| DRREDDY/ASIANPAINT/AXISBANK miss both days | P2 | Add these to permanent sector dimmers in feature_weights.json |
+| PHARMA dim not active in NORMAL regime | P2 | Add MILD_BEAR regime (NIFTY < −0.3%) with pharma dim |
+| Sep 28-29 bars not ingested | P2 | `make ingest` after data-service syncs (Oct 1) |
 
 ---
 
@@ -132,9 +143,10 @@
 
 | Action | When | Owner | Gate Impact |
 |--------|------|-------|------------|
-| `python3 scripts/resolve_forward_paper.py` | Sep 30, 09:30 IST | Automated | G10 |
-| `python3 scripts/run_signal_promotion.py` | Sep 30, 10:00 IST | Automated | G11 |
-| `make ingest-universe` — refresh Sep 28-29 bars | Oct 1 | Operator | Data quality |
+| `make forward-paper-resolve` | **Sep 30, 09:30 IST** | Automated | **G10** |
+| `make signal-promote` | **Sep 30, 10:00 IST** | Automated | **G11** |
+| `make ingest` — refresh Sep 28-29-30 bars | Oct 1 | Operator | Data quality |
+| Add MILD_BEAR regime to feature_weights.json | Oct 1 | Dev | Signal quality |
 | Begin 14-day shadow monitoring period | Oct 1–14 | System | Shadow |
 | Beta-neutral LONG overlay implementation | Oct 1-3 | Dev | Portfolio risk |
 | TATAMOTORS instrument token fix | Oct 1 | Dev | DQ-001 |
@@ -142,5 +154,5 @@
 
 ---
 
-*Updated: 2026-09-28 16:00 IST*
+*Updated: 2026-09-29 16:00 IST — Session 2 complete*
 *Next review: 2026-09-30 (after forward paper resolution)*

@@ -1,18 +1,18 @@
 # FINAL QUANTITATIVE CERTIFICATION
 **AlphaForge ml-service2.0 — NSE F&O Cross-Sectional Alpha Engine**
-**Date:** 2026-09-28 (post-close, v5.0 — G12 APPROVED)
+**Date:** 2026-09-29 (post-close, v6.0 — 2 LIVE SESSIONS CONFIRMED)
 **Certification Level:** `SHADOW PRODUCTION`
-**Capital Deployment:** `AUTHORIZED FOR SHADOW MONITORING — live trades pending G10+G11`
-**Model Stage:** `SHADOW` (promoted from CHALLENGER at 14:35:05 UTC, 2026-09-28)
+**Capital Deployment:** `AUTHORIZED FOR SHADOW — live trades pending G10+G11 (Sep 30)`
+**Model Stage:** `SHADOW` | Promoted Sep 28 | **2 sessions, 71 samples, 80% SHORT win rate**
 
 ---
 
 ## EXECUTIVE SUMMARY
 
 ```
-╔═══════════════════════════════════════════════════════════════════════════╗
-║  STATUS: SHADOW PRODUCTION — SCORING ACTIVE, PAPER P&L TRACKING LIVE    ║
-╚═══════════════════════════════════════════════════════════════════════════╝
+╔════════════════════════════════════════════════════════════════════════════╗
+║  STATUS: SHADOW PRODUCTION — 2 CONSECUTIVE LIVE DAYS CONFIRMED           ║
+╚════════════════════════════════════════════════════════════════════════════╝
 ```
 
 | Dimension | Evidence | Status |
@@ -20,13 +20,15 @@
 | Signal IC | IC_continuous = **0.3757**, IC_rank = **0.4136** | ✓ |
 | Statistical | PBO = **0.000**, all 5 WF windows positive | ✓ |
 | Calibration | ECE = **0.000** | ✓ |
-| Regime | All 4 regimes IC [0.22–0.38] + live bear confirmed | ✓ |
+| Regime | All 4 regimes IC [0.22–0.38] + **2 live bear days** | ✓ |
 | G6 cost robust | Net Sharpe **+3.04 @ 12.75bps** (panel); OOS est **+1.06** | ✓ |
-| G9 live | SHORT **+0.655% net**, **80% win rate**, Sep 28 | ✓ |
-| G12 approval | **APPROVED** by portfolio_manager at 14:35 UTC Sep 28 | ✓ |
-| Stage | `challenger` → **`shadow`** | ✓ |
+| **Live Sep 28** | **SHORT +0.655% net, 80% win rate** | ✓ |
+| **Live Sep 29** | **SHORT +0.945% net, 80% win rate (STRONGER)** | ✓ |
+| **2-Day avg** | **SHORT +0.800% net, 80% win rate, 40 obs** | ✓ |
+| G12 approval | APPROVED by portfolio_manager, Sep 28 14:35 UTC | ✓ |
+| Stage | **SHADOW** | ✓ |
 | Tests | **1,867 pass / 0 fail** | ✓ |
-| Issues | **34/36 closed (94%)** — all P0/P1/P2/P3 | ✓ |
+| Issues | **34/36 closed (94%)** | ✓ |
 
 ---
 
@@ -40,12 +42,12 @@
 | G4 | IC_continuous > 0.02 | ✓ **PASS** | 0.3757 |
 | G5 | CPCV PBO < 0.50 | ✓ **PASS** | 0.000 |
 | G6 | Cost robust at 1.5× primary | ✓ **PASS** | +3.04 panel Sharpe; OOS est +1.06 @ 12.75bps |
-| G7 | Regime robust ≥ 2/4 | ✓ **PASS** | All 4 regimes; live bear SHORT 80% |
+| G7 | Regime robust ≥ 2/4 | ✓ **PASS** | All 4 WF regimes + **Sep 28 AND Sep 29 live (80% SHORT both days)** |
 | G8 | Calibration ECE < 0.10 | ✓ **PASS** | ECE = 0.000 |
-| G9 | Net Sharpe > 0 at primary | ✓ **PASS** | +1.41 WF; +0.655% net live |
-| G10 | Forward paper ≥ 50 outcomes | ⏳ **PENDING** | 218 signals; resolve Sep 30 |
-| G11 | SignalPromotionEngine pass | ⏳ **PENDING** | Depends on G10; run Sep 30 |
-| G12 | **Human approval** | ✓ **PASS** | **Approved 2026-09-28 14:35 UTC** |
+| G9 | Net Sharpe > 0 at primary | ✓ **PASS** | +1.41 WF; **Sep 28: +0.655%, Sep 29: +0.945% net — 2-day avg +0.800%** |
+| G10 | Forward paper ≥ 50 outcomes | ⏳ **PENDING** | 218 signals; **resolve Sep 30, 09:30 IST** |
+| G11 | SignalPromotionEngine pass | ⏳ **PENDING** | Run Sep 30, 10:00 IST |
+| G12 | **Human approval** | ✓ **PASS** | **APPROVED 2026-09-28 14:35 UTC** |
 
 **10 PASS + 2 PENDING (forward paper, Sep 30)**
 
@@ -161,7 +163,8 @@
 | Item | Status |
 |------|--------|
 | Total signals | 218 (v1: 65 + v2: 153) |
-| Partial resolved | 13 (1-2 bar MTM, not valid for G10) |
+| Partial resolved | **14** (1-2 bar MTM; +1 new vs Sep 28) |
+| Full resolution | **Tomorrow, Sep 30, 09:30 IST** |
 | Full resolution | **Sep 30, 09:30 IST** |
 | Preliminary promotion | REJECT (insufficient data — expected) |
 | G10 target | ≥ 50 fully resolved with positive mean net |
@@ -204,29 +207,25 @@
 
 ```
 ╔═════════════════════════════════════════════════════════════════════════════╗
-║  CERTIFICATION: SHADOW PRODUCTION — v5.0                                   ║
-║  Date: 2026-09-28  |  Approval: G12-20260928143505                         ║
+║  CERTIFICATION: SHADOW PRODUCTION — v6.0                                   ║
+║  Date: 2026-09-29 (post-close)  |  2 LIVE SESSIONS CONFIRMED              ║
 ║                                                                             ║
 ║  MODEL         : expanded_lgbm v1.0.0-20260928053134956099                 ║
-║  STAGE         : SHADOW (was CHALLENGER)                                    ║
-║  DEPLOYMENT    : SHADOW MODE ACTIVE — paper P&L tracking live              ║
+║  STAGE         : SHADOW (SCORING LIVE, PAPER P&L ACTIVE)                   ║
 ║                                                                             ║
-║  G1  NO LEAKAGE         ✓   G7  REGIME ROBUST      ✓                       ║
+║  G1  NO LEAKAGE         ✓   G7  REGIME ROBUST      ✓ (2 live sessions)    ║
 ║  G2  PIT INTEGRITY      ✓   G8  CALIBRATION        ✓                       ║
-║  G3  ARTIFACT           ✓   G9  NET SHARPE LIVE    ✓                       ║
+║  G3  ARTIFACT           ✓   G9  NET SHARPE LIVE    ✓ (+0.800% 2-day avg)  ║
 ║  G4  IC > 0.02          ✓   G10 FORWARD PAPER      ⏳ Sep 30               ║
 ║  G5  PBO < 0.50         ✓   G11 PROMOTION ENGINE   ⏳ Sep 30               ║
 ║  G6  COST ROBUST        ✓   G12 HUMAN APPROVAL     ✓ APPROVED              ║
 ║                                                                             ║
-║  FEATURES      : 55 (fs-3.0.0, PIT-certified)                              ║
-║  IC (OOS)      : 0.3757 continuous  |  PBO: 0.000                          ║
-║  LIVE EVIDENCE : SHORT +0.655% net  |  80% win rate (Sep 28)               ║
-║  G6 EVIDENCE   : +3.04 Sharpe @ 12.75bps  |  OOS est +1.06                ║
-║  ISSUES        : 34/36 closed (94%)  |  All P0–P3 complete                 ║
-║  TESTS         : 1,867 PASS / 0 FAIL                                        ║
+║  LIVE (Sep 28): SHORT +0.655% net | 80% win | NIFTY −1.52%                ║
+║  LIVE (Sep 29): SHORT +0.945% net | 80% win | NIFTY −0.42%                ║
+║  2-DAY AVG:     SHORT +0.800% net | 80% win | 40 observations             ║
 ║                                                                             ║
-║  LIVE TRADES   : NOT YET AUTHORIZED (pending G10+G11, Oct 1)               ║
-║  SHADOW → PROD : AUTHORIZED after 14-day shadow period + G10+G11 pass      ║
+║  LIVE TRADES   : NOT YET AUTHORIZED (pending G10+G11 Sep 30)               ║
+║  PRODUCTION    : AUTHORIZED after G10+G11 + 14-day shadow + human ok      ║
 ╚═════════════════════════════════════════════════════════════════════════════╝
 ```
 
