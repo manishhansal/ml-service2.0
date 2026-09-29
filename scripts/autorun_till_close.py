@@ -143,8 +143,19 @@ def load_model():
         if paths:
             with open(paths[-1], "rb") as f:
                 p = pickle.load(f)
+            # Reconstruct FeatureNormalizer from its serialised state dict.
+            normalizer = None
+            raw_state = p.get("normalizer_state")
+            if isinstance(raw_state, dict) and raw_state:
+                try:
+                    from src.features.normalizer import FeatureNormalizer
+                    normalizer = FeatureNormalizer.from_dict(raw_state)
+                except Exception:
+                    pass
+            elif raw_state is not None:
+                normalizer = raw_state
             return (p["estimator"], p["feature_names"],
-                    p.get("normalizer_state"), p.get("feature_schema_version","?"))
+                    normalizer, p.get("feature_schema_version","?"))
     return None, [], None, "?"
 
 def score_symbol(sym: str, estimator, feat_names, normalizer=None) -> dict | None:
