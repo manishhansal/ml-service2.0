@@ -182,7 +182,15 @@ def score_all(estimator, feat_names, normalizer) -> list[dict]:
 
 # ── P&L calculation ──────────────────────────────────────────────────────────
 def load_fp_signals() -> dict[str, dict]:
-    sigs = {}
+    """Load forward-paper signals, preferring the most recently scored entry per symbol.
+
+    FIX P0-SIGNAL-001: Original first-occurrence-wins logic could load a stale
+    signal from signals.jsonl (score=null, wrong direction) and ignore a fresher,
+    scored signal in signals_v2.jsonl. Now selects the entry with the most recent
+    created_at timestamp AND a valid score, falling back to any entry if necessary.
+    """
+    # Collect ALL signals keyed by symbol, keeping the best per symbol
+    all_sigs: dict[str, list[dict]] = {}
     for sp in [BASE/"artifacts/forward_paper/signals.jsonl",
                BASE/"artifacts/forward_paper/signals_v2.jsonl"]:
         if sp.exists():
@@ -190,10 +198,22 @@ def load_fp_signals() -> dict[str, dict]:
                 if line.strip():
                     try:
                         s = json.loads(line)
-                        if s["symbol"] not in sigs:
-                            sigs[s["symbol"]] = s
+                        sym = s["symbol"]
+                        if sym not in all_sigs:
+                            all_sigs[sym] = []
+                        all_sigs[sym].append(s)
                     except Exception:
                         pass
+
+    # Per symbol: prefer entry with valid score and latest created_at timestamp
+    sigs: dict[str, dict] = {}
+    for sym, entries in all_sigs.items():
+        # Scored entries (those with a numeric score) are preferred
+        scored = [e for e in entries if e.get("score") is not None]
+        pool = scored if scored else entries
+        # Among candidates, take the most recently created
+        best = max(pool, key=lambda e: e.get("created_at", e.get("signal_ts", "")))
+        sigs[sym] = best
     return sigs
 
 # Load data quality flags

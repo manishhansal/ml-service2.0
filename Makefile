@@ -320,7 +320,13 @@ session:  ## Start live scoring session until 15:30 IST (autorun_till_close.py)
 	@echo "   Press Ctrl+C to stop early. Logs: artifacts/live_session/autorun_log.jsonl"
 	PYTHONPATH=. $(PYTHON) -W ignore scripts/autorun_till_close.py
 
-forward-paper:  ## Generate new forward paper signals (all 218 symbols, LightGBM fs-3.0.0)
+fix-phantoms:  ## Remove phantom 03:45 UTC duplicate bars from all 218 parquets (run once)
+	@echo "▶  Fixing phantom duplicate bars (201,774 fake rows in 214/218 parquets) ..."
+	PYTHONPATH=. $(PYTHON) scripts/fix_phantom_bars.py
+	@echo "✓  Parquets cleaned. Run 'make ingest' to refresh with latest bars."
+
+fix-phantoms-dry:  ## Dry run: show how many phantom bars would be removed
+	PYTHONPATH=. $(PYTHON) scripts/fix_phantom_bars.py --dry-run
 	@echo "▶  Running forward paper session (218 symbols) ..."
 	PYTHONPATH=. $(PYTHON) scripts/run_forward_paper_session_v2.py
 	@echo "✓  Signals written to artifacts/forward_paper/signals_v2.jsonl"
