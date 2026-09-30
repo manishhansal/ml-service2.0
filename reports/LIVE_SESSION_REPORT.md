@@ -360,3 +360,21 @@ Two consecutive 0/6 LONG sessions confirm this is structural, not variance. The 
 
 *Report: 2026-09-29 16:00 IST | Session 2 of SHADOW monitoring*
 *Next action: Sep 30 09:30 IST → resolve_forward_paper.py (G10+G11)*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:31 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 36 |
+| NIFTY close | 22620.45 (-0.42%) |
+| SHORT mean P&L | +1.0314% |
+| LONG mean P&L | -3.9768% |
+| Mean net P&L | -0.1243% |
+| Win rate | 61.5% |
+| Positions tracked | 26 |
+
+*Report auto-updated at 15:31 IST by autorun_till_close.py*
