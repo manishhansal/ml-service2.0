@@ -209,6 +209,20 @@ class FeatureWeightManager:
 
     # ── Updates (called by SelfLearningLoop after retro) ─────────────────────
 
+    def set_threshold(self, threshold: float) -> None:
+        """Dynamically adjust score threshold for the current session cycle only.
+
+        Used by the intraday volatility adapter in autorun_till_close.py:
+        - High volatility (avg_abs_move >1.5%) → lower threshold → more signals
+        - Normal (>0.8%)                        → default threshold
+        - Low  (<0.8%)                          → higher threshold → fewer signals
+
+        This does NOT write to disk — changes are session-scoped only.
+        Use update_from_sweep() to persist a learned threshold.
+        """
+        self._weights.setdefault("score_threshold", {})
+        self._weights["score_threshold"]["current"] = round(max(0.0, min(0.5, threshold)), 4)
+
     def update_from_sweep(
         self,
         optimal_threshold: float,

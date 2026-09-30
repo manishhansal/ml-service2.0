@@ -158,7 +158,7 @@ def load_model():
                     normalizer, p.get("feature_schema_version","?"))
     return None, [], None, "?"
 
-def score_symbol(sym: str, estimator, feat_names, normalizer=None) -> dict | None:
+def score_symbol(sym: str, estimator, feat_names, normalizer=None, live_ltp: float | None = None) -> dict | None:
     pf = PARQUET_DIR / f"{sym}.parquet"
     if not pf.exists():
         return None
@@ -169,6 +169,40 @@ def score_symbol(sym: str, estimator, feat_names, normalizer=None) -> dict | Non
         df.columns = [c.lower() for c in df.columns]
         if df.index.tz is None:
             df.index = df.index.tz_localize("UTC")
+
+        # ── INTRADAY FIX (Gap 1+2 from Sep-30 analysis) ─────────────────────
+        # Append a synthetic partial bar using the live LTP so the model sees
+        # today's intraday move, not just yesterday's close.
+        # Without this: TCS was called SHORT all day because yesterday's EOD showed
+        # bearish momentum.  With this: today's +2% LTP updates ret_1/momentum_5d
+        # and the model correctly identifies IT stocks as LONG intraday.
+        if live_ltp is not None and live_ltp > 0 and len(df) > 0:
+            ist_now = datetime.now(tz=timezone.utc) + timedelta(hours=5, minutes=30)
+            # Today's bar timestamp = today's midnight IST = (today - 1d) 18:30 UTC
+            today_bar_ts = pd.Timestamp(
+                ist_now.replace(hour=0, minute=0, second=0, microsecond=0),
+                tz="UTC",
+            ) - timedelta(hours=5, minutes=30)
+            if today_bar_ts > df.index.max():
+                prev_close = float(df["close"].iloc[-1]) if "close" in df.columns else live_ltp
+                # Build partial bar: open=prev_close, close=live_ltp
+                # high/low reflect the intraday range so far
+                partial_data: dict[str, float] = {
+                    "open":   prev_close,
+                    "high":   max(prev_close, live_ltp),
+                    "low":    min(prev_close, live_ltp),
+                    "close":  live_ltp,
+                    "volume": float(df["volume"].iloc[-1]) if "volume" in df.columns else 0.0,
+                }
+                partial_row = pd.DataFrame(partial_data, index=[today_bar_ts])
+                # Only keep columns that exist in the parquet to avoid column mismatch
+                keep_cols = [c for c in df.columns if c in partial_row.columns]
+                if keep_cols:
+                    partial_row = partial_row[keep_cols]
+                    df = pd.concat([df[keep_cols], partial_row])
+                else:
+                    df = pd.concat([df, partial_row])
+
         factory = ExpandedFeatureFactory() if len(feat_names) > 24 else FeatureFactory()
         features, _ = factory.build(df)
         last = features.iloc[-1].fillna(0)
@@ -180,15 +214,24 @@ def score_symbol(sym: str, estimator, feat_names, normalizer=None) -> dict | Non
             except Exception:
                 pass
         score = float(estimator.predict(X)[0])
+        # data_date reflects whether we used a live partial bar or yesterday's close
+        data_date = str(today_bar_ts.date()) if (live_ltp and live_ltp > 0) else str(df.index.max().date())
         return {"symbol": sym, "score": round(score, 4), "direction": 1 if score > 0.5 else -1,
-                "data_date": str(df.index.max().date())}
+                "data_date": data_date, "live_bar": live_ltp is not None and live_ltp > 0}
     except Exception:
         return None
 
-def score_all(estimator, feat_names, normalizer) -> list[dict]:
+
+def score_all(estimator, feat_names, normalizer, live_quotes: dict | None = None) -> list[dict]:
+    """Score all 218 symbols.  Pass live_quotes to enable intraday partial-bar feature update."""
     results = []
     for pf in sorted(PARQUET_DIR.glob("*.parquet")):
-        r = score_symbol(pf.stem, estimator, feat_names, normalizer)
+        sym  = pf.stem
+        ltp  = None
+        if live_quotes:
+            q   = live_quotes.get(sym)
+            ltp = q.get("ltp") if isinstance(q, dict) else None
+        r = score_symbol(pf.stem, estimator, feat_names, normalizer, live_ltp=ltp)
         if r:
             results.append(r)
     return results
@@ -569,16 +612,125 @@ def main():
         # ── MARKET OPEN — regular sample ──────────────────────────────────
         sample_n += 1
 
-        # Fetch quotes
+        # Fetch quotes — key symbols first (fast, for NIFTY display)
         print(f"[{now.strftime('%H:%M')}] Sample #{sample_n} | {mins:.0f}min left | Fetching {len(key_syms)} quotes...", end="", flush=True)
         live_quotes = get_all_quotes(key_syms)
         nifty_q = live_quotes.get("NIFTY", {})
         print(f" NIFTY={nifty_q.get('ltp','?')} ({nifty_q.get('changePct',0):+.2f}%)")
 
-        # Score all 218
+        # ── INTRADAY FIX: fetch ALL FP quotes BEFORE scoring ─────────────────
+        # This enables live-LTP partial-bar in score_symbol() so the model sees
+        # TODAY'S momentum instead of being frozen on yesterday's close.
+        # (Sep-30 finding: TCS called SHORT all day because yesterday's EOD was
+        # bearish; today's +2% LTP would have correctly updated momentum features.)
+        print(f"[{now.strftime('%H:%M')}] Fetching live LTPs for 218 symbols (intraday update)...", end="", flush=True)
+        all_fp_quotes_prefetch = get_all_quotes(list(fp_signals.keys()))
+        live_quotes.update(all_fp_quotes_prefetch)
+        n_live = sum(1 for q in live_quotes.values() if isinstance(q, dict) and q.get("ltp"))
+        print(f" {n_live} live LTPs received")
+
+        # Score all 218 WITH live LTPs (intraday partial bar)
         print(f"[{now.strftime('%H:%M')}] Scoring 218 symbols...", end="", flush=True)
-        scores = score_all(estimator, feat_names, normalizer)
+        scores = score_all(estimator, feat_names, normalizer, live_quotes=live_quotes)
         print(f" done ({len(scores)} scored)")
+
+        # ── Gap 3 Fix: Event-risk detector ────────────────────────────────────
+        # Sep-30 finding: APOLLOHOSP (A-grade LONG, 0.639) dropped -8.8% — a
+        # corporate event (earnings/news) the model can't predict from EOD bars.
+        # Now we flag any symbol with an extreme intraday move (>4%) vs ML call.
+        EVENT_THRESHOLD = 4.0  # % move that constitutes an event signal
+        score_map = {s["symbol"]: s for s in scores}
+        event_alerts: list[dict] = []
+        for sym, q in live_quotes.items():
+            if not isinstance(q, dict):
+                continue
+            chg = q.get("changePct")
+            if chg is None or abs(chg) < EVENT_THRESHOLD:
+                continue
+            ml = score_map.get(sym)
+            if ml is None:
+                continue
+            ml_dir = ml.get("direction", 0)
+            actual_dir = 1 if chg > 0 else -1
+            if ml_dir != 0 and ml_dir != actual_dir:
+                # High conviction wrong call — likely a corporate event
+                event_alerts.append({
+                    "symbol":    sym,
+                    "ml_dir":    "LONG" if ml_dir == 1 else "SHORT",
+                    "ml_grade":  ml.get("conviction", "?"),
+                    "ml_score":  ml.get("score", 0.5),
+                    "actual_chg": round(chg, 2),
+                    "alert_type": "EVENT_RISK",
+                })
+        if event_alerts:
+            print(f"[{now.strftime('%H:%M')}] ⚠  EVENT RISK ALERTS ({len(event_alerts)}):")
+            for a in event_alerts[:3]:
+                print(f"   {a['symbol']:15s} ML={a['ml_dir']:5s} {a['ml_grade']} "
+                      f"| actual={a['actual_chg']:+.1f}% | CORPORATE EVENT LIKELY")
+
+        # ── Gap 5 Fix: Dynamic threshold based on intraday volatility ─────────
+        # Sep-30 finding: 125 signals were filtered at a static threshold.
+        # When market is highly directional, lower threshold lets more signals through.
+        if _weight_mgr is not None:
+            # Compute universe average absolute move from live quotes
+            all_chgs = [q.get("changePct") for q in live_quotes.values()
+                        if isinstance(q, dict) and q.get("changePct") is not None]
+            if all_chgs:
+                avg_abs_move = sum(abs(c) for c in all_chgs) / len(all_chgs)
+                # High volatility day → lower threshold → more signals pass
+                # Low volatility day → higher threshold → fewer, higher quality signals
+                if avg_abs_move > 1.5:      # High vol: >1.5% avg move
+                    _weight_mgr.set_threshold(0.05)   # admit score distance ≥ 0.05 from 0.5
+                elif avg_abs_move > 0.8:    # Normal
+                    _weight_mgr.set_threshold(0.10)
+                else:                       # Low vol
+                    _weight_mgr.set_threshold(0.15)
+
+        # ── Gap 6 Fix: Sector intraday regime dampening ────────────────────────
+        # Sep-30 finding: IT sector rallied +2% all day but model had IT stocks SHORT.
+        # Now detect intraday sector direction and dampen conflicting signals.
+        IT_SYMS    = {"TCS","INFY","HCLTECH","WIPRO","TECHM","COFORGE","PERSISTENT","OFSS","TATAELXSI","KPITTECH"}
+        PHARMA_SYMS = {"SUNPHARMA","DRREDDY","CIPLA","DIVISLAB","LUPIN","AUROPHARMA","GLENMARK","ZYDUSLIFE","ALKEM"}
+        AUTO_SYMS  = {"MARUTI","HEROMOTOCO","TVSMOTOR","BAJAJ-AUTO","EICHERMOT","M&M"}
+
+        def _sector_avg_chg(syms: set) -> float | None:
+            vals = [live_quotes.get(s, {}).get("changePct")
+                    for s in syms if isinstance(live_quotes.get(s), dict)
+                    and live_quotes[s].get("changePct") is not None]
+            return sum(vals) / len(vals) if vals else None
+
+        it_chg     = _sector_avg_chg(IT_SYMS)
+        pharma_chg = _sector_avg_chg(PHARMA_SYMS)
+        auto_chg   = _sector_avg_chg(AUTO_SYMS)
+
+        SECTOR_THRESHOLD = 1.0   # % sector-avg move to trigger dampening
+        n_sector_dampened = 0
+        for s in scores:
+            sym = s["symbol"]
+            chg_now = None
+            if sym in IT_SYMS:     chg_now = it_chg
+            elif sym in PHARMA_SYMS: chg_now = pharma_chg
+            elif sym in AUTO_SYMS:   chg_now = auto_chg
+            if chg_now is None:
+                continue
+            # Sector is strongly UP but ML says SHORT → neutralize
+            if chg_now > SECTOR_THRESHOLD and s.get("direction") == -1:
+                s["direction"] = 0
+                s["sector_dimmed"] = f"SECTOR_UP_{chg_now:+.1f}pct"
+                n_sector_dampened += 1
+            # Sector is strongly DOWN but ML says LONG → neutralize
+            elif chg_now < -SECTOR_THRESHOLD and s.get("direction") == 1:
+                s["direction"] = 0
+                s["sector_dimmed"] = f"SECTOR_DN_{chg_now:+.1f}pct"
+                n_sector_dampened += 1
+
+        if n_sector_dampened:
+            it_str  = f"IT={it_chg:+.1f}%"     if it_chg     is not None else ""
+            pha_str = f"PHA={pharma_chg:+.1f}%" if pharma_chg is not None else ""
+            aut_str = f"AUTO={auto_chg:+.1f}%"  if auto_chg   is not None else ""
+            sectors_str = " ".join(s for s in [it_str, pha_str, aut_str] if s)
+            print(f"[{now.strftime('%H:%M')}] Sector dampening: {n_sector_dampened} signals neutralized "
+                  f"({sectors_str})")
 
         # ── Phil: apply feature weights (sector-regime filter + threshold) ────
         nifty_chg_now = float(nifty_q.get("changePct", 0) or 0)
@@ -619,9 +771,15 @@ def main():
             if sample_n == 1:  # only print on first sample
                 print(f"[{now.strftime('%H:%M')}] ForecastLedger: {n_logged} forecasts logged")
 
-        # P&L calculation
-        all_fp_quotes = get_all_quotes(list(fp_signals.keys()))
-        live_quotes.update(all_fp_quotes)
+        # P&L calculation — reuse the quotes we already fetched above
+        # (avoids a second 218-symbol fetch round-trip)
+        all_fp_quotes = {sym: live_quotes[sym] for sym in fp_signals if sym in live_quotes}
+        # Top-up any symbols that weren't in the prefetch
+        missing = [sym for sym in fp_signals if sym not in live_quotes]
+        if missing:
+            extra = get_all_quotes(missing)
+            live_quotes.update(extra)
+            all_fp_quotes.update(extra)
         pnl = calc_pnl(fp_signals, live_quotes, excluded)
 
         # ── AlphaForge: write latest_scores.json for UI consumption ──────────
