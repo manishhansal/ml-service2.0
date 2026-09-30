@@ -388,18 +388,13 @@ def main():
     print("=" * 70)
 
     # Load model once
-    estimator, feat_names, normalizer_state, schema = load_model()
+    # load_model() already reconstructs the FeatureNormalizer from its dict state.
+    # The 3rd return value IS the live normalizer object (or None if reconstruction failed).
+    # Do NOT call FeatureNormalizer.from_dict() again here — that is the bug.
+    estimator, feat_names, normalizer, schema = load_model()
     if estimator is None:
         print("ERROR: No model found. Check artifacts/expanded_lgbm/")
         sys.exit(1)
-
-    normalizer = None
-    if normalizer_state:
-        from src.features.normalizer import FeatureNormalizer
-        try:
-            normalizer = FeatureNormalizer.from_dict(normalizer_state)
-        except Exception:
-            pass
 
     print(f"  Model: {schema} | {len(feat_names)} features | normalizer: {'yes' if normalizer else 'no'}")
 
