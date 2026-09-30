@@ -254,6 +254,11 @@ def calc_pnl(fp_signals: dict, live_quotes: dict, excluded: set) -> dict:
             pf = PARQUET_DIR / f"{sym}.parquet"
             if pf.exists():
                 df = pd.read_parquet(pf)
+                # Skip zero-column parquets (corrupted during backfill)
+                if df.empty or len(df.columns) == 0:
+                    continue
+                # Normalise column names to lowercase (some parquets use 'Close'/'Open')
+                df.columns = [c.lower() for c in df.columns]
                 sig_ts = pd.Timestamp(sig.get("signal_ts", sig.get("created_at", "")))
                 if sig_ts.tzinfo is None:
                     sig_ts = sig_ts.tz_localize("UTC")
@@ -735,7 +740,7 @@ def _write_latest_scores(
         print(f"[warn] Could not write latest_scores.json: {e}", file=sys.stderr)
 
 
-(now: datetime, nifty_q: dict, pnl: dict, n_samples: int) -> None:
+def _append_close_to_report(now: datetime, nifty_q: dict, pnl: dict, n_samples: int) -> None:
     """Append end-of-day close summary to LIVE_SESSION_REPORT.md."""
     try:
         existing = REPORT_PATH.read_text() if REPORT_PATH.exists() else ""
