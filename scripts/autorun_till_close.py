@@ -1248,6 +1248,39 @@ def main():
                     file=sys.stderr,
                 )
 
+        # ── Cross-sectional rank-based direction — FINAL assignment ────────
+        # Runs after ALL filters (sector, threshold, event, reversal, SP damper).
+        # Ranks the REMAINING signals and picks top-15% LONG / bottom-15% SHORT.
+        # This ensures we ALWAYS have balanced L+S signals regardless of the
+        # model's absolute score distribution on any given day.
+        _active = [s for s in scores if s.get("direction", 0) == 0]
+        _all_for_rank = scores   # rank ALL (including pre-filtered neutral)
+        if _all_for_rank:
+            raw_sorted = sorted([(s["score"], s["symbol"]) for s in _all_for_rank], reverse=True)
+            n_rank = len(raw_sorted)
+            SIGNAL_PCT = 0.15
+            n_each  = max(5, int(n_rank * SIGNAL_PCT))
+            top_syms    = {sym for _, sym in raw_sorted[:n_each]}
+            bottom_syms = {sym for _, sym in raw_sorted[-n_each:]}
+            for s in scores:
+                if s.get("news_dimmed") or s.get("ensemble_disagree"):
+                    continue   # don't override explicit damper decisions
+                sym = s["symbol"]
+                if sym in top_syms:
+                    s["direction"] = 1
+                elif sym in bottom_syms:
+                    s["direction"] = -1
+                else:
+                    s["direction"] = 0
+            score_mean = sum(s["score"] for s in scores) / n_rank
+            score_min  = min(s["score"] for s in scores)
+            score_max  = max(s["score"] for s in scores)
+            print(
+                f"[{now.strftime('%H:%M')}] CrossSectional(final): "
+                f"range=[{score_min:.3f},{score_max:.3f}] mean={score_mean:.3f}  "
+                f"{n_each}L + {n_each}S from {n_rank} ranked"
+            )
+
         # ── Beta-neutral LONG overlay ──────────────────────────────────────────
         # Sep-30 finding: LONG book avg -2.5% while SHORT avg +1.35%.  Root cause:
         # the model scores LONGs and SHORTs independently — when markets drift up
