@@ -949,6 +949,16 @@ def main():
 
             # Final P&L with fresh quotes
             final_scores = score_all(estimator, feat_names, normalizer)
+            # Apply cross-sectional ranking to final_scores so post-close
+            # snapshot has meaningful LONG/SHORT directions, not raw score>0.5.
+            if final_scores:
+                _n = len(final_scores)
+                _raw = sorted([(s["score"], s["symbol"]) for s in final_scores], reverse=True)
+                _n_each = max(5, int(_n * 0.15))
+                _top = {sym for _, sym in _raw[:_n_each]}
+                _bot = {sym for _, sym in _raw[-_n_each:]}
+                for s in final_scores:
+                    s["direction"] = 1 if s["symbol"] in _top else (-1 if s["symbol"] in _bot else 0)
             final_pnl    = calc_pnl(fp_signals, final_quotes, excluded)
 
             # ── Symbol IC tracker: record today's outcomes ───────────────────
