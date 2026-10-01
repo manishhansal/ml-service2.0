@@ -172,7 +172,8 @@ class TrainingOrchestrator:
 
         frame = self._builder.load_frame(dataset_id)
         meta  = self._builder.load_metadata(dataset_id)
-        feature_cols = self._builder._ff.FEATURE_NAMES
+        # Use all feature columns: EOD factory + intraday + market (not just FEATURE_NAMES)
+        feature_cols = self._builder.feature_col_names(dataset_id=dataset_id)
 
         # Load RAW (un-normalized) features.  Normalization is applied per-fold
         # inside WalkForwardValidator and CPCV (CRITICAL-2 fix).
@@ -241,6 +242,7 @@ class TrainingOrchestrator:
                 name, X, y_label, returns, ts, wf, cpcv,
                 normalizer_factory=normalizer_factory,
                 symbols=symbols,
+                feature_cols=list(feature_cols),
             )
             if cand is not None:
                 report.candidates.append(cand)
@@ -264,6 +266,7 @@ class TrainingOrchestrator:
             version = self._fit_and_register(
                 model_name, champion.name, X, y_label, returns, ts, meta,
                 champion, normalizer_factory=normalizer_factory,
+                feature_cols=list(feature_cols),
             )
             report.champion_version = version
 
@@ -283,20 +286,22 @@ class TrainingOrchestrator:
         self, name, X, y_label, returns, ts, wf, cpcv,
         normalizer_factory=None,
         symbols=None,
+        feature_cols: list[str] | None = None,
     ) -> CandidateResult | None:
+        feat_names = feature_cols if feature_cols is not None else list(self._builder._ff.FEATURE_NAMES)
         try:
             wf_report = wf.validate(
                 X, y_label, returns, ts,
                 lambda: build_estimator(name),
                 normalizer_factory=normalizer_factory,
                 symbols=symbols,
-                feature_names=list(self._builder._ff.FEATURE_NAMES),
+                feature_names=feat_names,
             )
             cpcv_report = cpcv.run(
                 X, y_label, returns, ts,
                 lambda: build_estimator(name),
                 normalizer_factory=normalizer_factory,
-                feature_names=list(self._builder._ff.FEATURE_NAMES),
+                feature_names=feat_names,
             )
         except Exception as exc:
             logger.warning("candidate_eval_failed", name=name, error=str(exc))
@@ -315,13 +320,16 @@ class TrainingOrchestrator:
 
         # Fit calibrator on a held-out OOS tail (last 20%) — never the selection set.
         cand.calibration_ece, cand.calibration_fitted, cand.calibration_brier = (
-            self._fit_calibration_probe(name, X, y_label, normalizer_factory)
+            self._fit_calibration_probe(name, X, y_label, normalizer_factory,
+                                        feature_cols=feat_names)
         )
         return cand
 
-    def _fit_calibration_probe(self, name, X, y_label, normalizer_factory=None) -> tuple[float, bool, float]:
+    def _fit_calibration_probe(self, name, X, y_label, normalizer_factory=None, feature_cols=None) -> tuple[float, bool, float]:
         """Return (ece, fitted, brier) computed on a held-out OOS tail."""
         from src.meta.calibration_eval import evaluate_calibration
+
+        feat_names = feature_cols if feature_cols is not None else self._builder._ff.FEATURE_NAMES
 
         n = len(X)
         split = int(n * 0.8)
@@ -331,7 +339,6 @@ class TrainingOrchestrator:
             X_tr, X_te = X[:split], X[split:]
             if normalizer_factory is not None:
                 norm = normalizer_factory()
-                feat_names = self._builder._ff.FEATURE_NAMES
                 X_tr_df = pd.DataFrame(X_tr, columns=feat_names)
                 norm.fit(X_tr_df)
                 X_tr = norm.transform(X_tr_df).to_numpy(dtype=float)
@@ -401,7 +408,7 @@ class TrainingOrchestrator:
 
     def _fit_and_register(
         self, model_name, cand_name, X, y_label, returns, ts, meta,
-        champion, normalizer_factory=None,
+        champion, normalizer_factory=None, feature_cols: list[str] | None = None,
     ) -> str:
         """Fit champion on ALL data and register the immutable artifact.
 
@@ -413,6 +420,13 @@ class TrainingOrchestrator:
         last fold's normalizer) so that production inference benefits from all
         available data for the Winsorization bounds and center/scale stats.
         """
+        # Resolve full feature column list (67 EOD + intraday + market)
+        feat_names_full = (
+            list(feature_cols)
+            if feature_cols is not None
+            else list(self._builder._ff.FEATURE_NAMES)
+        )
+
         # ── Step 1: fit production normalizer on full dataset ─────────────
         production_normalizer = None
         normalizer_state: dict = {}
@@ -421,12 +435,8 @@ class TrainingOrchestrator:
         if normalizer_factory is not None:
             try:
                 production_normalizer = normalizer_factory()
-                # Use string feature names so the serialized normalizer_state
-                # carries named specs that match inference-time column names.
-                # pd.DataFrame(X) alone produces integer column names (0,1,2…)
-                # which would cause a RuntimeError mismatch at inference.
-                feat_names = self._builder._ff.FEATURE_NAMES
-                X_df = pd.DataFrame(X, columns=feat_names)
+                # Use full feature names (78) so normalizer specs are keyed correctly.
+                X_df = pd.DataFrame(X, columns=feat_names_full)
                 production_normalizer.fit(X_df)
                 X_to_fit = production_normalizer.transform(X_df).to_numpy(dtype=float)
                 normalizer_state = production_normalizer.to_dict()
@@ -467,21 +477,15 @@ class TrainingOrchestrator:
         staged_file = staging / f"{model_name}_{version}_model.pkl"
 
         # ── Step 3b: SHAP feature importances (P2-008 fix) ───────────────────
-        # Compute SHAP values for the champion model on a representative
-        # sample (≤2000 rows) of the training data.  Store top-30 importances
-        # in the artifact payload so downstream tools (reports, dashboards,
-        # drift monitors) can access them without re-running training.
         shap_importances: dict[str, float] = {}
         try:
             import shap as _shap  # optional dependency
 
-            feat_names = list(self._builder._ff.FEATURE_NAMES)
             sample_size = min(2000, len(X_to_fit))
             rng = np.random.default_rng(42)
             idx = rng.choice(len(X_to_fit), size=sample_size, replace=False)
             X_sample = X_to_fit[idx]
 
-            # TreeExplainer for tree models; KernelExplainer as fallback.
             try:
                 explainer = _shap.TreeExplainer(model)
                 shap_vals = explainer.shap_values(X_sample)
@@ -491,46 +495,35 @@ class TrainingOrchestrator:
                 )
                 shap_vals = explainer.shap_values(X_sample, nsamples=100)
 
-            # For classifiers shap_values may be a list [class0, class1]
             if isinstance(shap_vals, list):
                 shap_vals = shap_vals[-1]
 
             mean_abs = np.abs(shap_vals).mean(axis=0)
-            top_n = min(30, len(feat_names))
+            top_n = min(30, len(feat_names_full))
             order = np.argsort(mean_abs)[::-1][:top_n]
             shap_importances = {
-                feat_names[i]: round(float(mean_abs[i]), 6) for i in order
+                feat_names_full[i]: round(float(mean_abs[i]), 6) for i in order
             }
             logger.info(
                 "orchestrator_shap_computed",
-                top_feature=feat_names[order[0]],
+                top_feature=feat_names_full[order[0]],
                 top_importance=round(float(mean_abs[order[0]]), 6),
                 n_features=len(shap_importances),
             )
         except ImportError:
-            logger.warning(
-                "orchestrator_shap_skipped",
-                reason="shap package not installed — pip install shap",
-            )
+            logger.warning("orchestrator_shap_skipped", reason="shap package not installed")
         except Exception as exc:
-            logger.warning(
-                "orchestrator_shap_failed",
-                error=str(exc),
-            )
+            logger.warning("orchestrator_shap_failed", error=str(exc))
 
         payload = {
-            "estimator":          model,
-            "estimator_name":     cand_name,
-            "calibrator":         cal._calibrators.get(model_name) if cal_fitted else None,
-            "feature_names":      self._builder._ff.FEATURE_NAMES,
-            # CRITICAL-1 fix: normalizer state is now part of every model artifact.
-            # At inference time, load this with FeatureNormalizer.from_dict() and
-            # apply it before calling model.predict().
-            "normalizer_state":   normalizer_state,
+            "estimator":             model,
+            "estimator_name":        cand_name,
+            "calibrator":            cal._calibrators.get(model_name) if cal_fitted else None,
+            "feature_names":         feat_names_full,          # full 78 (or however many)
+            "normalizer_state":      normalizer_state,
             "normalization_applied": production_normalizer is not None,
             "feature_schema_version": meta.feature_schema_version,
-            # P2-008 fix: SHAP importances stored in artifact.
-            "shap_importances":   shap_importances,
+            "shap_importances":      shap_importances,
         }
         with staged_file.open("wb") as fh:
             pickle.dump(payload, fh)

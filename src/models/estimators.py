@@ -164,6 +164,12 @@ class LightGBMModel(BaseEstimator):
             n_estimators=200, num_leaves=31, learning_rate=0.05,
             subsample=0.8, colsample_bytree=0.8, min_child_samples=20,
             reg_lambda=1.0, random_state=42, verbosity=-1,
+            # macOS: limit OMP parallelism to prevent segfault in OpenMP thread pool
+            # when multiple LGBM training calls happen in the same process.
+            n_jobs=1,
+            # Use row-wise histogram to avoid data-parallel histogram construction
+            # that triggers the OMP crash on macOS Intel/Apple Silicon.
+            force_row_wise=True,
         )
         defaults.update(params)
         self._model = lgb.LGBMClassifier(**defaults)
