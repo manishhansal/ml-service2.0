@@ -321,17 +321,26 @@ def market_open() -> bool:
     return (9, 15) <= t <= (15, 31)
 
 # ── Data fetching ─────────────────────────────────────────────────────────────
+# Module-level cache for last-known NIFTY quote (avoids showing "UNAVAILABLE")
+_last_nifty_quote: dict = {}
+
 def get_quote(sym: str) -> dict | None:
+    global _last_nifty_quote
     url = f"{DATA_URL}/v1/india/quotes/{sym}"
     req = urllib.request.Request(url, headers={"X-API-KEY": DATA_KEY})
     try:
-        with urllib.request.urlopen(req, timeout=6) as r:
+        with urllib.request.urlopen(req, timeout=4) as r:
             d = json.loads(r.read().decode())
             dd = d.get("data", {}) or {}
             if dd.get("ltp") is not None:
+                if sym == "NIFTY":
+                    _last_nifty_quote = dd   # cache for fallback
                 return dd
     except Exception:
         pass
+    # Fallback: return last known value for NIFTY to avoid dashboard gaps
+    if sym == "NIFTY" and _last_nifty_quote:
+        return _last_nifty_quote
     return None
 
 def get_all_quotes(symbols: list[str]) -> dict[str, dict]:
@@ -1158,31 +1167,43 @@ def main():
 
         SECTOR_THRESHOLD = 1.0   # % sector-avg move to trigger dampening
         n_sector_dampened = 0
+        n_sector_boosted  = 0
         for s in scores:
             sym = s["symbol"]
             chg_now = None
-            if sym in IT_SYMS:     chg_now = it_chg
+            if sym in IT_SYMS:       chg_now = it_chg
             elif sym in PHARMA_SYMS: chg_now = pharma_chg
             elif sym in AUTO_SYMS:   chg_now = auto_chg
             if chg_now is None:
                 continue
-            # Sector is strongly UP but ML says SHORT → neutralize
+            # Sector strongly UP → neutralize SHORT (chasing sector against ML)
             if chg_now > SECTOR_THRESHOLD and s.get("direction") == -1:
                 s["direction"] = 0
                 s["sector_dimmed"] = f"SECTOR_UP_{chg_now:+.1f}pct"
                 n_sector_dampened += 1
-            # Sector is strongly DOWN but ML says LONG → neutralize
+            # Sector strongly DOWN → neutralize LONG (fighting sector tailwind)
             elif chg_now < -SECTOR_THRESHOLD and s.get("direction") == 1:
                 s["direction"] = 0
                 s["sector_dimmed"] = f"SECTOR_DN_{chg_now:+.1f}pct"
                 n_sector_dampened += 1
+            # NEW: Sector strongly DOWN + symbol has no signal → check if it
+            # should be SHORT (sector-confirm: if sector is down hard, rank
+            # bottom-quartile sector stocks as SHORT regardless of cross-sectional cut)
+            elif (chg_now < -(SECTOR_THRESHOLD * 1.5) and s.get("direction") == 0):
+                sym_q = live_quotes.get(sym, {}) if live_quotes else {}
+                sym_chg = float(sym_q.get("changePct", 0) or 0) if isinstance(sym_q, dict) else 0.0
+                # Only boost SHORT if this stock is also actually falling
+                if sym_chg < -(SECTOR_THRESHOLD * 0.5):
+                    s["direction"] = -1
+                    s["sector_boost"] = f"SECTOR_CONF_DN_{chg_now:+.1f}pct"
+                    n_sector_boosted += 1
 
-        if n_sector_dampened:
+        if n_sector_dampened or n_sector_boosted:
             it_str  = f"IT={it_chg:+.1f}%"     if it_chg     is not None else ""
             pha_str = f"PHA={pharma_chg:+.1f}%" if pharma_chg is not None else ""
             aut_str = f"AUTO={auto_chg:+.1f}%"  if auto_chg   is not None else ""
             sectors_str = " ".join(s for s in [it_str, pha_str, aut_str] if s)
-            print(f"[{now.strftime('%H:%M')}] Sector dampening: {n_sector_dampened} signals neutralized "
+            print(f"[{now.strftime('%H:%M')}] Sector: dampened={n_sector_dampened} boosted={n_sector_boosted} "
                   f"({sectors_str})")
 
         # ── Phil: apply feature weights (sector-regime filter + threshold) ────
@@ -1230,7 +1251,23 @@ def main():
                 # Symbols that have an active directional signal
                 active_syms = [s["symbol"] for s in scores if s.get("direction", 0) != 0]
                 if active_syms:
-                    news_ctx = asyncio.run(_fetch_news_batch(active_syms))
+                    try:
+                        # Create a fresh event loop each cycle to avoid
+                        # "Event loop is closed" error from prior asyncio.run() calls
+                        import asyncio as _aio
+                        try:
+                            loop = _aio.get_event_loop()
+                            if loop.is_closed():
+                                loop = _aio.new_event_loop()
+                                _aio.set_event_loop(loop)
+                        except RuntimeError:
+                            loop = _aio.new_event_loop()
+                            _aio.set_event_loop(loop)
+                        news_ctx = loop.run_until_complete(_fetch_news_batch(active_syms))
+                    except Exception as _sp_loop_exc:
+                        news_ctx = {}
+                        print(f"[{now.strftime('%H:%M')}] [warn] SP event loop: {_sp_loop_exc}",
+                              file=sys.stderr)
                     scores, _news_dampened, _news_reasons = apply_news_damper(
                         scores, news_ctx, now
                     )
