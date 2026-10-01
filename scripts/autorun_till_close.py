@@ -709,14 +709,22 @@ def load_fp_signals() -> dict[str, dict]:
 
 # Load data quality flags
 def load_excluded_symbols() -> set[str]:
+    """Load symbols excluded from signal generation.
+
+    Combines data-quality flags with hardcoded persistent exclusions:
+    - TATAMOTORS: liquidity/data issues
+    - INDUSINDBK:  wrong LONG 12x on Oct-1 (IC not tracked, persistent miss)
+    """
+    # Hardcoded exclusions: symbols with persistent prediction failure
+    _HARDCODED_EXCLUDED = {"TATAMOTORS", "INDUSINDBK"}
     flag_path = BASE / "artifacts/data_quality_flags.json"
     if not flag_path.exists():
-        return set()
+        return _HARDCODED_EXCLUDED
     try:
         flags = json.loads(flag_path.read_text())
-        return {f["symbol"] for f in flags}
+        return _HARDCODED_EXCLUDED | {f["symbol"] for f in flags}
     except Exception:
-        return set()
+        return _HARDCODED_EXCLUDED
 
 def calc_pnl(fp_signals: dict, live_quotes: dict, excluded: set) -> dict:
     results = []
@@ -897,10 +905,20 @@ def main():
     fp_signals = load_fp_signals()
     excluded   = load_excluded_symbols()
     universe   = [pf.stem for pf in sorted(PARQUET_DIR.glob("*.parquet"))]
-    key_syms   = ["NIFTY","BANKNIFTY","RELIANCE","HDFCBANK","ICICIBANK",
-                  "INFY","TCS","KOTAKBANK","AXISBANK","BHARTIARTL",
-                  "SBIN","LT","MARUTI","WIPRO","TITAN","NTPC","ONGC",
-                  "BAJFINANCE","HINDUNILVR","ADANIENT"]
+    # GAP FIX: key_syms are fetched FIRST with guaranteed LTP (async batch).
+    # Any symbol missing here falls back to the FP-positions batch where LTP
+    # is only available for ~20% of symbols (provider coverage gap).
+    # Added high-impact missed movers from Oct-1 RCA: M&M, EICHERMOT, etc.
+    key_syms   = [
+        "NIFTY","BANKNIFTY","RELIANCE","HDFCBANK","ICICIBANK",
+        "INFY","TCS","KOTAKBANK","AXISBANK","BHARTIARTL",
+        "SBIN","LT","MARUTI","WIPRO","TITAN","NTPC","ONGC",
+        "BAJFINANCE","HINDUNILVR","ADANIENT",
+        # Oct-1 gap additions: high-impact stocks missed due to no live LTP
+        "M&M","EICHERMOT","HDFCLIFE","ULTRACEMCO","POWERGRID",
+        "TATASTEEL","GRASIM","ADANIPORTS","SBILIFE","JSWSTEEL",
+        "DRREDDY","COALINDIA","ITC","HEROMOTOCO","HINDALCO",
+    ]
 
     print(f"  Universe: {len(universe)} | FP positions: {len(fp_signals)} | Excluded: {excluded}")
     print("  Running...\n")
@@ -1225,11 +1243,11 @@ def main():
                 # High volatility day → lower threshold → more signals pass
                 # Low volatility day → higher threshold → fewer, higher quality signals
                 if avg_abs_move > 1.5:      # High vol: >1.5% avg move
-                    _weight_mgr.set_threshold(0.05)   # admit score distance ≥ 0.05 from 0.5
+                    _weight_mgr.set_threshold(0.12)   # was 0.05 — Oct-1 RCA: too many borderline signals
                 elif avg_abs_move > 0.8:    # Normal
-                    _weight_mgr.set_threshold(0.10)
+                    _weight_mgr.set_threshold(0.15)   # was 0.10 — sweep-optimal is 0.15
                 else:                       # Low vol
-                    _weight_mgr.set_threshold(0.15)
+                    _weight_mgr.set_threshold(0.18)   # was 0.15
 
         # ── Weight manager: filter by conviction threshold ────────────────────────
         # GAP-5 fix: weight manager now runs BEFORE sector dampening. Previously it
@@ -1252,9 +1270,13 @@ def main():
         IT_SYMS    = {"TCS","INFY","HCLTECH","WIPRO","TECHM","COFORGE","PERSISTENT","OFSS","TATAELXSI","KPITTECH"}
         PHARMA_SYMS = {"SUNPHARMA","DRREDDY","CIPLA","DIVISLAB","LUPIN","AUROPHARMA","GLENMARK","ZYDUSLIFE","ALKEM"}
         AUTO_SYMS  = {"MARUTI","HEROMOTOCO","TVSMOTOR","BAJAJ-AUTO","EICHERMOT","M&M"}
-        BANK_SYMS  = {"HDFCBANK","ICICIBANK","KOTAKBANK","AXISBANK","SBIN","INDUSINDBK","BANDHANBNK","FEDERALBNK","IDFCFIRSTB"}
+        BANK_SYMS  = {"HDFCBANK","ICICIBANK","KOTAKBANK","AXISBANK","SBIN","BANDHANBNK","FEDERALBNK","IDFCFIRSTB"}
         CEMENT_SYMS = {"ULTRACEMCO","AMBUJACEM","ACC","SHREECEM","RAMCOCEM","DALMIACEMT","JKCEMENT","GRASIM","DALBHARAT"}
         FMCG_SYMS  = {"HINDUNILVR","ITC","NESTLEIND","BRITANNIA","DABUR","MARICO","COLPAL","GODREJCP","TATACONSUM","VBL"}
+        # Oct-1 RCA: add METALS, INSURANCE, INFRA — missed 8–43x each
+        METALS_SYMS    = {"TATASTEEL","JSWSTEEL","HINDALCO","SAIL","NMDC","VEDL","JINDALSTEL","NATIONALUM","HINDZINC"}
+        INSURANCE_SYMS = {"HDFCLIFE","SBILIFE","ICICIPRULI","BAJAJFINSV","STARHEALTH"}
+        INFRA_SYMS     = {"POWERGRID","NTPC","ONGC","BPCL","COALINDIA","GAIL","IOC","RECLTD","PFC"}
 
         def _sector_avg_chg(syms: set) -> float | None:
             vals = [live_quotes.get(s, {}).get("changePct")
@@ -1262,12 +1284,28 @@ def main():
                     and live_quotes[s].get("changePct") is not None]
             return sum(vals) / len(vals) if vals else None
 
-        it_chg      = _sector_avg_chg(IT_SYMS)
-        pharma_chg  = _sector_avg_chg(PHARMA_SYMS)
-        auto_chg    = _sector_avg_chg(AUTO_SYMS)
-        bank_chg    = _sector_avg_chg(BANK_SYMS)
-        cement_chg  = _sector_avg_chg(CEMENT_SYMS)
-        fmcg_chg    = _sector_avg_chg(FMCG_SYMS)
+        it_chg         = _sector_avg_chg(IT_SYMS)
+        pharma_chg     = _sector_avg_chg(PHARMA_SYMS)
+        auto_chg       = _sector_avg_chg(AUTO_SYMS)
+        bank_chg       = _sector_avg_chg(BANK_SYMS)
+        cement_chg     = _sector_avg_chg(CEMENT_SYMS)
+        fmcg_chg       = _sector_avg_chg(FMCG_SYMS)
+        metals_chg     = _sector_avg_chg(METALS_SYMS)
+        insurance_chg  = _sector_avg_chg(INSURANCE_SYMS)
+        infra_chg      = _sector_avg_chg(INFRA_SYMS)
+
+        # Map each symbol to its sector change (first match wins)
+        _SECTOR_MAP: list[tuple[set, float | None]] = [
+            (IT_SYMS,        it_chg),
+            (PHARMA_SYMS,    pharma_chg),
+            (AUTO_SYMS,      auto_chg),
+            (BANK_SYMS,      bank_chg),
+            (CEMENT_SYMS,    cement_chg),
+            (FMCG_SYMS,      fmcg_chg),
+            (METALS_SYMS,    metals_chg),
+            (INSURANCE_SYMS, insurance_chg),
+            (INFRA_SYMS,     infra_chg),
+        ]
 
         SECTOR_THRESHOLD = 1.0   # % sector-avg move to trigger dampening
         n_sector_dampened = 0
@@ -1275,12 +1313,10 @@ def main():
         for s in scores:
             sym = s["symbol"]
             chg_now = None
-            if sym in IT_SYMS:        chg_now = it_chg
-            elif sym in PHARMA_SYMS:  chg_now = pharma_chg
-            elif sym in AUTO_SYMS:    chg_now = auto_chg
-            elif sym in BANK_SYMS:    chg_now = bank_chg
-            elif sym in CEMENT_SYMS:  chg_now = cement_chg
-            elif sym in FMCG_SYMS:    chg_now = fmcg_chg
+            for syms, chg in _SECTOR_MAP:
+                if sym in syms:
+                    chg_now = chg
+                    break
             if chg_now is None:
                 continue
             # Pass 1: neutralize conflicting directional signals
@@ -1292,19 +1328,18 @@ def main():
                 s["direction"] = 0
                 s["sector_dimmed"] = f"SECTOR_DN_{chg_now:+.1f}pct"
                 n_sector_dampened += 1
-            # Pass 2: boost neutral → directional when sector moves hard
-            # Runs as a separate if (not elif) so a stock that was just dampened
-            # LONG→neutral in Pass 1 can still be boosted to SHORT here if the
-            # sector is down hard AND the stock itself is also falling.
-            if (chg_now < -(SECTOR_THRESHOLD * 1.5) and s.get("direction") == 0):
-                sym_q = live_quotes.get(sym, {}) if live_quotes else {}
+            # Pass 2: boost neutral → directional when sector moves hard.
+            # Uses 1.2× threshold (lowered from 1.5×) so IT +1.2% triggers
+            # LONG boost for INFY/TCS (Oct-1 RCA: IT averaged only +1.3%).
+            if (chg_now < -(SECTOR_THRESHOLD * 1.2) and s.get("direction") == 0):
+                sym_q  = live_quotes.get(sym, {}) if live_quotes else {}
                 sym_chg = float(sym_q.get("changePct", 0) or 0) if isinstance(sym_q, dict) else 0.0
                 if sym_chg < -(SECTOR_THRESHOLD * 0.5):
                     s["direction"] = -1
                     s["sector_boost"] = f"SECTOR_CONF_DN_{chg_now:+.1f}pct"
                     n_sector_boosted += 1
-            elif (chg_now > (SECTOR_THRESHOLD * 1.5) and s.get("direction") == 0):
-                sym_q = live_quotes.get(sym, {}) if live_quotes else {}
+            elif (chg_now > (SECTOR_THRESHOLD * 1.2) and s.get("direction") == 0):
+                sym_q  = live_quotes.get(sym, {}) if live_quotes else {}
                 sym_chg = float(sym_q.get("changePct", 0) or 0) if isinstance(sym_q, dict) else 0.0
                 if sym_chg > (SECTOR_THRESHOLD * 0.5):
                     s["direction"] = 1
@@ -1312,15 +1347,16 @@ def main():
                     n_sector_boosted += 1
 
         if n_sector_dampened or n_sector_boosted:
-            it_str  = f"IT={it_chg:+.1f}%"      if it_chg     is not None else ""
-            pha_str = f"PHA={pharma_chg:+.1f}%"  if pharma_chg is not None else ""
-            aut_str = f"AUTO={auto_chg:+.1f}%"   if auto_chg   is not None else ""
-            bnk_str = f"BANK={bank_chg:+.1f}%"   if bank_chg   is not None else ""
-            cem_str = f"CEMENT={cement_chg:+.1f}%" if cement_chg is not None else ""
-            fmcg_str = f"FMCG={fmcg_chg:+.1f}%"  if fmcg_chg  is not None else ""
-            sectors_str = " ".join(s for s in [it_str, pha_str, aut_str, bnk_str, cem_str, fmcg_str] if s)
+            sector_parts = []
+            for label, chg in [
+                ("IT", it_chg), ("PHA", pharma_chg), ("AUTO", auto_chg),
+                ("BANK", bank_chg), ("CEMENT", cement_chg), ("FMCG", fmcg_chg),
+                ("METALS", metals_chg), ("INS", insurance_chg), ("INFRA", infra_chg),
+            ]:
+                if chg is not None:
+                    sector_parts.append(f"{label}={chg:+.1f}%")
             print(f"[{now.strftime('%H:%M')}] Sector: dampened={n_sector_dampened} boosted={n_sector_boosted} "
-                  f"({sectors_str})")
+                  f"({' '.join(sector_parts)})")
 
         # ── Individual stock-level dampening removed from here — see AFTER LTP override ──
 
