@@ -1049,8 +1049,36 @@ def main():
             scores = score_all(estimator, feat_names, normalizer, live_quotes=live_quotes)
             print(f" done ({len(scores)} scored)")
 
-        # ── Symbol IC dead-symbol filter ──────────────────────────────────────
-        # Skip symbols where rolling 60-trade IC < -0.05 (chronically wrong)
+        # ── Cross-sectional rank-based direction assignment ────────────────
+        # Root cause of "all LONG no SHORT" issue: when model score distribution
+        # shifts (e.g., mean=0.63 today), absolute threshold (>0.55 LONG / <0.45 SHORT)
+        # fails — everything becomes LONG. Fix: rank scores cross-sectionally and
+        # reassign direction based on top/bottom decile. This is how institutional
+        # quant models work (IC is a cross-sectional metric, not absolute).
+        if scores:
+            raw_scores = sorted([(s["score"], s["symbol"]) for s in scores], reverse=True)
+            n = len(raw_scores)
+            # Top 15% → LONG, Bottom 15% → SHORT, middle 70% → neutral (direction=0)
+            SIGNAL_PCT = 0.15
+            n_each = max(5, int(n * SIGNAL_PCT))
+            top_syms    = {sym for _, sym in raw_scores[:n_each]}
+            bottom_syms = {sym for _, sym in raw_scores[-n_each:]}
+            for s in scores:
+                sym = s["symbol"]
+                if sym in top_syms:
+                    s["direction"] = 1
+                elif sym in bottom_syms:
+                    s["direction"] = -1
+                else:
+                    s["direction"] = 0
+            n_reassigned = len(top_syms) + len(bottom_syms)
+            score_mean = sum(s["score"] for s in scores) / n
+            score_min  = min(s["score"] for s in scores)
+            score_max  = max(s["score"] for s in scores)
+            print(
+                f"[{now.strftime('%H:%M')}] CrossSectional: score range=[{score_min:.3f},{score_max:.3f}] "
+                f"mean={score_mean:.3f}  assigned {n_each}L/{n_each}S from {n} symbols"
+            )
         if _IC_TRACKER_OK and _symbol_ic_tracker is not None:
             scores, n_ic_suppressed = _symbol_ic_tracker.apply_dead_filter(scores, verbose=True)
             if n_ic_suppressed == 0:
@@ -1058,7 +1086,8 @@ def main():
                 if ic_summary["n_dead"] > 0:
                     print(f"[{now.strftime('%H:%M')}] SymbolIC: {ic_summary['n_dead']} dead symbols on cooldown")
 
-        # ── Gap 3 Fix: Event-risk detector ────────────────────────────────────
+        # ── Symbol IC dead-symbol filter ──────────────────────────────────────
+        # Skip symbols where rolling 60-trade IC < -0.05 (chronically wrong)
         # Sep-30 finding: APOLLOHOSP (A-grade LONG, 0.639) dropped -8.8% — a
         # corporate event (earnings/news) the model can't predict from EOD bars.
         # Now we flag any symbol with an extreme intraday move (>4%) vs ML call.
