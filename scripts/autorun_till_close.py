@@ -489,10 +489,12 @@ def score_symbol(sym: str, estimator, feat_names, normalizer=None, live_ltp: flo
         if live_ltp is not None and live_ltp > 0 and len(df) > 0:
             ist_now = datetime.now(tz=timezone.utc) + timedelta(hours=5, minutes=30)
             # Today's bar timestamp = today's midnight IST = (today - 1d) 18:30 UTC
-            today_bar_ts = pd.Timestamp(
-                ist_now.replace(hour=0, minute=0, second=0, microsecond=0),
-                tz="UTC",
-            ) - timedelta(hours=5, minutes=30)
+            # Strip tzinfo before pd.Timestamp to avoid ValueError in Python 3.12
+            # when passing tz-aware datetime with tz= kwarg simultaneously.
+            ist_midnight_naive = ist_now.replace(
+                hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+            )
+            today_bar_ts = pd.Timestamp(ist_midnight_naive, tz="UTC") - timedelta(hours=5, minutes=30)
             if today_bar_ts > df.index.max():
                 prev_close = float(df["close"].iloc[-1]) if "close" in df.columns else live_ltp
                 # Build partial bar: open=prev_close, close=live_ltp
