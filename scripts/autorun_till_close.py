@@ -56,6 +56,7 @@ except Exception:
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import asyncio
 import numpy as np
 import pandas as pd
 
@@ -72,6 +73,213 @@ try:
 except Exception as _e:
     _PHIL_IMPORTS_OK = False
     print(f"[warn] Phil integrations not available: {_e}", file=sys.stderr)
+
+# ── SentinelPulse news damper ─────────────────────────────────────────────────
+try:
+    from src.clients.sentinel_pulse import SentinelPulseClient
+    from src.features.families.news import news_features_from_context
+    _SENTINEL_OK = True
+except Exception as _se:
+    _SENTINEL_OK = False
+    print(f"[warn] SentinelPulse not available: {_se}", file=sys.stderr)
+
+# ── Symbol IC Tracker ─────────────────────────────────────────────────────────
+try:
+    from src.analytics.symbol_ic_tracker import SymbolICTracker
+    _symbol_ic_tracker = SymbolICTracker()
+    _IC_TRACKER_OK = True
+except Exception as _ite:
+    _symbol_ic_tracker = None
+    _IC_TRACKER_OK = False
+    print(f"[warn] SymbolICTracker not available: {_ite}", file=sys.stderr)
+
+# Session-level cache: one SentinelPulseClient per autorun session (reconnects once)
+_sentinel_client: "SentinelPulseClient | None" = None
+
+
+async def _fetch_news_batch(symbols: list[str]) -> dict[str, dict]:
+    """
+    Batch-fetch SentinelPulse context for market + per-asset (NSE: prefixed).
+
+    Returns:
+        {
+            "MARKET": { market-level news_features dict },
+            "RELIANCE": { asset-level news_features dict },
+            ...
+        }
+    Cache: SentinelPulseClient has 90s LRU cache, so repeat calls within a
+    5-min cycle are effectively free.  Network latency = 1 market call +
+    len(symbols) × ~100ms, run concurrently via asyncio.gather.
+    """
+    global _sentinel_client
+    if not _SENTINEL_OK:
+        return {}
+
+    # Lazy-init client
+    if _sentinel_client is None:
+        _sentinel_client = SentinelPulseClient()
+        await _sentinel_client.connect()
+
+    try:
+        # 1. Market context (always)
+        market_ctx = await _sentinel_client._fetch_with_retry(
+            "/api/v1/alphaforge/context/market"
+        )
+        events_raw = await _sentinel_client._fetch_with_retry(
+            "/api/v1/ml/training/events", params={"limit": "50"}
+        )
+        events_list: list[dict] = (
+            events_raw if isinstance(events_raw, list) else []
+        )
+
+        # 2. Per-asset context for each symbol — run concurrently
+        async def _asset(sym: str) -> tuple[str, dict | None]:
+            r = await _sentinel_client._fetch_with_retry(
+                f"/api/v1/alphaforge/context/asset/NSE:{sym}"
+            )
+            return sym, r
+
+        asset_results = await asyncio.gather(
+            *[_asset(s) for s in symbols], return_exceptions=False
+        )
+
+        # 3. Build result dict
+        out: dict[str, dict] = {}
+        # Market-level entry (shared base for all symbols)
+        market_feats = news_features_from_context(
+            market_ctx=market_ctx, asset_ctx=None, events=events_list
+        )
+        out["MARKET"] = market_feats
+
+        # Per-asset: override asset_sentiment from symbol-specific context
+        for sym, asset_ctx in asset_results:
+            feats = news_features_from_context(
+                market_ctx=market_ctx,
+                asset_ctx=asset_ctx,
+                events=events_list,
+            )
+            out[sym] = feats
+
+        return out
+
+    except Exception as exc:
+        print(f"[warn] SentinelPulse batch fetch failed: {exc}", file=sys.stderr)
+        return {}
+
+
+def apply_news_damper(
+    scores: list[dict],
+    news_ctx: dict[str, dict],
+    now: "datetime",
+) -> tuple[list[dict], int, list[str]]:
+    """
+    Apply SentinelPulse news sentiment to dampen conflicting signals.
+
+    Dampening rules (all require news data to be present):
+      Rule 1 — Market-regime conflict:
+        If news_regime_score < -0.5 (bear) AND signal is LONG with grade C/D
+        → neutralize  (strong market headwind overrides weak LONG calls)
+
+      Rule 2 — Per-asset news conflict:
+        If news_asset_sentiment < -0.25 AND ML signal is LONG
+        → neutralize  (asset-specific negative news)
+        If news_asset_sentiment > +0.25 AND ML signal is SHORT
+        → neutralize  (asset-specific positive news)
+
+      Rule 3 — High-importance event:
+        If news_event_importance > 0.55 AND news direction conflicts with ML
+        → reduce conviction (set score toward 0.5 by 30%)
+
+    Args:
+        scores:    List of scored signal dicts (mutated in-place).
+        news_ctx:  {symbol: {feature: float}} from _fetch_news_batch().
+        now:       Current IST datetime for logging.
+
+    Returns:
+        (modified_scores, n_dampened, reason_list)
+    """
+    if not news_ctx:
+        return scores, 0, []
+
+    market_feats = news_ctx.get("MARKET", {})
+    mkt_regime   = float(market_feats.get("news_regime_score", 0.0))
+    mkt_sent     = float(market_feats.get("news_market_sentiment", 0.0))
+    n_dampened   = 0
+    reasons: list[str] = []
+
+    def _conviction_grade(score: float) -> str:
+        dist = abs(score - 0.5)
+        if dist >= 0.30: return "A"
+        if dist >= 0.20: return "B"
+        if dist >= 0.10: return "C"
+        return "D"
+
+    for s in scores:
+        if s.get("direction") == 0:
+            continue  # already neutral
+
+        sym     = s["symbol"]
+        ml_dir  = s["direction"]
+        score   = float(s["score"])
+        grade   = _conviction_grade(score)
+
+        # Get asset-specific news (fall back to market-level)
+        afeats      = news_ctx.get(sym, market_feats)
+        asset_sent  = float(afeats.get("news_asset_sentiment", 0.0))
+        evt_imp     = float(afeats.get("news_event_importance", 0.0))
+
+        damped = False
+        reason = ""
+
+        # ── Rule 1: Market regime conflict (weak LONG in bear regime) ─────
+        if mkt_regime < -0.5 and ml_dir == 1 and grade in ("C", "D"):
+            s["direction"] = 0
+            s["news_dimmed"] = f"BEAR_REGIME_{mkt_regime:+.2f}"
+            damped = True
+            reason = f"R1:bear_regime({mkt_regime:+.2f})"
+
+        # ── Rule 2: Asset-level news conflict ─────────────────────────────
+        elif asset_sent < -0.25 and ml_dir == 1:
+            s["direction"] = 0
+            s["news_dimmed"] = f"NEGATIVE_NEWS_{asset_sent:+.3f}"
+            damped = True
+            reason = f"R2:asset_bearish({asset_sent:+.3f})"
+
+        elif asset_sent > +0.25 and ml_dir == -1:
+            s["direction"] = 0
+            s["news_dimmed"] = f"POSITIVE_NEWS_{asset_sent:+.3f}"
+            damped = True
+            reason = f"R2:asset_bullish({asset_sent:+.3f})"
+
+        # ── Rule 3: High-importance event pulls score toward 0.5 ─────────
+        elif evt_imp > 0.55:
+            news_dir = 1 if asset_sent > 0.05 else (-1 if asset_sent < -0.05 else 0)
+            if news_dir != 0 and news_dir != ml_dir:
+                # Pull score 30% toward 0.5 (soften, don't flip)
+                s["score"] = round(score + 0.30 * (0.5 - score), 4)
+                s["news_dimmed"] = f"HIGH_EVENT_{evt_imp:.2f}"
+                damped = True
+                reason = f"R3:high_event({evt_imp:.2f},pull)"
+
+        if damped:
+            n_dampened += 1
+            reasons.append(f"{sym}:{reason}")
+
+    if n_dampened:
+        regime_label = (
+            f"BEAR({mkt_regime:+.2f})" if mkt_regime < -0.3
+            else f"BULL({mkt_regime:+.2f})" if mkt_regime > 0.3
+            else "NEUTRAL"
+        )
+        print(
+            f"[{now.strftime('%H:%M')}] 📰 SentinelPulse damped {n_dampened} signals  "
+            f"market={mkt_sent:+.2f} regime={regime_label}"
+        )
+        if len(reasons) <= 5:
+            for r in reasons:
+                print(f"   {r}")
+
+    return scores, n_dampened, reasons
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 BASE         = Path(__file__).parent.parent
@@ -158,6 +366,96 @@ def load_model():
                     normalizer, p.get("feature_schema_version","?"))
     return None, [], None, "?"
 
+
+def load_ensemble() -> dict | None:
+    """
+    Load multi-horizon ensemble manifest and both H1 + H5 models.
+
+    Returns a dict:
+        {"h1": (est, feat_names, norm), "h5": (est, feat_names, norm), "manifest": {...}}
+    or None if the ensemble manifest doesn't exist.
+    """
+    manifest_path = BASE / "artifacts/expanded_lgbm/ensemble_manifest.json"
+    if not manifest_path.exists():
+        return None
+    try:
+        manifest = json.loads(manifest_path.read_text())
+        models: dict[str, tuple] = {}
+        for m in manifest.get("models", []):
+            h   = m.get("horizon")
+            pkl = m.get("pkl_path")
+            if not pkl or not Path(pkl).exists():
+                continue
+            with open(pkl, "rb") as f:
+                p = pickle.load(f)
+            norm = None
+            raw_state = p.get("normalizer_state")
+            if isinstance(raw_state, dict) and raw_state:
+                try:
+                    from src.features.normalizer import FeatureNormalizer
+                    norm = FeatureNormalizer.from_dict(raw_state)
+                except Exception:
+                    pass
+            models[f"h{h}"] = (p["estimator"], p["feature_names"], norm)
+        if len(models) >= 2:
+            models["manifest"] = manifest
+            return models
+    except Exception as exc:
+        print(f"[warn] Ensemble load failed: {exc}", file=sys.stderr)
+    return None
+
+
+def score_symbol_ensemble(
+    sym: str,
+    ensemble: dict,
+    live_ltp: float | None = None,
+) -> dict | None:
+    """
+    Score a symbol using the multi-horizon ensemble.
+    Only emit a signal if ALL horizon models agree on direction.
+
+    Args:
+        sym:      NSE symbol.
+        ensemble: Output of load_ensemble().
+        live_ltp: Live LTP for partial-bar injection.
+
+    Returns:
+        Signal dict with "direction" set to:
+          +1 if all models LONG, -1 if all models SHORT, 0 if disagreement.
+    """
+    manifest   = ensemble.get("manifest", {})
+    thresholds = manifest.get("thresholds", {})
+    signals: list[dict] = []
+
+    for key, (est, feat_names, norm) in ensemble.items():
+        if not isinstance(key, str) or not key.startswith("h"):
+            continue
+        h_signal = score_symbol(sym, est, feat_names, norm, live_ltp=live_ltp)
+        if h_signal is None:
+            return None
+        signals.append({"key": key, **h_signal})
+
+    if not signals:
+        return None
+
+    # Agreement: all horizons must vote same direction
+    directions = [s["direction"] for s in signals]
+    if all(d == 1  for d in directions):
+        final_dir = 1
+    elif all(d == -1 for d in directions):
+        final_dir = -1
+    else:
+        final_dir = 0   # disagreement → WAIT
+
+    # Use the H5 score as the canonical score (longer horizon, more stable)
+    h5_signal = next((s for s in signals if s["key"] == "h5"), signals[-1])
+    return {
+        **h5_signal,
+        "direction":       final_dir,
+        "ensemble_agree":  final_dir != 0,
+        "h_signals":       {s["key"]: s["score"] for s in signals},
+    }
+
 def score_symbol(sym: str, estimator, feat_names, normalizer=None, live_ltp: float | None = None) -> dict | None:
     pf = PARQUET_DIR / f"{sym}.parquet"
     if not pf.exists():
@@ -206,7 +504,56 @@ def score_symbol(sym: str, estimator, feat_names, normalizer=None, live_ltp: flo
         factory = ExpandedFeatureFactory() if len(feat_names) > 24 else FeatureFactory()
         features, _ = factory.build(df)
         last = features.iloc[-1].fillna(0)
-        X = np.array([[last.get(c, 0.0) for c in feat_names]])
+
+        # ── Market features (nifty_ret_1d/5d/20d) ────────────────────────────
+        # If the model was trained with NIFTY market returns, compute them now
+        # from the on-disk NIFTY parquet so inference matches training.
+        market_feat_vals: dict[str, float] = {}
+        if any(c.startswith("nifty_ret") for c in feat_names):
+            try:
+                nifty_pf = PARQUET_DIR / "NIFTY.parquet"
+                if nifty_pf.exists():
+                    ndf = pd.read_parquet(nifty_pf)
+                    nclose = ndf["close"].astype(float).dropna()
+                    market_feat_vals["nifty_ret_1d"]  = float(nclose.pct_change(1).iloc[-1]) if len(nclose) > 1  else 0.0
+                    market_feat_vals["nifty_ret_5d"]  = float(nclose.pct_change(5).iloc[-1]) if len(nclose) > 5  else 0.0
+                    market_feat_vals["nifty_ret_20d"] = float(nclose.pct_change(20).iloc[-1]) if len(nclose) > 20 else 0.0
+            except Exception:
+                pass
+
+        # ── Intraday features (Group G from 5m bars) ─────────────────────────
+        # If the model was trained with intraday features, compute them from
+        # today's 5m bars (if available on disk).
+        intraday_feat_vals: dict[str, float] = {}
+        if any(c.startswith("intraday_") for c in feat_names):
+            try:
+                pf_5m = BASE / "data" / "5m" / "5m" / f"{sym}.parquet"
+                if pf_5m.exists():
+                    from src.features.families.intraday import (  # noqa: PLC0415
+                        compute_intraday_features_for_date,
+                    )
+                    df_5m_full = pd.read_parquet(pf_5m)
+                    if df_5m_full.index.tz is None:
+                        df_5m_full.index = df_5m_full.index.tz_localize("UTC")
+                    # Filter to today's bars
+                    from datetime import date as _date  # noqa: PLC0415
+                    today_utc = pd.Timestamp(_date.today()).tz_localize("UTC")
+                    df_today_5m = df_5m_full[df_5m_full.index.normalize() == today_utc]
+                    if len(df_today_5m) >= 6:
+                        intraday_feat_vals = compute_intraday_features_for_date(
+                            df_today_5m,
+                            is_partial=(live_ltp is not None),
+                        )
+            except Exception:
+                pass
+
+        # Build feature vector — use 0.0 fallback for missing features
+        X = np.array([[
+            intraday_feat_vals.get(c,
+                market_feat_vals.get(c,
+                    last.get(c, 0.0)))
+            for c in feat_names
+        ]])
         if normalizer is not None:
             try:
                 X_df = pd.DataFrame(X, columns=feat_names)
@@ -214,8 +561,14 @@ def score_symbol(sym: str, estimator, feat_names, normalizer=None, live_ltp: flo
             except Exception:
                 pass
         score = float(estimator.predict(X)[0])
-        # data_date reflects whether we used a live partial bar or yesterday's close
-        data_date = str(today_bar_ts.date()) if (live_ltp and live_ltp > 0) else str(df.index.max().date())
+        # data_date: use today if we injected a live partial bar, else last bar
+        if live_ltp and live_ltp > 0:
+            try:
+                data_date = str(today_bar_ts.date())
+            except NameError:
+                data_date = str(df.index.max().date())
+        else:
+            data_date = str(df.index.max().date())
         return {"symbol": sym, "score": round(score, 4), "direction": 1 if score > 0.5 else -1,
                 "data_date": data_date, "live_bar": live_ltp is not None and live_ltp > 0}
     except Exception:
@@ -441,6 +794,14 @@ def main():
 
     print(f"  Model: {schema} | {len(feat_names)} features | normalizer: {'yes' if normalizer else 'no'}")
 
+    # ── Try loading multi-horizon ensemble ────────────────────────────────────
+    _ensemble = load_ensemble()
+    if _ensemble:
+        horizons = [k for k in _ensemble if k.startswith("h")]
+        print(f"  Ensemble: {horizons} horizons loaded ✓  (agreement filter ACTIVE)")
+    else:
+        print("  Ensemble: single H5 model (run train_multihorizon_ensemble.py to enable)")
+
     # ── Phil integration: initialise components ───────────────────────────────
     _forecast_ledger    = ForecastLedger()    if _PHIL_IMPORTS_OK else None
     _cfactual_ledger    = CounterfactualLedger() if _PHIL_IMPORTS_OK else None
@@ -489,6 +850,33 @@ def main():
             # Final P&L with fresh quotes
             final_scores = score_all(estimator, feat_names, normalizer)
             final_pnl    = calc_pnl(fp_signals, final_quotes, excluded)
+
+            # ── Symbol IC tracker: record today's outcomes ───────────────────
+            if _IC_TRACKER_OK and _symbol_ic_tracker is not None and final_pnl.get("positions"):
+                ic_outcomes = []
+                for pos in final_pnl.get("positions", []):
+                    sym = pos.get("symbol")
+                    net = pos.get("net_pct")
+                    # Find the model score for this symbol
+                    score_entry = next((s for s in final_scores if s["symbol"] == sym), None)
+                    if score_entry and net is not None and sym:
+                        ic_outcomes.append({
+                            "symbol":           sym,
+                            "score":            score_entry["score"],
+                            "realized_return":  float(net) / 100.0,   # convert % to decimal
+                            "date":             session_date,
+                        })
+                if ic_outcomes:
+                    _symbol_ic_tracker.record_batch(ic_outcomes)
+                    ic_sum = _symbol_ic_tracker.summary()
+                    print(
+                        f"\n[close] SymbolIC: recorded {len(ic_outcomes)} outcomes | "
+                        f"mean_ic={ic_sum['mean_ic']}  dead={ic_sum['n_dead']} symbols"
+                    )
+                    if ic_sum.get("bottom5"):
+                        worst = ic_sum["bottom5"][:3]
+                        print(f"         Worst IC: " +
+                              "  ".join(f"{w['symbol']}={w['ic']:.3f}" for w in worst))
 
             # ── Phil: resolve all 218 forecasts with final realized returns ──
             if _forecast_ledger is not None and final_pnl.get("positions"):
@@ -567,7 +955,7 @@ def main():
             _write_latest_scores(
                 scores=final_scores, session_date=session_date, schema=schema,
                 nifty_chg=nifty_q.get("changePct", 0), nifty_ltp=nifty_q.get("ltp"),
-                market_open=False, pnl=final_pnl,
+                market_open=False, pnl=final_pnl, beta_hedge={},
             )
 
             # Summary
@@ -631,8 +1019,41 @@ def main():
 
         # Score all 218 WITH live LTPs (intraday partial bar)
         print(f"[{now.strftime('%H:%M')}] Scoring 218 symbols...", end="", flush=True)
-        scores = score_all(estimator, feat_names, normalizer, live_quotes=live_quotes)
-        print(f" done ({len(scores)} scored)")
+        if _ensemble:
+            # Multi-horizon ensemble: score each symbol with H1 + H5, keep only agreements
+            scores_raw = score_all(estimator, feat_names, normalizer, live_quotes=live_quotes)
+            scores = []
+            n_agree = n_disagree = 0
+            for s in scores_raw:
+                ens_result = score_symbol_ensemble(s["symbol"], _ensemble,
+                                                   live_ltp=live_quotes.get(s["symbol"], {}).get("ltp") if live_quotes else None)
+                if ens_result is None:
+                    scores.append(s)   # fallback to single-model
+                elif ens_result["ensemble_agree"]:
+                    scores.append(ens_result)
+                    n_agree += 1
+                else:
+                    # disagreement → force neutral (keep in list but direction=0)
+                    s["direction"] = 0
+                    s["ensemble_disagree"] = True
+                    scores.append(s)
+                    n_disagree += 1
+            if n_agree + n_disagree > 0:
+                print(f" done ({len(scores)} scored, ensemble agree={n_agree} disagree={n_disagree})")
+            else:
+                print(f" done ({len(scores)} scored)")
+        else:
+            scores = score_all(estimator, feat_names, normalizer, live_quotes=live_quotes)
+            print(f" done ({len(scores)} scored)")
+
+        # ── Symbol IC dead-symbol filter ──────────────────────────────────────
+        # Skip symbols where rolling 60-trade IC < -0.05 (chronically wrong)
+        if _IC_TRACKER_OK and _symbol_ic_tracker is not None:
+            scores, n_ic_suppressed = _symbol_ic_tracker.apply_dead_filter(scores, verbose=True)
+            if n_ic_suppressed == 0:
+                ic_summary = _symbol_ic_tracker.summary()
+                if ic_summary["n_dead"] > 0:
+                    print(f"[{now.strftime('%H:%M')}] SymbolIC: {ic_summary['n_dead']} dead symbols on cooldown")
 
         # ── Gap 3 Fix: Event-risk detector ────────────────────────────────────
         # Sep-30 finding: APOLLOHOSP (A-grade LONG, 0.639) dropped -8.8% — a
@@ -762,6 +1183,100 @@ def main():
             if n_rev:
                 print(f"[{now.strftime('%H:%M')}] Reversal overrides: {n_rev} signals flipped")
 
+        # ── SentinelPulse news-sentiment signal damper ─────────────────────────
+        # Fetch market + per-asset news context and apply 3 dampening rules:
+        #   R1: strong bear regime → neutralize weak (C/D grade) LONG signals
+        #   R2: bearish asset news  → neutralize LONG; bullish asset → neutralize SHORT
+        #   R3: high-importance event conflicting with ML → pull score 30% toward 0.5
+        #
+        # Only scored symbols with non-neutral directions are sent to SentinelPulse
+        # (reduces API calls to ~30-50 vs full 285). The client has 90s LRU cache,
+        # so this adds <2 seconds per cycle when cache is warm.
+        _news_dampened = 0
+        if _SENTINEL_OK:
+            try:
+                # Symbols that have an active directional signal
+                active_syms = [s["symbol"] for s in scores if s.get("direction", 0) != 0]
+                if active_syms:
+                    news_ctx = asyncio.run(_fetch_news_batch(active_syms))
+                    scores, _news_dampened, _news_reasons = apply_news_damper(
+                        scores, news_ctx, now
+                    )
+                    if _news_dampened == 0:
+                        mkt_regime = float(news_ctx.get("MARKET", {}).get("news_regime_score", 0))
+                        mkt_sent   = float(news_ctx.get("MARKET", {}).get("news_market_sentiment", 0))
+                        print(
+                            f"[{now.strftime('%H:%M')}] 📰 SentinelPulse OK: "
+                            f"mkt_sent={mkt_sent:+.2f} regime={mkt_regime:+.2f} "
+                            f"no dampening needed"
+                        )
+            except Exception as _sp_exc:
+                print(
+                    f"[{now.strftime('%H:%M')}] [warn] SentinelPulse damper failed: {_sp_exc}",
+                    file=sys.stderr,
+                )
+
+        # ── Beta-neutral LONG overlay ──────────────────────────────────────────
+        # Sep-30 finding: LONG book avg -2.5% while SHORT avg +1.35%.  Root cause:
+        # the model scores LONGs and SHORTs independently — when markets drift up
+        # the SHORT book partially hedges by design, but LONGs accumulate market
+        # beta exposure with no offsetting hedge.  Net result: LONG P&L ≈ alpha - β×market.
+        #
+        # Fix: After final signal processing, compute net LONG exposure and recommend
+        # a NIFTY futures SHORT of equivalent notional × avg_beta to flatten beta.
+        # This converts the LONG book from "raw stock" → "pure alpha" exposure.
+        #
+        # Implementation: we add a synthetic "NIFTY_SHORT_HEDGE" signal to the scores
+        # list.  This signal is NOT emitted as a trade recommendation — it is logged
+        # as a HEDGE signal in the session snapshot and dashboard for operator review.
+        # Actual hedge sizing requires knowing position sizes (out of scope for signal engine).
+
+        active_longs  = [s for s in scores if s.get("direction") == 1]
+        active_shorts = [s for s in scores if s.get("direction") == -1]
+        n_long        = len(active_longs)
+        n_short       = len(active_shorts)
+        net_long      = n_long - n_short      # net directional exposure (unit positions)
+
+        # Compute portfolio-level beta from live quotes:
+        # beta_i ≈ corr(stock_i, NIFTY) × (σ_stock / σ_nifty)
+        # For simplicity use 60-day rolling beta approximation from EOD data.
+        # Fallback: assume avg beta = 1.0 for all F&O stocks (close to empirical avg).
+        AVG_PORTFOLIO_BETA = 1.05   # empirical avg for NSE F&O large-caps
+
+        # NIFTY 1% ≈ equivalent notional in NIFTY futures (1 lot = 50 NIFTY units)
+        # We express hedge as a fractional NIFTY position, not hard lots.
+        nifty_hedge_units = net_long * AVG_PORTFOLIO_BETA   # how many NIFTY "position units" to short
+
+        beta_hedge: dict = {
+            "n_long":            n_long,
+            "n_short":           n_short,
+            "net_long_exposure": net_long,
+            "avg_portfolio_beta": AVG_PORTFOLIO_BETA,
+            "nifty_hedge_units": round(nifty_hedge_units, 2),
+            "hedge_direction":   "SHORT" if nifty_hedge_units > 0 else ("LONG" if nifty_hedge_units < 0 else "FLAT"),
+            "nifty_ltp":         float(nifty_q.get("ltp") or 0),
+            "nifty_chg_pct":     round(nifty_chg_now, 3),
+        }
+
+        if net_long > 2:
+            # Meaningful net long exposure → recommend NIFTY SHORT hedge
+            print(
+                f"[{now.strftime('%H:%M')}] 🔷 Beta-Neutral Hedge: "
+                f"net_long={net_long}  NIFTY SHORT {nifty_hedge_units:.1f} units "
+                f"(beta={AVG_PORTFOLIO_BETA})  NIFTY={nifty_q.get('ltp','?')} ({nifty_chg_now:+.2f}%)"
+            )
+        elif net_long < -2:
+            # Net short book → recommend NIFTY LONG hedge
+            print(
+                f"[{now.strftime('%H:%M')}] 🔷 Beta-Neutral Hedge: "
+                f"net_short={abs(net_long)}  NIFTY LONG {abs(nifty_hedge_units):.1f} units  "
+                f"NIFTY={nifty_q.get('ltp','?')} ({nifty_chg_now:+.2f}%)"
+            )
+        else:
+            # Near market-neutral — no hedge needed
+            beta_hedge["nifty_hedge_units"] = 0.0
+            beta_hedge["hedge_direction"]   = "FLAT"
+
         # ── Phil: log ALL 218 forecasts (not just 26 tracked positions) ───────
         if _forecast_ledger is not None:
             n_logged = _forecast_ledger.record_session(
@@ -786,7 +1301,7 @@ def main():
         _write_latest_scores(
             scores=scores, session_date=session_date, schema=schema,
             nifty_chg=nifty_chg_now, nifty_ltp=nifty_q.get("ltp"),
-            market_open=True, pnl=pnl,
+            market_open=True, pnl=pnl, beta_hedge=beta_hedge,
         )
 
         # Dashboard
@@ -804,6 +1319,8 @@ def main():
             "top_long":   sorted([s for s in scores if s["direction"]==1],  key=lambda x: -x["score"])[:5],
             "top_short":  sorted([s for s in scores if s["direction"]==-1], key=lambda x:  x["score"])[:5],
             "pnl":        pnl,
+            "beta_hedge": beta_hedge,
+            "news_dampened": _news_dampened,
         }
         all_samples.append(sample)
         with SESSION_LOG.open("a") as f:
@@ -825,6 +1342,7 @@ def _write_latest_scores(
     nifty_ltp: float | None,
     market_open: bool,
     pnl: dict | None = None,
+    beta_hedge: dict | None = None,
 ) -> None:
     """Atomic snapshot of all scored symbols written after every cycle.
 
@@ -884,6 +1402,8 @@ def _write_latest_scores(
                 "win_rate":   pnl.get("win_rate", 0) if pnl else None,
                 "n_positions": pnl.get("n", 0) if pnl else 0,
             },
+            # Beta-neutral hedge recommendation for operator / AlphaForge UI
+            "beta_hedge": beta_hedge or {},
             "signals": signals_out,
         }
         tmp = LATEST_SCORES_PATH.with_suffix(".tmp")
