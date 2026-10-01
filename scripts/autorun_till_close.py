@@ -1154,6 +1154,8 @@ def main():
         IT_SYMS    = {"TCS","INFY","HCLTECH","WIPRO","TECHM","COFORGE","PERSISTENT","OFSS","TATAELXSI","KPITTECH"}
         PHARMA_SYMS = {"SUNPHARMA","DRREDDY","CIPLA","DIVISLAB","LUPIN","AUROPHARMA","GLENMARK","ZYDUSLIFE","ALKEM"}
         AUTO_SYMS  = {"MARUTI","HEROMOTOCO","TVSMOTOR","BAJAJ-AUTO","EICHERMOT","M&M"}
+        BANK_SYMS  = {"HDFCBANK","ICICIBANK","KOTAKBANK","AXISBANK","SBIN","INDUSINDBK","BANDHANBNK","FEDERALBNK","IDFCFIRSTB"}
+        CEMENT_SYMS = {"ULTRACEMCO","AMBUJACEM","ACC","SHREECEM","RAMCOCEM","DALMIACEMT","JKCEMENT"}
 
         def _sector_avg_chg(syms: set) -> float | None:
             vals = [live_quotes.get(s, {}).get("changePct")
@@ -1161,9 +1163,11 @@ def main():
                     and live_quotes[s].get("changePct") is not None]
             return sum(vals) / len(vals) if vals else None
 
-        it_chg     = _sector_avg_chg(IT_SYMS)
-        pharma_chg = _sector_avg_chg(PHARMA_SYMS)
-        auto_chg   = _sector_avg_chg(AUTO_SYMS)
+        it_chg      = _sector_avg_chg(IT_SYMS)
+        pharma_chg  = _sector_avg_chg(PHARMA_SYMS)
+        auto_chg    = _sector_avg_chg(AUTO_SYMS)
+        bank_chg    = _sector_avg_chg(BANK_SYMS)
+        cement_chg  = _sector_avg_chg(CEMENT_SYMS)
 
         SECTOR_THRESHOLD = 1.0   # % sector-avg move to trigger dampening
         n_sector_dampened = 0
@@ -1171,9 +1175,11 @@ def main():
         for s in scores:
             sym = s["symbol"]
             chg_now = None
-            if sym in IT_SYMS:       chg_now = it_chg
-            elif sym in PHARMA_SYMS: chg_now = pharma_chg
-            elif sym in AUTO_SYMS:   chg_now = auto_chg
+            if sym in IT_SYMS:        chg_now = it_chg
+            elif sym in PHARMA_SYMS:  chg_now = pharma_chg
+            elif sym in AUTO_SYMS:    chg_now = auto_chg
+            elif sym in BANK_SYMS:    chg_now = bank_chg
+            elif sym in CEMENT_SYMS:  chg_now = cement_chg
             if chg_now is None:
                 continue
             # Sector strongly UP → neutralize SHORT (chasing sector against ML)
@@ -1186,23 +1192,30 @@ def main():
                 s["direction"] = 0
                 s["sector_dimmed"] = f"SECTOR_DN_{chg_now:+.1f}pct"
                 n_sector_dampened += 1
-            # NEW: Sector strongly DOWN + symbol has no signal → check if it
-            # should be SHORT (sector-confirm: if sector is down hard, rank
-            # bottom-quartile sector stocks as SHORT regardless of cross-sectional cut)
+            # Sector strongly DOWN + stock also falling → boost neutral to SHORT
             elif (chg_now < -(SECTOR_THRESHOLD * 1.5) and s.get("direction") == 0):
                 sym_q = live_quotes.get(sym, {}) if live_quotes else {}
                 sym_chg = float(sym_q.get("changePct", 0) or 0) if isinstance(sym_q, dict) else 0.0
-                # Only boost SHORT if this stock is also actually falling
                 if sym_chg < -(SECTOR_THRESHOLD * 0.5):
                     s["direction"] = -1
                     s["sector_boost"] = f"SECTOR_CONF_DN_{chg_now:+.1f}pct"
                     n_sector_boosted += 1
+            # Sector strongly UP + stock also rising → boost neutral to LONG (symmetric)
+            elif (chg_now > (SECTOR_THRESHOLD * 1.5) and s.get("direction") == 0):
+                sym_q = live_quotes.get(sym, {}) if live_quotes else {}
+                sym_chg = float(sym_q.get("changePct", 0) or 0) if isinstance(sym_q, dict) else 0.0
+                if sym_chg > (SECTOR_THRESHOLD * 0.5):
+                    s["direction"] = 1
+                    s["sector_boost"] = f"SECTOR_CONF_UP_{chg_now:+.1f}pct"
+                    n_sector_boosted += 1
 
         if n_sector_dampened or n_sector_boosted:
-            it_str  = f"IT={it_chg:+.1f}%"     if it_chg     is not None else ""
-            pha_str = f"PHA={pharma_chg:+.1f}%" if pharma_chg is not None else ""
-            aut_str = f"AUTO={auto_chg:+.1f}%"  if auto_chg   is not None else ""
-            sectors_str = " ".join(s for s in [it_str, pha_str, aut_str] if s)
+            it_str  = f"IT={it_chg:+.1f}%"      if it_chg     is not None else ""
+            pha_str = f"PHA={pharma_chg:+.1f}%"  if pharma_chg is not None else ""
+            aut_str = f"AUTO={auto_chg:+.1f}%"   if auto_chg   is not None else ""
+            bnk_str = f"BANK={bank_chg:+.1f}%"   if bank_chg   is not None else ""
+            cem_str = f"CEMENT={cement_chg:+.1f}%" if cement_chg is not None else ""
+            sectors_str = " ".join(s for s in [it_str, pha_str, aut_str, bnk_str, cem_str] if s)
             print(f"[{now.strftime('%H:%M')}] Sector: dampened={n_sector_dampened} boosted={n_sector_boosted} "
                   f"({sectors_str})")
 
@@ -1300,8 +1313,9 @@ def main():
             top_syms    = {sym for _, sym in raw_sorted[:n_each]}
             bottom_syms = {sym for _, sym in raw_sorted[-n_each:]}
             for s in scores:
-                if s.get("news_dimmed") or s.get("ensemble_disagree"):
-                    continue   # don't override explicit damper decisions
+                if (s.get("news_dimmed") or s.get("ensemble_disagree")
+                        or s.get("sector_boost") or s.get("sector_dimmed")):
+                    continue   # don't override explicit damper/boost decisions
                 sym = s["symbol"]
                 if sym in top_syms:
                     s["direction"] = 1
