@@ -32,7 +32,7 @@ from src.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-EXPANDED_FEATURE_SCHEMA_VERSION = "fs-3.0.0"
+EXPANDED_FEATURE_SCHEMA_VERSION = "fs-4.0.0"
 
 
 class ExpandedFeatureFactory(FeatureFactory):
@@ -43,15 +43,29 @@ class ExpandedFeatureFactory(FeatureFactory):
     This allows backward-compatible dataset construction: existing datasets
     (schema fs-2.0.0) can still load the base 24 features.
 
-    Total features: 24 (base) + up to 42 (extended) = up to 66 features.
-    Actual count depends on whether index has timezone info (time features).
+    Feature groups:
+      Base (24):  FeatureFactory OHLCV features
+      Group A (5):  Extended momentum (3/60 bar, acceleration, risk-adj)
+      Group B (11): Regime (vol, trend, gap)
+      Group C (7):  Time-context (weekday, month-end, quarter-end)
+      Group D (4):  Relative value (price z-scores, vol-norm returns)
+      Group E (4):  Advanced volatility (Parkinson, Garman-Klass, vol-of-vol, ATR z)
+      Group F (12): Reversal/mean-reversion (RSI, BB, consecutive bars, stoch)
+    Total EOD features: 67
+
+    Intraday features (Group G, 8 features) are NOT computed here — they require
+    5-minute bar data and are handled by IntradayFeatureFactory in
+    src/features/families/intraday.py, merged by DatasetBuilder at training time.
 
     Usage::
 
         factory = ExpandedFeatureFactory()
         features, avail = factory.build(ohlcv_df)
-        # features has 66 columns (or fewer if time features disabled)
+        # features has 67 columns (or fewer if time features disabled)
     """
+
+    # Schema version for this factory
+    SCHEMA_VERSION: str = EXPANDED_FEATURE_SCHEMA_VERSION
 
     # ── Extended feature names (appended after the 24 base features) ──────────
     EXTENDED_FEATURE_NAMES: list[str] = [
