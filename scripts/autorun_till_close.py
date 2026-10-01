@@ -1600,7 +1600,7 @@ def main():
             lq_path = SESSION_DIR / "live_quotes.json"
             lq_tmp  = lq_path.with_suffix(".tmp")
             lq_tmp.write_text(json.dumps({
-                "generated_at": now.isoformat(),
+                "generated_at": datetime.now(tz=timezone.utc).isoformat(),  # true UTC
                 "quotes": {sym: dict(q) for sym, q in live_quotes.items()
                            if isinstance(q, dict)},
             }))
