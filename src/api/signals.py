@@ -327,7 +327,7 @@ async def get_movers(limit: int = 10) -> JSONResponse:
 @router.get("/signals/history")
 async def get_signal_history(
     date: str | None = None,
-    limit: int = 218,
+    limit: int = 500,
     status: str | None = None,
 ) -> JSONResponse:
     """ForecastLedger records for a session date.
@@ -338,7 +338,8 @@ async def get_signal_history(
 
     Optional query parameters:
       - ``date``   — YYYY-MM-DD (default: today IST, with automatic fallback)
-      - ``limit``  — max records returned (default: 218)
+      - ``limit``  — max records returned (default: 500, raised from 218 to
+                     cover the full 285-symbol F&O universe)
       - ``status`` — filter: "open" | "won" | "lost"
 
     GET /v2/signals/history?date=2026-09-29&status=won
@@ -389,96 +390,47 @@ async def get_signal_history(
             elif cur_rank == ex_rank and rec.get("ts", "") > existing.get("ts", ""):
                 seen[sym] = rec
 
-        # ── Filter by status, sort, limit ──────────────────────────────
+        # ── Filter by status, sort, limit ──────────────────────────────────
         deduped_all = list(seen.values())
         if status:
             deduped_all = [r for r in deduped_all if r.get("status") == status]
-        deduped_all.sort(key=lambda r: abs(r.get("score", 0.5) - 0.5), reverse=True)
-        deduped = deduped_all[:limit]
 
-        # ── Session stats ──────────────────────────────────────────────
-        resolved = [r for r in deduped if r.get("net_pct") is not None]
+        # Sort: resolved (won/lost) FIRST so they always appear before the limit
+        # cutoff regardless of conviction. Within each group, sort by conviction.
+        # Bug fix: old sort by conviction alone put 25/26 resolved records at
+        # ranks 215-285 — below limit=218 — so History showed Won 0, Lost 1.
+        deduped_all.sort(
+            key=lambda r: (
+                0 if r.get("status") in ("won", "lost") else 1,
+                -abs(r.get("score", 0.5) - 0.5),
+            )
+        )
+
+        # Stats over FULL deduped universe (before limit) so header totals are
+        # always accurate regardless of how many records the UI page requests.
+        all_resolved = [r for r in deduped_all if r.get("net_pct") is not None]
         stats: dict = {
-            "n_total":    len(deduped),
-            "n_resolved": len(resolved),
-            "n_open":     sum(1 for r in deduped if r.get("status") == "open"),
-            "n_won":      sum(1 for r in deduped if r.get("status") == "won"),
-            "n_lost":     sum(1 for r in deduped if r.get("status") == "lost"),
+            "n_total":    len(deduped_all),
+            "n_resolved": len(all_resolved),
+            "n_open":     sum(1 for r in deduped_all if r.get("status") == "open"),
+            "n_won":      sum(1 for r in deduped_all if r.get("status") == "won"),
+            "n_lost":     sum(1 for r in deduped_all if r.get("status") == "lost"),
         }
-        if resolved:
-            net_pcts = [r["net_pct"] for r in resolved]
-            stats["win_rate"]          = round(sum(1 for p in net_pcts if p > 0) / len(net_pcts) * 100, 1)
-            stats["mean_net"]          = round(sum(net_pcts) / len(net_pcts), 4)
-            stats["best_net"]          = round(max(net_pcts), 4)
-            stats["worst_net"]         = round(min(net_pcts), 4)
-            bd_vals = [r.get("brier_delta") for r in resolved if r.get("brier_delta") is not None]
-            stats["brier_delta_mean"]  = round(sum(bd_vals) / len(bd_vals), 6) if bd_vals else None
+        if all_resolved:
+            net_pcts = [r["net_pct"] for r in all_resolved]
+            stats["win_rate"]         = round(sum(1 for p in net_pcts if p > 0) / len(net_pcts) * 100, 1)
+            stats["mean_net"]         = round(sum(net_pcts) / len(net_pcts), 4)
+            stats["best_net"]         = round(max(net_pcts), 4)
+            stats["worst_net"]        = round(min(net_pcts), 4)
+            bd_vals = [r.get("brier_delta") for r in all_resolved if r.get("brier_delta") is not None]
+            stats["brier_delta_mean"] = round(sum(bd_vals) / len(bd_vals), 6) if bd_vals else None
+
+        # Apply limit AFTER stats. Raised 218→500 to cover 285-symbol universe.
+        deduped = deduped_all[:limit]
 
         # List available session dates for the date picker
         available_dates = sorted(by_date.keys(), reverse=True)
 
-        return JSONResponse(content={
-            "date":            target_date,
-            "requested_date":  requested_date,
-            "is_fallback":     is_fallback,
-            "n":               len(deduped),
-            "stats":           stats,
-            "records":         deduped,
-            "available_dates": available_dates,
-        })
-    except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(exc), "records": [], "n": 0, "date": requested_date},
-        )
-
-    target_date = date or _today_ist()
-
-    try:
-        # Read ALL records for the target date — limit applied AFTER deduplication.
-        # The ForecastLedger appends records chronologically; resolved (won/lost)
-        # records are written at EOD and sit at the end of the file.  Applying
-        # limit during read would truncate before reaching them.
-        all_records: list[dict] = []
-        for line in _FORECASTS_PATH.read_text().splitlines():
-            if not line.strip():
-                continue
-            try:
-                rec = json.loads(line)
-                if rec.get("session_date") != target_date:
-                    continue
-                all_records.append(rec)
-            except Exception:
-                continue
-
-        # Deduplicate per symbol — precedence: won/lost > open > superseded.
-        # When multiple records have the same status, keep the one with the
-        # latest timestamp so re-scored sessions use the freshest data.
-        STATUS_RANK = {"won": 3, "lost": 3, "open": 2, "superseded": 1}
-
-        seen: dict[str, dict] = {}
-        for rec in all_records:
-            sym = rec.get("symbol", "")
-            if not sym:
-                continue
-            existing = seen.get(sym)
-            if existing is None:
-                seen[sym] = rec
-                continue
-            # Prefer higher-ranked status; break ties by latest ts
-            cur_rank = STATUS_RANK.get(rec.get("status", ""), 0)
-            ex_rank  = STATUS_RANK.get(existing.get("status", ""), 0)
-            if cur_rank > ex_rank:
-                seen[sym] = rec
-            elif cur_rank == ex_rank and rec.get("ts", "") > existing.get("ts", ""):
-                seen[sym] = rec
-
-        # Optional status filter applied AFTER deduplication
-        deduped_all = list(seen.values())
-        if status:
-            deduped_all = [r for r in deduped_all if r.get("status") == status]
-
-        # Sort by conviction (distance from 0.5), then apply limit
         return JSONResponse(content={
             "date":            target_date,
             "requested_date":  requested_date,

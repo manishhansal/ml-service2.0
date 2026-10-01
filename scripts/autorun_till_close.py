@@ -962,20 +962,47 @@ def main():
             final_pnl    = calc_pnl(fp_signals, final_quotes, excluded)
 
             # ── Symbol IC tracker: record today's outcomes ───────────────────
-            if _IC_TRACKER_OK and _symbol_ic_tracker is not None and final_pnl.get("positions"):
+            # Extended to ALL scored symbols (not just 26 FP positions) so the
+            # IC tracker can identify chronically wrong symbols across the full
+            # 285-symbol universe, not just the forward paper portfolio.
+            if _IC_TRACKER_OK and _symbol_ic_tracker is not None:
                 ic_outcomes = []
+
+                # Tier 1: FP positions — accurate P&L
                 for pos in final_pnl.get("positions", []):
                     sym = pos.get("symbol")
                     net = pos.get("net_pct")
-                    # Find the model score for this symbol
                     score_entry = next((s for s in final_scores if s["symbol"] == sym), None)
                     if score_entry and net is not None and sym:
                         ic_outcomes.append({
-                            "symbol":           sym,
-                            "score":            score_entry["score"],
-                            "realized_return":  float(net) / 100.0,   # convert % to decimal
-                            "date":             session_date,
+                            "symbol":          sym,
+                            "score":           score_entry["score"],
+                            "realized_return": float(net) / 100.0,
+                            "date":            session_date,
                         })
+
+                # Tier 2: remaining scored symbols — use changePct from quotes
+                fp_syms = {p["symbol"] for p in final_pnl.get("positions", [])}
+                for s in final_scores:
+                    sym = s["symbol"]
+                    if sym in fp_syms:
+                        continue
+                    direction = s.get("direction", 0)
+                    if direction == 0:
+                        continue
+                    q = final_quotes.get(sym, {})
+                    chg_pct = q.get("changePct")
+                    if chg_pct is None:
+                        continue
+                    gross = direction * float(chg_pct)
+                    net   = gross - (COST_BPS / 100)
+                    ic_outcomes.append({
+                        "symbol":          sym,
+                        "score":           s["score"],
+                        "realized_return": round(net / 100.0, 6),
+                        "date":            session_date,
+                    })
+
                 if ic_outcomes:
                     _symbol_ic_tracker.record_batch(ic_outcomes)
                     ic_sum = _symbol_ic_tracker.summary()
@@ -988,12 +1015,37 @@ def main():
                         print(f"         Worst IC: " +
                               "  ".join(f"{w['symbol']}={w['ic']:.3f}" for w in worst))
 
-            # ── Phil: resolve all 218 forecasts with final realized returns ──
-            if _forecast_ledger is not None and final_pnl.get("positions"):
-                realized_returns = {
-                    p["symbol"]: p["net_pct"]
-                    for p in final_pnl.get("positions", [])
-                }
+            # ── Phil: resolve all 285 forecasts with final realized returns ──
+            # Bug fix: previously only passed 26 FP positions' returns, leaving
+            # 259 symbols as "Open" in the ForecastLedger (History tab showed
+            # 217 open, 1 lost instead of showing all resolved outcomes).
+            # Fix: build realized_returns for ALL scored symbols — FP positions
+            # first (accurate entry/exit P&L), then remaining symbols from
+            # changePct (intraday move × direction, same cost deduction).
+            if _forecast_ledger is not None:
+                realized_returns: dict[str, float] = {}
+
+                # Tier 1: FP positions — accurate entry/exit P&L with costs
+                for p in final_pnl.get("positions", []):
+                    realized_returns[p["symbol"]] = p["net_pct"]
+
+                # Tier 2: all other scored symbols — use intraday changePct
+                # direction tells us whether the signal was LONG (+1) or SHORT (-1)
+                for s in final_scores:
+                    sym = s["symbol"]
+                    if sym in realized_returns:
+                        continue          # already covered by FP position
+                    direction = s.get("direction", 0)
+                    if direction == 0:
+                        continue          # neutral signal — no P&L to compute
+                    q = final_quotes.get(sym, {})
+                    chg_pct = q.get("changePct")
+                    if chg_pct is None:
+                        continue          # no live price available
+                    gross = direction * float(chg_pct)
+                    net   = gross - (COST_BPS / 100)   # same cost model as FP
+                    realized_returns[sym] = round(net, 4)
+
                 brier_report = _forecast_ledger.resolve_session(
                     session_date=session_date,
                     realized_returns=realized_returns,
@@ -1001,7 +1053,8 @@ def main():
                 bd = brier_report.get("brier_delta", 0)
                 print(f"\n[close] ForecastLedger: brier_delta={bd:+.6f} "
                       f"({'BEATING market' if bd < 0 else 'behind market'}) | "
-                      f"n={brier_report.get('n_resolved', 0)} resolved")
+                      f"n={brier_report.get('n_resolved', 0)} resolved"
+                      f" (was 26, now {len(realized_returns)})")
 
             # ── Phil: score threshold sweep (update optimal threshold) ───────
             if _PHIL_IMPORTS_OK and final_pnl.get("positions"):
