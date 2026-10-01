@@ -1031,6 +1031,15 @@ def main():
         n_live = sum(1 for q in live_quotes.values() if isinstance(q, dict) and q.get("ltp"))
         print(f" {n_live} live LTPs received")
 
+        # GAP-1: verified symbols = those with a real-time live LTP from the data service.
+        # Only these symbols can have their signals tracked intraday.
+        # Used to bias LONG selection toward trackable large-caps (GAP-4) and to mark
+        # signal verification status in latest_scores.json for the tracker.
+        verified_syms: set[str] = {
+            sym for sym, q in live_quotes.items()
+            if isinstance(q, dict) and q.get("ltp") is not None and float(q.get("ltp", 0) or 0) > 0
+        }
+
         # Score all 218 WITH live LTPs (intraday partial bar)
         print(f"[{now.strftime('%H:%M')}] Scoring 218 symbols...", end="", flush=True)
         if _ensemble:
@@ -1059,6 +1068,10 @@ def main():
         else:
             scores = score_all(estimator, feat_names, normalizer, live_quotes=live_quotes)
             print(f" done ({len(scores)} scored)")
+
+        # GAP-1: tag each signal with whether it has a live LTP (trackable intraday)
+        for s in scores:
+            s["has_live_ltp"] = s["symbol"] in verified_syms
 
         # ── Cross-sectional rank-based direction assignment ────────────────
         # Root cause of "all LONG no SHORT" issue: when model score distribution
@@ -1150,7 +1163,22 @@ def main():
                 else:                       # Low vol
                     _weight_mgr.set_threshold(0.15)
 
-        # ── Gap 6 Fix: Sector intraday regime dampening ────────────────────────
+        # ── Weight manager: filter by conviction threshold ────────────────────────
+        # GAP-5 fix: weight manager now runs BEFORE sector dampening. Previously it
+        # ran after, resetting direction=0 for threshold violations and wiping
+        # sector_boost/sector_dimmed flags that the final cross-sectional would then
+        # preserve as 0 instead of the sector-intended direction.
+        nifty_chg_now = float(nifty_q.get("changePct", 0) or 0)
+        if _weight_mgr is not None and scores:
+            regime = _weight_mgr.detect_regime(nifty_chg=nifty_chg_now)
+            scores, _wt_summary = _weight_mgr.apply(scores, regime=regime, nifty_chg=nifty_chg_now)
+            n_filtered = _wt_summary.get("n_filtered", 0)
+            if n_filtered > 0:
+                print(f"[{now.strftime('%H:%M')}] Feature weights: regime={regime}, "
+                      f"{n_filtered} signals filtered (sector_dim={_wt_summary.get('n_sector_dimmed',0)} "
+                      f"threshold={_wt_summary.get('n_threshold',0)})")
+
+        # ── Sector intraday regime dampening (now runs AFTER weight manager) ─────
         # Sep-30 finding: IT sector rallied +2% all day but model had IT stocks SHORT.
         # Now detect intraday sector direction and dampen conflicting signals.
         IT_SYMS    = {"TCS","INFY","HCLTECH","WIPRO","TECHM","COFORGE","PERSISTENT","OFSS","TATAELXSI","KPITTECH"}
@@ -1221,16 +1249,33 @@ def main():
             print(f"[{now.strftime('%H:%M')}] Sector: dampened={n_sector_dampened} boosted={n_sector_boosted} "
                   f"({sectors_str})")
 
-        # ── Phil: apply feature weights (sector-regime filter + threshold) ────
-        nifty_chg_now = float(nifty_q.get("changePct", 0) or 0)
-        if _weight_mgr is not None and scores:
-            regime = _weight_mgr.detect_regime(nifty_chg=nifty_chg_now)
-            scores, _wt_summary = _weight_mgr.apply(scores, regime=regime, nifty_chg=nifty_chg_now)
-            n_filtered = _wt_summary.get("n_filtered", 0)
-            if n_filtered > 0:
-                print(f"[{now.strftime('%H:%M')}] Feature weights: regime={regime}, "
-                      f"{n_filtered} signals filtered (sector_dim={_wt_summary.get('n_sector_dimmed',0)} "
-                      f"threshold={_wt_summary.get('n_threshold',0)})")
+        # ── Individual stock-level dampening (GAP-2) ──────────────────────────────
+        # Suppress SHORT on a stock that is individually up >1.5% today, and LONG
+        # on a stock that is individually down >1.5% — regardless of sector avg.
+        # Fixes: KOTAKBANK (+4.2%) being shorted when BANK sector was only +0.6%
+        # (below the 1.0% sector threshold, so sector dampening didn't fire).
+        STOCK_DAMP_THRESHOLD = 1.5   # % individual move to override sector ruling
+        n_stock_dampened = 0
+        for s in scores:
+            if s.get("news_dimmed") or s.get("sector_boost"):
+                continue   # respect explicit override decisions
+            sym = s["symbol"]
+            sym_q = live_quotes.get(sym, {})
+            if not isinstance(sym_q, dict):
+                continue
+            stock_chg = float(sym_q.get("changePct", 0) or 0)
+            if s.get("direction") == -1 and stock_chg > STOCK_DAMP_THRESHOLD:
+                # Shorting a stock that is actually rising — suppress
+                s["direction"] = 0
+                s["stock_dampened"] = f"STOCK_UP_{stock_chg:+.1f}pct"
+                n_stock_dampened += 1
+            elif s.get("direction") == 1 and stock_chg < -STOCK_DAMP_THRESHOLD:
+                # Going long on a stock that is actually falling — suppress
+                s["direction"] = 0
+                s["stock_dampened"] = f"STOCK_DN_{stock_chg:+.1f}pct"
+                n_stock_dampened += 1
+        if n_stock_dampened:
+            print(f"[{now.strftime('%H:%M')}] Stock-level dampened: {n_stock_dampened} signals")
 
         # ── Reversal detection: scan for oversold bounces / overbought drops ──
         if _reversal_detector is not None and scores:
@@ -1305,18 +1350,32 @@ def main():
         # Ranks the REMAINING signals and picks top-15% LONG / bottom-15% SHORT.
         # This ensures we ALWAYS have balanced L+S signals regardless of the
         # model's absolute score distribution on any given day.
-        _active = [s for s in scores if s.get("direction", 0) == 0]
+        # GAP-4 fix: use a separate ranking for LONG selection that gives a
+        # +0.03 score bonus to verified (live-LTP) symbols, biasing LONGs toward
+        # large-caps we can actually price and track intraday.
         _all_for_rank = scores   # rank ALL (including pre-filtered neutral)
         if _all_for_rank:
-            raw_sorted = sorted([(s["score"], s["symbol"]) for s in _all_for_rank], reverse=True)
-            n_rank = len(raw_sorted)
+            n_rank = len(_all_for_rank)
             SIGNAL_PCT = 0.15
-            n_each  = max(5, int(n_rank * SIGNAL_PCT))
-            top_syms    = {sym for _, sym in raw_sorted[:n_each]}
-            bottom_syms = {sym for _, sym in raw_sorted[-n_each:]}
+            n_each = max(5, int(n_rank * SIGNAL_PCT))
+            VERIFIED_BONUS = 0.03   # boost for live-priced symbols in LONG ranking
+
+            # LONG ranking: verified symbols get a score bonus → prefer trackable LONGs
+            long_sorted = sorted(
+                [(s["score"] + (VERIFIED_BONUS if s.get("has_live_ltp") else 0.0), s["symbol"])
+                 for s in _all_for_rank],
+                reverse=True,
+            )
+            # SHORT ranking: no bonus — use raw model score for all symbols
+            short_sorted = sorted(
+                [(s["score"], s["symbol"]) for s in _all_for_rank],
+            )
+            top_syms    = {sym for _, sym in long_sorted[:n_each]}
+            bottom_syms = {sym for _, sym in short_sorted[:n_each]}
             for s in scores:
                 if (s.get("news_dimmed") or s.get("ensemble_disagree")
-                        or s.get("sector_boost") or s.get("sector_dimmed")):
+                        or s.get("sector_boost") or s.get("sector_dimmed")
+                        or s.get("stock_dampened")):
                     continue   # don't override explicit damper/boost decisions
                 sym = s["symbol"]
                 if sym in top_syms:
@@ -1328,50 +1387,48 @@ def main():
             score_mean = sum(s["score"] for s in scores) / n_rank
             score_min  = min(s["score"] for s in scores)
             score_max  = max(s["score"] for s in scores)
+            n_verified_long = sum(
+                1 for s in scores
+                if s["direction"] == 1 and s.get("has_live_ltp")
+            )
             print(
                 f"[{now.strftime('%H:%M')}] CrossSectional(final): "
                 f"range=[{score_min:.3f},{score_max:.3f}] mean={score_mean:.3f}  "
-                f"{n_each}L + {n_each}S from {n_rank} ranked"
+                f"{n_each}L (verified={n_verified_long}) + {n_each}S from {n_rank} ranked"
             )
+        else:
+            score_mean = 0.5   # fallback if no scores
 
         # ── Live-LTP momentum override ─────────────────────────────────────────
-        # Problem: cross-sectional ranking favors mid-cap volatile scores that have
-        # NO live LTP data (provider=none), leaving large-caps like TCS/KOTAKBANK
-        # at direction=0 even when they're moving 2-4% intraday.
-        # Fix: after all filters, any symbol in live_quotes that moved ≥2% today
+        # After all filters, any symbol in live_quotes that moved ≥1.5% today
         # AND whose ML score aligns with the direction → force a signal.
-        # These override direction=0 but do NOT override sector_dimmed/news_dimmed.
-        LIVE_MOVE_THRESHOLD = 2.0   # % intraday move to qualify for override
+        # These override direction=0 but do NOT override explicit dampers.
+        LIVE_MOVE_THRESHOLD = 1.5   # GAP-3: lowered from 2.0% — catches INFY +2% moves
         n_ltp_overrides = 0
         sym_map = {s["symbol"]: s for s in scores}
         for sym, q in live_quotes.items():
             s = sym_map.get(sym)
             if s is None:
                 continue   # not in scoring universe
-            if s.get("news_dimmed"):
-                continue   # fundamental news constraint — never override
+            if s.get("news_dimmed") or s.get("stock_dampened"):
+                continue   # explicit suppression — never override
             if s.get("direction", 0) != 0:
                 continue   # already has a signal
             ltp_c = float(q.get("changePct", 0) or 0)
             if abs(ltp_c) < LIVE_MOVE_THRESHOLD:
                 continue   # move too small
-            # sector_dimmed guard: skip only when dimming direction conflicts with
-            # the LTP move.  Example: stock was dimmed SHORT→0 because sector was UP
-            # (sector_dimmed=SECTOR_UP_...) — now stock is +2%: we SHOULD override to LONG.
-            # But if stock was dimmed LONG→0 because sector was DOWN and stock is now -2%:
-            # allow SHORT override (sector already agrees).
+            # sector_dimmed guard: only block if dimming direction CONFLICTS with LTP move
             sd = s.get("sector_dimmed", "")
             if sd and "UP" in sd and ltp_c < 0:
                 continue   # sector is up, stock falling — conflicting, skip
             if sd and "DN" in sd and ltp_c > 0:
                 continue   # sector is down, stock rising — conflicting, skip
-            # Score must align with actual move direction
-            score_mean_approx = 0.628   # empirical mean for today's distribution
-            if ltp_c > 0 and s["score"] >= score_mean_approx:
+            # GAP-3: use dynamically computed score_mean (not hardcoded 0.628)
+            if ltp_c > 0 and s["score"] >= score_mean:
                 s["direction"] = 1
                 s["ltp_override"] = f"LIVE_MOVE_{ltp_c:+.1f}pct"
                 n_ltp_overrides += 1
-            elif ltp_c < 0 and s["score"] < score_mean_approx:
+            elif ltp_c < 0 and s["score"] < score_mean:
                 s["direction"] = -1
                 s["ltp_override"] = f"LIVE_MOVE_{ltp_c:+.1f}pct"
                 n_ltp_overrides += 1
@@ -1553,12 +1610,19 @@ def _write_latest_scores(
         signals_out = []
         for i, s in enumerate(ranked):
             entry = {
-                "symbol":     s["symbol"],
-                "score":      s["score"],
-                "direction":  s["direction"],   # +1 LONG | -1 SHORT
-                "data_date":  s.get("data_date", ""),
-                "rank":       i + 1,
-                "conviction": _conviction(s["score"]),
+                "symbol":       s["symbol"],
+                "score":        s["score"],
+                "direction":    s["direction"],   # +1 LONG | -1 SHORT | 0 neutral
+                "data_date":    s.get("data_date", ""),
+                "rank":         i + 1,
+                "conviction":   _conviction(s["score"]),
+                "has_live_ltp": s.get("has_live_ltp", False),
+                # Diagnostic flags — present only when set
+                **({"ltp_override":   s["ltp_override"]}   if s.get("ltp_override")   else {}),
+                **({"sector_boost":   s["sector_boost"]}   if s.get("sector_boost")   else {}),
+                **({"sector_dimmed":  s["sector_dimmed"]}  if s.get("sector_dimmed")  else {}),
+                **({"stock_dampened": s["stock_dampened"]} if s.get("stock_dampened") else {}),
+                **({"news_dimmed":    s["news_dimmed"]}    if s.get("news_dimmed")    else {}),
             }
             if s["symbol"] in pnl_by_sym:
                 entry["live_pnl"] = pnl_by_sym[s["symbol"]]

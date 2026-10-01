@@ -113,10 +113,14 @@ def load_ml_signals() -> dict[str, dict]:
         # large-cap stocks that moved big but the model left neutral.
         return {
             s["symbol"]: {
-                "score":      s.get("score", 0.5),
-                "direction":  s.get("direction", 0),
-                "conviction": s.get("conviction", "D"),
-                "data_date":  s.get("data_date", ""),
+                "score":        s.get("score", 0.5),
+                "direction":    s.get("direction", 0),
+                "conviction":   s.get("conviction", "D"),
+                "data_date":    s.get("data_date", ""),
+                "has_live_ltp": s.get("has_live_ltp", False),
+                "ltp_override": s.get("ltp_override", ""),
+                "sector_boost": s.get("sector_boost", ""),
+                "stock_dampened": s.get("stock_dampened", ""),
             }
             for s in signals
         }
@@ -221,16 +225,18 @@ class SessionTracker:
             neutral = abs(chg_today) <= 0.1
 
             signal_results.append({
-                "symbol":     sym,
-                "direction":  ml_dir,
-                "label":      "LONG" if ml_dir == 1 else "SHORT",
-                "grade":      grade,
-                "score":      sig["score"],
-                "ltp":        round(ltp, 2),
-                "chg_today":  round(chg_today, 2),
-                "correct":    correct,
-                "neutral":    neutral,
-                "wrong":      not correct and not neutral,
+                "symbol":       sym,
+                "direction":    ml_dir,
+                "label":        "LONG" if ml_dir == 1 else "SHORT",
+                "grade":        grade,
+                "score":        sig["score"],
+                "has_live_ltp": sig.get("has_live_ltp", False),
+                "ltp_override": sig.get("ltp_override", ""),
+                "ltp":          round(ltp, 2),
+                "chg_today":    round(chg_today, 2),
+                "correct":      correct,
+                "neutral":      neutral,
+                "wrong":        not correct and not neutral,
             })
 
         # ── Top movers the model might have missed ────────────────────────
@@ -265,14 +271,21 @@ class SessionTracker:
         missed_losers  = [m for m in top_losers  if m["missed"]]
 
         # ── Accuracy stats ─────────────────────────────────────────────────
+        # Only count direction!=0 signals in accuracy. Split LONGs into
+        # verified (has_live_ltp=True) and unverified for separate reporting.
         with_move = [s for s in signal_results if not s["neutral"]]
         n_correct = sum(1 for s in with_move if s["correct"])
         n_wrong   = sum(1 for s in with_move if s["wrong"])
         accuracy  = n_correct / len(with_move) if with_move else 0.0
 
-        longs  = [s for s in signal_results if s["direction"] == 1]
-        shorts = [s for s in signal_results if s["direction"] == -1]
-        long_win  = sum(1 for s in longs  if s["correct"]) / max(len(longs), 1)
+        longs_all      = [s for s in signal_results if s["direction"] == 1]
+        longs_verified = [s for s in longs_all if s.get("has_live_ltp")]
+        shorts         = [s for s in signal_results if s["direction"] == -1]
+
+        long_win  = (
+            sum(1 for s in longs_verified if s["correct"]) / max(len(longs_verified), 1)
+            if longs_verified else 0.0
+        )
         short_win = sum(1 for s in shorts if s["correct"]) / max(len(shorts), 1)
 
         nifty_q   = all_quotes.get("NIFTY", {})
@@ -280,25 +293,26 @@ class SessionTracker:
         nifty_chg = float(nifty_q.get("changePct", 0) or 0)
 
         snapshot = {
-            "timestamp":      now.isoformat(),
-            "sample_n":       sample_n,
-            "session_date":   self.session_date,
-            "nifty_ltp":      nifty_ltp,
-            "nifty_chg":      round(nifty_chg, 3),
-            "n_ml_signals":   len(signal_results),
-            "n_long":         len(longs),
-            "n_short":        len(shorts),
-            "n_correct":      n_correct,
-            "n_wrong":        n_wrong,
-            "accuracy":       round(accuracy, 4),
-            "long_win_rate":  round(long_win, 4),
-            "short_win_rate": round(short_win, 4),
-            "missed_winners": missed_winners[:5],
-            "missed_losers":  missed_losers[:5],
-            "neutral_missed": sorted(neutral_missed, key=lambda x: abs(x["chg_today"]), reverse=True)[:10],
-            "signal_results": signal_results,
-            "top_winners":    top_winners[:5],
-            "top_losers":     top_losers[:5],
+            "timestamp":         now.isoformat(),
+            "sample_n":          sample_n,
+            "session_date":      self.session_date,
+            "nifty_ltp":         nifty_ltp,
+            "nifty_chg":         round(nifty_chg, 3),
+            "n_ml_signals":      len(signal_results),
+            "n_long":            len(longs_all),
+            "n_long_verified":   len(longs_verified),
+            "n_short":           len(shorts),
+            "n_correct":         n_correct,
+            "n_wrong":           n_wrong,
+            "accuracy":          round(accuracy, 4),
+            "long_win_rate":     round(long_win, 4),
+            "short_win_rate":    round(short_win, 4),
+            "missed_winners":    missed_winners[:5],
+            "missed_losers":     missed_losers[:5],
+            "neutral_missed":    sorted(neutral_missed, key=lambda x: abs(x["chg_today"]), reverse=True)[:10],
+            "signal_results":    signal_results,
+            "top_winners":       top_winners[:5],
+            "top_losers":        top_losers[:5],
         }
         self.snapshots.append(snapshot)
 
@@ -314,11 +328,12 @@ class SessionTracker:
         acc     = snap["accuracy"] * 100
         lwr     = snap["long_win_rate"] * 100
         swr     = snap["short_win_rate"] * 100
+        n_lv    = snap.get("n_long_verified", snap["n_long"])
 
         print(f"\n{'='*72}")
         print(f"  📊 SIGNAL TRACKER v2  |  {now_str} IST  |  NIFTY {snap['nifty_ltp']} ({nifty_c:+.2f}%)")
-        print(f"  Signals: {snap['n_ml_signals']} (L={snap['n_long']} S={snap['n_short']})")
-        print(f"  Accuracy: {acc:.1f}%  |  LONG win: {lwr:.1f}%  |  SHORT win: {swr:.1f}%")
+        print(f"  Signals: {snap['n_ml_signals']} (L={snap['n_long']}[ver={n_lv}] S={snap['n_short']})")
+        print(f"  Accuracy: {acc:.1f}%  |  LONG win (verified): {lwr:.1f}%  |  SHORT win: {swr:.1f}%")
         print(f"  Correct={snap['n_correct']}  Wrong={snap['n_wrong']}")
 
         # Wrong signals
