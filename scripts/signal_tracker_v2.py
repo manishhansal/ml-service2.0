@@ -109,15 +109,16 @@ def load_ml_signals() -> dict[str, dict]:
     try:
         d = json.loads(scores_file.read_text())
         signals = d.get("signals", [])
+        # Include ALL scored symbols (direction=0 too) so we can detect
+        # large-cap stocks that moved big but the model left neutral.
         return {
             s["symbol"]: {
-                "score":     s.get("score", 0.5),
-                "direction": s.get("direction", 0),
+                "score":      s.get("score", 0.5),
+                "direction":  s.get("direction", 0),
                 "conviction": s.get("conviction", "D"),
                 "data_date":  s.get("data_date", ""),
             }
             for s in signals
-            if s.get("direction", 0) != 0
         }
     except Exception:
         return {}
@@ -184,6 +185,7 @@ class SessionTracker:
 
         # ── Build signal comparison ────────────────────────────────────────
         signal_results: list[dict] = []
+        neutral_missed: list[dict] = []   # direction=0 but stock moved ≥1.5%
         for sym, sig in ml_signals.items():
             q    = all_quotes.get(sym, {})
             ltp  = float(q.get("ltp", 0) or 0)
@@ -202,6 +204,19 @@ class SessionTracker:
 
             ml_dir  = sig["direction"]
             grade   = sig["conviction"]
+
+            # direction=0 → model was neutral; track separately for gap analysis
+            if ml_dir == 0:
+                if abs(chg_today) >= 1.5:
+                    neutral_missed.append({
+                        "symbol":    sym,
+                        "score":     sig["score"],
+                        "chg_today": round(chg_today, 2),
+                        "ltp":       round(ltp, 2),
+                        "implied":   "LONG" if sig["score"] > 0.55 else ("SHORT" if sig["score"] < 0.45 else "FLAT"),
+                    })
+                continue   # exclude from accuracy computation
+
             correct = (ml_dir == 1 and chg_today > 0.1) or (ml_dir == -1 and chg_today < -0.1)
             neutral = abs(chg_today) <= 0.1
 
@@ -280,6 +295,7 @@ class SessionTracker:
             "short_win_rate": round(short_win, 4),
             "missed_winners": missed_winners[:5],
             "missed_losers":  missed_losers[:5],
+            "neutral_missed": sorted(neutral_missed, key=lambda x: abs(x["chg_today"]), reverse=True)[:10],
             "signal_results": signal_results,
             "top_winners":    top_winners[:5],
             "top_losers":     top_losers[:5],
@@ -322,6 +338,15 @@ class SessionTracker:
             for m in (missed_w + missed_l)[:6]:
                 arrow = "↑" if m["chg_today"] > 0 else "↓"
                 print(f"    {m['symbol']:15s}  actual={arrow}{abs(m['chg_today']):.1f}%  (no ML signal)")
+
+        # Neutral-but-moving: model scored but left as direction=0
+        nm = snap.get("neutral_missed", [])
+        if nm:
+            print(f"\n  ⚠️  MODEL NEUTRAL BUT MOVED ≥1.5% (direction=0, coverage gap):")
+            for m in nm[:6]:
+                arrow = "↑" if m["chg_today"] > 0 else "↓"
+                implied = m.get("implied", "?")
+                print(f"    {m['symbol']:15s}  actual={arrow}{abs(m['chg_today']):.1f}%  score={m['score']:.3f}  implied={implied}")
 
         # Correct signals
         correct = [s for s in snap["signal_results"] if s["correct"]]
