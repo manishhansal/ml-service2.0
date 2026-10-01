@@ -59,6 +59,9 @@ class FeatureFactory:
         # features: DataFrame aligned to ohlcv_df.index, one column per feature
     """
 
+    # Schema version — overridden by subclasses.
+    SCHEMA_VERSION: str = FEATURE_SCHEMA_VERSION
+
     # Ordered, explicit feature list (schema contract).
     FEATURE_NAMES: list[str] = [
         # price / returns

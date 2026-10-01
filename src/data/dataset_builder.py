@@ -35,6 +35,18 @@ from src.data.labels import LabelConfig, LabelFactory, label_quality_report
 from src.features.factory import FEATURE_SCHEMA_VERSION, FeatureFactory
 from src.features.leakage_validator import LeakageValidator, PITViolationError
 from src.features.normalizer import FeatureNormalizer, ScalingMethod
+from src.features.families.intraday import (
+    INTRADAY_FEATURE_NAMES,
+    compute_intraday_feature_matrix,
+)
+from src.features.families.news import (
+    NEWS_FEATURE_NAMES,
+    compute_news_feature_matrix,
+)
+from src.features.families.options_iv import (
+    OPTIONS_FEATURE_NAMES,
+    compute_options_feature_matrix,
+)
 from src.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -174,6 +186,10 @@ class DatasetBuilder:
         survivorship: str = "CURRENT_UNIVERSE_ONLY",
         normalize: bool = True,
         winsor_pct: tuple[float, float] = (1.0, 99.0),
+        intraday_5m_dir: Path | None = None,
+        market_index_ohlcv: "pd.DataFrame | None" = None,
+        news_features_dir: Path | None = None,
+        options_features_dir: Path | None = None,
     ) -> None:
         self._root = Path(output_root)
         self._root.mkdir(parents=True, exist_ok=True)
@@ -185,6 +201,15 @@ class DatasetBuilder:
         self._survivorship = survivorship
         self._normalize = normalize
         self._winsor_pct = winsor_pct
+        # Intraday 5m data directory (optional — Group G features)
+        self._intraday_5m_dir: Path | None = Path(intraday_5m_dir) if intraday_5m_dir else None
+        # Market index OHLCV for market-return features (optional)
+        self._market_index_ohlcv: pd.DataFrame | None = market_index_ohlcv
+        # SentinelPulse news feature parquets directory (optional — Group H features)
+        # data/news/1d/{symbol}.parquet — one row per date, columns = NEWS_FEATURE_NAMES
+        self._news_features_dir: Path | None = Path(news_features_dir) if news_features_dir else None
+        # Options/IV feature parquets directory (optional — Group I features)
+        self._options_features_dir: Path | None = Path(options_features_dir) if options_features_dir else None
         # NOTE on threshold: the default LeakageValidator threshold (0.05) is
         # tuned to flag *any* forward-looking correlation and produces false
         # positives on legitimately-predictive PIT-safe momentum features
@@ -241,6 +266,108 @@ class DatasetBuilder:
             merged["outcome"] = labels["outcome"]
             merged["execution_model"] = labels["execution_model"]
             merged["is_economic_evidence"] = labels["is_economic_evidence"]
+
+            # ── Group G: Intraday features (5m bars, optional) ─────────────────
+            # Each feature is a scalar per date, computed from that day's 5m bars.
+            # Missing dates get 0.0 (neutral fill) so historical rows are kept.
+            if self._intraday_5m_dir is not None and self._intraday_5m_dir.exists():
+                pf_5m = self._intraday_5m_dir / f"{symbol}.parquet"
+                if pf_5m.exists():
+                    try:
+                        df_5m_full = pd.read_parquet(pf_5m)
+                        intraday_matrix = compute_intraday_feature_matrix(
+                            df_5m_full, features.index
+                        )
+                        for col in INTRADAY_FEATURE_NAMES:
+                            if col in intraday_matrix.columns:
+                                merged[col] = intraday_matrix[col].values
+                            else:
+                                merged[col] = 0.0
+                        logger.debug(
+                            "dataset_intraday_features_added",
+                            symbol=symbol,
+                            rows=len(intraday_matrix),
+                            covered=int((intraday_matrix != 0.0).any(axis=1).sum()),
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "dataset_intraday_features_failed",
+                            symbol=symbol,
+                            error=str(exc),
+                        )
+                        for col in INTRADAY_FEATURE_NAMES:
+                            merged[col] = 0.0
+                else:
+                    # No 5m parquet for this symbol — fill neutral
+                    for col in INTRADAY_FEATURE_NAMES:
+                        merged[col] = 0.0
+
+            # ── Group H: News/NLP features (SentinelPulse, optional) ───────────
+            # One row per date, forward-filled from the most recent ingested entry.
+            # Dates before first ingestion get 0.0 (neutral — "no information").
+            if self._news_features_dir is not None and self._news_features_dir.exists():
+                # Try symbol-specific parquet first; fall back to market-level
+                pf_news = self._news_features_dir / f"{symbol}.parquet"
+                if not pf_news.exists():
+                    pf_news = self._news_features_dir / "MARKET.parquet"
+                if pf_news.exists():
+                    try:
+                        df_news = pd.read_parquet(pf_news)
+                        news_matrix = compute_news_feature_matrix(
+                            df_news, features.index
+                        )
+                        for col in NEWS_FEATURE_NAMES:
+                            merged[col] = news_matrix[col].values if col in news_matrix.columns else 0.0
+                        news_covered = int((news_matrix.abs() > 0).any(axis=1).sum())
+                        logger.debug(
+                            "dataset_news_features_added",
+                            symbol=symbol,
+                            rows=len(news_matrix),
+                            covered=news_covered,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "dataset_news_features_failed",
+                            symbol=symbol,
+                            error=str(exc),
+                        )
+                        for col in NEWS_FEATURE_NAMES:
+                            merged[col] = 0.0
+                else:
+                    for col in NEWS_FEATURE_NAMES:
+                        merged[col] = 0.0
+
+            # ── Group I: Options/IV features (optional) ────────────────────────
+            # put_call_ratio, iv_atm_pct, oi_change_pct, iv_skew, iv_term_spread
+            if self._options_features_dir is not None and self._options_features_dir.exists():
+                pf_opt = self._options_features_dir / f"{symbol}.parquet"
+                if pf_opt.exists():
+                    try:
+                        df_opt = pd.read_parquet(pf_opt)
+                        opt_matrix = compute_options_feature_matrix(
+                            df_opt, features.index
+                        )
+                        for col in OPTIONS_FEATURE_NAMES:
+                            merged[col] = opt_matrix[col].values if col in opt_matrix.columns else 0.0
+                        opt_covered = int((opt_matrix.abs() > 0).any(axis=1).sum())
+                        logger.debug(
+                            "dataset_options_features_added",
+                            symbol=symbol,
+                            rows=len(opt_matrix),
+                            covered=opt_covered,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "dataset_options_features_failed",
+                            symbol=symbol,
+                            error=str(exc),
+                        )
+                        for col in OPTIONS_FEATURE_NAMES:
+                            merged[col] = 0.0
+                else:
+                    for col in OPTIONS_FEATURE_NAMES:
+                        merged[col] = 0.0
+
             frames.append(merged)
 
         if not frames:
@@ -248,8 +375,80 @@ class DatasetBuilder:
 
         combined = pd.concat(frames).sort_index()
 
+        # ── Market-return features (NIFTY daily returns) ──────────────────────
+        # Merges nifty_ret_1d/5d/20d into every row by matching on date index.
+        # These are neutral signals on their own but help LightGBM condition
+        # momentum/reversal features on the current market regime.
+        if self._market_index_ohlcv is not None and len(self._market_index_ohlcv) > 10:
+            try:
+                mkt = self._market_index_ohlcv.copy()
+                mkt.columns = [c.lower() for c in mkt.columns]
+                mkt_close = mkt["close"].astype(float)
+                mkt_feats = pd.DataFrame({
+                    "nifty_ret_1d":  mkt_close.pct_change(1),
+                    "nifty_ret_5d":  mkt_close.pct_change(5),
+                    "nifty_ret_20d": mkt_close.pct_change(20),
+                })
+                # Normalise both indices to UTC midnight for alignment
+                if mkt_feats.index.tz is None:
+                    mkt_feats.index = mkt_feats.index.tz_localize("UTC")
+                else:
+                    mkt_feats.index = mkt_feats.index.tz_convert("UTC")
+
+                comb_idx_utc = combined.index
+                if comb_idx_utc.tz is None:
+                    comb_idx_utc = comb_idx_utc.tz_localize("UTC")
+                else:
+                    comb_idx_utc = comb_idx_utc.tz_convert("UTC")
+
+                # Map each combined row date → market feature row
+                for feat_col in ["nifty_ret_1d", "nifty_ret_5d", "nifty_ret_20d"]:
+                    series = mkt_feats[feat_col]
+                    # reindex to combined (many rows per date → broadcast)
+                    mapped = series.reindex(comb_idx_utc).values
+                    combined[feat_col] = mapped
+                # Fill NaN market features with 0 (neutral)
+                combined[["nifty_ret_1d", "nifty_ret_5d", "nifty_ret_20d"]] = (
+                    combined[["nifty_ret_1d", "nifty_ret_5d", "nifty_ret_20d"]].fillna(0.0)
+                )
+                logger.info(
+                    "dataset_market_features_added",
+                    nifty_rows=len(mkt_feats),
+                    combined_rows=len(combined),
+                )
+            except Exception as exc:
+                logger.warning("dataset_market_features_failed", error=str(exc))
+                for col in ["nifty_ret_1d", "nifty_ret_5d", "nifty_ret_20d"]:
+                    combined[col] = 0.0
+
         # Drop rows with no resolved label or any NaN feature (explicit, not zero-fill).
-        feature_cols = self._ff.FEATURE_NAMES
+        # Feature cols = EOD factory features + intraday (if present) + market (if present)
+        factory_feature_cols: list[str] = list(self._ff.FEATURE_NAMES)
+        intraday_cols: list[str] = (
+            INTRADAY_FEATURE_NAMES
+            if self._intraday_5m_dir is not None
+            else []
+        )
+        market_cols: list[str] = (
+            ["nifty_ret_1d", "nifty_ret_5d", "nifty_ret_20d"]
+            if self._market_index_ohlcv is not None
+            else []
+        )
+        news_cols: list[str] = (
+            NEWS_FEATURE_NAMES
+            if self._news_features_dir is not None
+            else []
+        )
+        options_cols: list[str] = (
+            OPTIONS_FEATURE_NAMES
+            if self._options_features_dir is not None
+            else []
+        )
+        # Only include columns that actually exist in combined
+        feature_cols = [
+            c for c in (factory_feature_cols + intraday_cols + market_cols + news_cols + options_cols)
+            if c in combined.columns
+        ]
         combined = combined.dropna(subset=["label"])
         combined = combined.dropna(subset=feature_cols)
 
@@ -314,7 +513,7 @@ class DatasetBuilder:
             dataset_id=dataset_id,
             dataset_hash=dataset_hash,
             code_sha=_git_sha(),
-            feature_schema_version=FEATURE_SCHEMA_VERSION,
+            feature_schema_version=getattr(self._ff, "SCHEMA_VERSION", FEATURE_SCHEMA_VERSION),
             label_schema_version=LABEL_SCHEMA_VERSION,
             universe=universe_list,
             timeframe=timeframe,
@@ -370,15 +569,72 @@ class DatasetBuilder:
             df.to_csv(d / "data.csv")
         (d / "metadata.json").write_text(json.dumps(meta.to_dict(), indent=2))
 
+    def feature_col_names(self, dataset_id: str | None = None) -> list[str]:
+        """Return the full list of feature column names used during build().
+
+        Includes EOD factory features + any supplementary columns (intraday,
+        market) that were added when build() was called.  Safe to call before
+        or after build(); falls back to factory FEATURE_NAMES if no dataset_id.
+        """
+        base_cols = list(self._ff.FEATURE_NAMES)
+        if dataset_id is not None:
+            try:
+                df = self.load_frame(dataset_id)
+                extra = [
+                    c for c in (list(INTRADAY_FEATURE_NAMES) +
+                                ["nifty_ret_1d", "nifty_ret_5d", "nifty_ret_20d"] +
+                                list(NEWS_FEATURE_NAMES) +
+                                list(OPTIONS_FEATURE_NAMES))
+                    if c in df.columns
+                ]
+                return base_cols + extra
+            except Exception:
+                pass
+        # Fallback: infer from builder state
+        extra_cols: list[str] = []
+        if self._intraday_5m_dir is not None:
+            extra_cols += list(INTRADAY_FEATURE_NAMES)
+        if self._market_index_ohlcv is not None:
+            extra_cols += ["nifty_ret_1d", "nifty_ret_5d", "nifty_ret_20d"]
+        if self._news_features_dir is not None:
+            extra_cols += list(NEWS_FEATURE_NAMES)
+        if self._options_features_dir is not None:
+            extra_cols += list(OPTIONS_FEATURE_NAMES)
+        return base_cols + extra_cols
+
     def load(self, dataset_id: str) -> tuple[np.ndarray, np.ndarray, pd.DatetimeIndex]:
-        """Load a frozen dataset. Returns (X, y, timestamps)."""
+        """Load a frozen dataset. Returns (X, y, timestamps).
+
+        Loads ALL feature columns stored in the parquet — this includes the base
+        factory features (FEATURE_NAMES) plus any supplementary columns appended
+        by DatasetBuilder (intraday Group G, market-return features) that were
+        present when build() was called.
+
+        Using only self._ff.FEATURE_NAMES would silently drop supplementary columns
+        and cause shape mismatches in the training pipeline.
+        """
         d = self._root / dataset_id
         data_path = d / "data.parquet"
         if data_path.exists():
             df = pd.read_parquet(data_path)
         else:
             df = pd.read_csv(d / "data.csv", index_col=0, parse_dates=True)
-        feature_cols = self._ff.FEATURE_NAMES
+
+        # Determine feature columns: base factory names + any supplementary columns
+        # (intraday, market) that are stored in the parquet.
+        _NON_FEATURE = frozenset({
+            "label", "realized_return", "realized_return_net",
+            "outcome", "execution_model", "is_economic_evidence",
+            "symbol", "close",
+        })
+        # Supplementary feature columns appended by DatasetBuilder
+        _supplementary = list(INTRADAY_FEATURE_NAMES) + [
+            "nifty_ret_1d", "nifty_ret_5d", "nifty_ret_20d",
+        ] + list(NEWS_FEATURE_NAMES) + list(OPTIONS_FEATURE_NAMES)
+        base_cols = list(self._ff.FEATURE_NAMES)
+        extra_cols = [c for c in _supplementary if c in df.columns]
+        feature_cols = base_cols + extra_cols
+
         X = df[feature_cols].to_numpy(dtype=float)
         y = df["label"].to_numpy(dtype=float)
         ts = pd.DatetimeIndex(df.index)

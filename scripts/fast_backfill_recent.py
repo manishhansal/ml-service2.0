@@ -136,8 +136,19 @@ def fetch_and_append(sym: str) -> tuple[str, int, str]:
     """
     Fetch recent bars from data-service API and append to local parquet.
     Returns (sym, bars_added, last_date).
+
+    Bugs fixed:
+    - URL-encodes symbols containing '&' (e.g. M&M, GVT&D) so they are not
+      split into multiple query params by the HTTP layer.
+    - Removes the over-broad phantom-bar filter (hour != 3) that incorrectly
+      stripped legitimate NSE bars timestamped at 03:45 UTC (09:15 IST market
+      open) for symbols whose data-service uses that convention.  The phantom
+      bar filter belongs only in fix_phantom_bars.py (deduplication of bars
+      with the SAME calendar date at both 18:30 UTC and 03:45 UTC).
     """
-    url = f"{DATA_URL}/v1/india/historical?symbol={sym}&interval=1d"
+    import urllib.parse
+    encoded_sym = urllib.parse.quote(sym, safe="")
+    url = f"{DATA_URL}/v1/india/historical?symbol={encoded_sym}&interval=1d"
     req = urllib.request.Request(url, headers={"X-API-KEY": DATA_KEY})
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
@@ -175,9 +186,11 @@ def fetch_and_append(sym: str) -> tuple[str, int, str]:
 
         common = [c for c in df_ex.columns if c in new_rows.columns]
         merged = pd.concat([df_ex[common], new_rows[common]])
-        # Remove phantom 03:45 UTC bars
-        if merged.index.tz is not None:
-            merged = merged[merged.index.hour != 3]
+        # Deduplicate rows with the same calendar date (keep the most recent
+        # timestamp per day).  Do NOT blanket-remove all hour==3 bars here —
+        # that was the phantom-bar fix for a now-resolved ingestion bug, and it
+        # incorrectly strips legitimate 03:45 UTC bars (09:15 IST market-open
+        # timestamp) returned by data-service for some symbols.
         merged = merged[~merged.index.normalize().duplicated(keep="last")]
         merged.to_parquet(pf)
 

@@ -98,3 +98,44 @@ services:
       timeout: 10s
       start_period: 60s
       retries: 5
+
+  # ── News Backfill Scheduler ──────────────────────────────────────────────────
+  # Runs daily at 16:00 IST (30 min after NSE close) to:
+  #   1. Append today's SentinelPulse news features to data/news/1d/*.parquet
+  #   2. Auto-trigger retrain when >= RETRAIN_THRESHOLD rows are accumulated
+  #      (default: 90 rows = ~3 months of daily data)
+  #
+  # Logs:  logs/news_scheduler.log
+  # Ledger: artifacts/live_session/news_scheduler.jsonl
+  #
+  # Override timing: NEWS_BACKFILL_HOUR_IST=16 NEWS_BACKFILL_MIN_IST=0
+  # Force immediate retrain: RETRAIN_THRESHOLD=1
+  news-scheduler:
+    image: ml-service2:test-hardened
+    container_name: ml-service-news-scheduler
+    restart: unless-stopped
+    environment:
+      - PYTHONPATH=/app
+      - DATA_SERVICE_API_KEY=${DATA_SERVICE_API_KEY:-dev-data-key}
+      - DATA_SERVICE_2_URL=${DATA_SERVICE_2_URL:-http://host.docker.internal:8200}
+      - SENTINEL_PULSE_URL=${SENTINEL_PULSE_URL:-http://host.docker.internal:3001}
+      - SENTINEL_PULSE_API_KEY=${SENTINEL_PULSE_API_KEY:-}
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - NEWS_BACKFILL_HOUR_IST=${NEWS_BACKFILL_HOUR_IST:-16}
+      - NEWS_BACKFILL_MIN_IST=${NEWS_BACKFILL_MIN_IST:-0}
+      - RETRAIN_THRESHOLD=${RETRAIN_THRESHOLD:-90}
+      - RETRAIN_COOLDOWN_DAYS=${RETRAIN_COOLDOWN_DAYS:-30}
+    volumes:
+      - ./src:/app/src
+      - ./scripts:/app/scripts
+      - ./artifacts:/app/artifacts
+      - ./data:/app/data
+      - ./strategy:/app/strategy
+      - ./logs:/app/logs
+    command: python3 scripts/news_backfill_scheduler.py
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

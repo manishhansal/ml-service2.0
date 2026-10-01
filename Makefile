@@ -48,7 +48,7 @@ TEST_IGNORES = \
 	build rebuild up down restart logs logs-ml logs-redis logs-mlflow logs-all \
 	health shell docker-test docker-shell prune reset \
 	ingest ingest-resume ingest-universe universe-coverage \
-	refresh-data fast-backfill fast-backfill-today \
+	refresh-data fast-backfill fast-backfill-today rescore \
 	forward-paper forward-paper-resolve signal-promote \
 	promote-shadow g6-test watcher threshold-sweep session \
 	clean clean-docker help
@@ -294,6 +294,11 @@ fast-backfill-today:  ## Backfill only today's bars (2d lookback, 10 workers) �
 	@echo "▶  Targeted backfill for today's bars ..."
 	PYTHONPATH=. $(PYTHON) scripts/fast_backfill_recent.py --days 2 --workers 10
 	@echo "✓  Done."
+
+rescore:  ## Re-score all 218 symbols from latest parquets (use outside live session)
+	@echo "▶  Rescoring all 218 symbols from latest parquet data ..."
+	PYTHONPATH=. $(PYTHON) scripts/rescore_now.py
+	@echo "✓  Fresh scores written to artifacts/live_session/latest_scores.json"
 
 ingest-universe:  ## Full 218-symbol F&O universe ingestion (resumable, ~10 min)
 	@echo "▶  Running broad-universe ingestion (rate: 2 req/s, 218 symbols) ..."
