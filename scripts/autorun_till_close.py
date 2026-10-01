@@ -1376,7 +1376,8 @@ def main():
             for s in scores:
                 if (s.get("news_dimmed") or s.get("ensemble_disagree")
                         or s.get("sector_boost") or s.get("sector_dimmed")
-                        or s.get("stock_dampened") or s.get("reversal_override")):
+                        or s.get("stock_dampened") or s.get("reversal_override")
+                        or s.get("filter_reason")):   # weight manager filtered — don't reassign
                     continue   # don't override explicit damper/boost decisions
                 sym = s["symbol"]
                 if sym in top_syms:
@@ -1625,6 +1626,7 @@ def _write_latest_scores(
                 **({"stock_dampened":    s["stock_dampened"]}    if s.get("stock_dampened")    else {}),
                 **({"news_dimmed":       s["news_dimmed"]}       if s.get("news_dimmed")       else {}),
                 **({"reversal_override": s["reversal_override"]} if s.get("reversal_override") else {}),
+                **({"filter_reason":     s["filter_reason"]}     if s.get("filter_reason")     else {}),
             }
             if s["symbol"] in pnl_by_sym:
                 entry["live_pnl"] = pnl_by_sym[s["symbol"]]
