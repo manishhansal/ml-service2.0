@@ -1420,6 +1420,21 @@ def main():
             market_open=True, pnl=pnl, beta_hedge=beta_hedge,
         )
 
+        # ── Share live_quotes with signal_tracker ─────────────────────────────
+        # The tracker reads this file instead of making its own API calls,
+        # so it doesn't compete for the 500-req/60s rate limit.
+        try:
+            lq_path = SESSION_DIR / "live_quotes.json"
+            lq_tmp  = lq_path.with_suffix(".tmp")
+            lq_tmp.write_text(json.dumps({
+                "generated_at": now.isoformat(),
+                "quotes": {sym: dict(q) for sym, q in live_quotes.items()
+                           if isinstance(q, dict)},
+            }))
+            lq_tmp.replace(lq_path)
+        except Exception as _lq_err:
+            pass  # non-fatal
+
         # Dashboard
         print_dashboard(sample_n, now, nifty_q, scores, pnl, mins)
 
