@@ -1250,33 +1250,7 @@ def main():
             print(f"[{now.strftime('%H:%M')}] Sector: dampened={n_sector_dampened} boosted={n_sector_boosted} "
                   f"({sectors_str})")
 
-        # ── Individual stock-level dampening (GAP-2) ──────────────────────────────
-        # Suppress SHORT on a stock that is individually up >1.5% today, and LONG
-        # on a stock that is individually down >1.5% — regardless of sector avg.
-        # Fixes: KOTAKBANK (+4.2%) being shorted when BANK sector was only +0.6%
-        # (below the 1.0% sector threshold, so sector dampening didn't fire).
-        STOCK_DAMP_THRESHOLD = 1.5   # % individual move to override sector ruling
-        n_stock_dampened = 0
-        for s in scores:
-            if s.get("news_dimmed") or s.get("sector_boost"):
-                continue   # respect explicit override decisions
-            sym = s["symbol"]
-            sym_q = live_quotes.get(sym, {})
-            if not isinstance(sym_q, dict):
-                continue
-            stock_chg = float(sym_q.get("changePct", 0) or 0)
-            if s.get("direction") == -1 and stock_chg > STOCK_DAMP_THRESHOLD:
-                # Shorting a stock that is actually rising — suppress
-                s["direction"] = 0
-                s["stock_dampened"] = f"STOCK_UP_{stock_chg:+.1f}pct"
-                n_stock_dampened += 1
-            elif s.get("direction") == 1 and stock_chg < -STOCK_DAMP_THRESHOLD:
-                # Going long on a stock that is actually falling — suppress
-                s["direction"] = 0
-                s["stock_dampened"] = f"STOCK_DN_{stock_chg:+.1f}pct"
-                n_stock_dampened += 1
-        if n_stock_dampened:
-            print(f"[{now.strftime('%H:%M')}] Stock-level dampened: {n_stock_dampened} signals")
+        # ── Individual stock-level dampening removed from here — see AFTER LTP override ──
 
         # ── Reversal detection: scan for oversold bounces / overbought drops ──
         if _reversal_detector is not None and scores:
@@ -1376,8 +1350,7 @@ def main():
             for s in scores:
                 if (s.get("news_dimmed") or s.get("ensemble_disagree")
                         or s.get("sector_boost") or s.get("sector_dimmed")
-                        or s.get("stock_dampened") or s.get("reversal_override")
-                        or s.get("filter_reason")):   # weight manager filtered — don't reassign
+                        or s.get("stock_dampened") or s.get("reversal_override")):
                     continue   # don't override explicit damper/boost decisions
                 sym = s["symbol"]
                 if sym in top_syms:
@@ -1437,6 +1410,33 @@ def main():
         if n_ltp_overrides:
             print(f"[{now.strftime('%H:%M')}] LTP override: {n_ltp_overrides} signals added from live moves")
 
+        # ── Individual stock-level dampening (GAP-2) — runs LAST, final word ─────
+        # Suppress SHORT on a stock that is individually up >1.5% today, and LONG
+        # on a stock that is individually down >1.5%. Runs after the final CS and
+        # LTP override so it has the last word before signals are written.
+        # This is why it runs here and NOT earlier in the pipeline.
+        STOCK_DAMP_THRESHOLD = 1.5   # % individual move to suppress conflicting signal
+        n_stock_dampened = 0
+        for s in scores:
+            if s.get("news_dimmed") or s.get("sector_boost"):
+                continue   # don't override explicit directional overrides
+            sym = s["symbol"]
+            sym_q = live_quotes.get(sym, {})
+            if not isinstance(sym_q, dict):
+                continue
+            stock_chg = float(sym_q.get("changePct", 0) or 0)
+            if s.get("direction") == -1 and stock_chg > STOCK_DAMP_THRESHOLD:
+                # Shorting a stock that is rising — suppress
+                s["direction"] = 0
+                s["stock_dampened"] = f"STOCK_UP_{stock_chg:+.1f}pct"
+                n_stock_dampened += 1
+            elif s.get("direction") == 1 and stock_chg < -STOCK_DAMP_THRESHOLD:
+                # Going long on a stock that is falling — suppress
+                s["direction"] = 0
+                s["stock_dampened"] = f"STOCK_DN_{stock_chg:+.1f}pct"
+                n_stock_dampened += 1
+        if n_stock_dampened:
+            print(f"[{now.strftime('%H:%M')}] Stock-level dampened: {n_stock_dampened} signals")
 
         # Sep-30 finding: LONG book avg -2.5% while SHORT avg +1.35%.  Root cause:
         # the model scores LONGs and SHORTs independently — when markets drift up
