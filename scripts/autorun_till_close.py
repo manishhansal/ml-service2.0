@@ -1253,7 +1253,8 @@ def main():
         PHARMA_SYMS = {"SUNPHARMA","DRREDDY","CIPLA","DIVISLAB","LUPIN","AUROPHARMA","GLENMARK","ZYDUSLIFE","ALKEM"}
         AUTO_SYMS  = {"MARUTI","HEROMOTOCO","TVSMOTOR","BAJAJ-AUTO","EICHERMOT","M&M"}
         BANK_SYMS  = {"HDFCBANK","ICICIBANK","KOTAKBANK","AXISBANK","SBIN","INDUSINDBK","BANDHANBNK","FEDERALBNK","IDFCFIRSTB"}
-        CEMENT_SYMS = {"ULTRACEMCO","AMBUJACEM","ACC","SHREECEM","RAMCOCEM","DALMIACEMT","JKCEMENT"}
+        CEMENT_SYMS = {"ULTRACEMCO","AMBUJACEM","ACC","SHREECEM","RAMCOCEM","DALMIACEMT","JKCEMENT","GRASIM","DALBHARAT"}
+        FMCG_SYMS  = {"HINDUNILVR","ITC","NESTLEIND","BRITANNIA","DABUR","MARICO","COLPAL","GODREJCP","TATACONSUM","VBL"}
 
         def _sector_avg_chg(syms: set) -> float | None:
             vals = [live_quotes.get(s, {}).get("changePct")
@@ -1266,6 +1267,7 @@ def main():
         auto_chg    = _sector_avg_chg(AUTO_SYMS)
         bank_chg    = _sector_avg_chg(BANK_SYMS)
         cement_chg  = _sector_avg_chg(CEMENT_SYMS)
+        fmcg_chg    = _sector_avg_chg(FMCG_SYMS)
 
         SECTOR_THRESHOLD = 1.0   # % sector-avg move to trigger dampening
         n_sector_dampened = 0
@@ -1278,6 +1280,7 @@ def main():
             elif sym in AUTO_SYMS:    chg_now = auto_chg
             elif sym in BANK_SYMS:    chg_now = bank_chg
             elif sym in CEMENT_SYMS:  chg_now = cement_chg
+            elif sym in FMCG_SYMS:    chg_now = fmcg_chg
             if chg_now is None:
                 continue
             # Pass 1: neutralize conflicting directional signals
@@ -1314,7 +1317,8 @@ def main():
             aut_str = f"AUTO={auto_chg:+.1f}%"   if auto_chg   is not None else ""
             bnk_str = f"BANK={bank_chg:+.1f}%"   if bank_chg   is not None else ""
             cem_str = f"CEMENT={cement_chg:+.1f}%" if cement_chg is not None else ""
-            sectors_str = " ".join(s for s in [it_str, pha_str, aut_str, bnk_str, cem_str] if s)
+            fmcg_str = f"FMCG={fmcg_chg:+.1f}%"  if fmcg_chg  is not None else ""
+            sectors_str = " ".join(s for s in [it_str, pha_str, aut_str, bnk_str, cem_str, fmcg_str] if s)
             print(f"[{now.strftime('%H:%M')}] Sector: dampened={n_sector_dampened} boosted={n_sector_boosted} "
                   f"({sectors_str})")
 
@@ -1483,7 +1487,7 @@ def main():
         # on a stock that is individually down >1.5%. Runs after the final CS and
         # LTP override so it has the last word before signals are written.
         # This is why it runs here and NOT earlier in the pipeline.
-        STOCK_DAMP_THRESHOLD = 1.5   # % individual move to suppress conflicting signal
+        STOCK_DAMP_THRESHOLD = 1.0   # % individual move to suppress conflicting signal
         n_stock_dampened = 0
         for s in scores:
             if s.get("news_dimmed") or s.get("sector_boost"):
