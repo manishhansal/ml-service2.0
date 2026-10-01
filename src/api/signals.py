@@ -174,7 +174,28 @@ async def get_latest_signals() -> JSONResponse:
     #      actionable LONG/SHORT signals; neutral signals add noise.
     #   3. Use the file's top-level n_long / n_short (computed correctly by
     #      autorun) rather than recomputing from the mutated signal list.
+    #   4. When market_open=False (post-close EOD snapshot) the post-close code
+    #      calls score_all() WITHOUT the full pipeline, so direction is the raw
+    #      score threshold (score>0.5→LONG). These are forward-looking scores
+    #      for TOMORROW, not actionable intraday signals. Set all to direction=0
+    #      so the UI shows "Market Closed / No active signals" correctly.
     all_signals: list[dict] = snapshot.get("signals", [])
+    market_open: bool = snapshot.get("market_open", True)
+
+    if not market_open:
+        # Post-close snapshot: raw EOD scores without pipeline, not actionable.
+        # Neutralize all directions so AlphaForge shows market-closed state.
+        for sig in all_signals:
+            sig["direction"] = 0
+        snapshot["signals"]   = []   # no active signals when market is closed
+        snapshot["n_long"]    = 0
+        snapshot["n_short"]   = 0
+        snapshot["n_neutral"] = len(all_signals)
+        snapshot["stale"]     = False   # not stale — just market closed
+        snapshot["age_seconds"] = _age_seconds(snapshot)
+        today = _today_ist()
+        snapshot["is_today"]  = snapshot.get("session_date") == today
+        return JSONResponse(content=snapshot)
 
     # Step 1: fill missing direction for genuinely un-scored entries only
     for sig in all_signals:
