@@ -141,15 +141,38 @@ async def get_latest_signals() -> JSONResponse:
     if snapshot is None:
         return JSONResponse(content=_no_session_response())
 
-    # Normalize direction: 0 is a ForecastLedger sentinel; derive from score.
-    for sig in snapshot.get("signals", []):
-        raw = sig.get("direction", 0)
-        if raw not in (1, -1):
+    # ── Direction handling ────────────────────────────────────────────────────
+    # direction=0 is NOT a sentinel — it is a deliberate "no signal" state set
+    # by the pipeline (weight manager threshold, sector_dimmed, stock_dampened
+    # etc.).  The old normalization loop coerced all direction=0 to LONG/SHORT
+    # using score >= 0.5, which is why AlphaForge showed 241 LONG / 44 SHORT
+    # instead of the correct 40 LONG / 35 SHORT.
+    #
+    # Fix:
+    #   1. Only fill direction when the key is genuinely absent (pre-pipeline
+    #      ForecastLedger records that never ran through the full signal engine).
+    #   2. Strip direction=0 signals from the response — the UI only renders
+    #      actionable LONG/SHORT signals; neutral signals add noise.
+    #   3. Use the file's top-level n_long / n_short (computed correctly by
+    #      autorun) rather than recomputing from the mutated signal list.
+    all_signals: list[dict] = snapshot.get("signals", [])
+
+    # Step 1: fill missing direction for genuinely un-scored entries only
+    for sig in all_signals:
+        if "direction" not in sig:
             sig["direction"] = 1 if sig.get("score", 0.5) >= 0.5 else -1
-        # Re-compute n_long/n_short after normalization
-    sigs = snapshot.get("signals", [])
-    snapshot["n_long"]  = sum(1 for s in sigs if s.get("direction") == 1)
-    snapshot["n_short"] = sum(1 for s in sigs if s.get("direction") == -1)
+
+    # Step 2: only expose actionable signals (direction ±1) to the UI.
+    # Neutral signals (direction=0) carry reasons (filter_reason, sector_dimmed,
+    # stock_dampened etc.) that are logged for diagnostics but are not trades.
+    actionable = [s for s in all_signals if s.get("direction") in (1, -1)]
+    snapshot["signals"] = actionable
+
+    # Step 3: n_long / n_short from file are already correct; recompute only
+    # to stay consistent with the filtered list we just built.
+    snapshot["n_long"]  = sum(1 for s in actionable if s["direction"] == 1)
+    snapshot["n_short"] = sum(1 for s in actionable if s["direction"] == -1)
+    snapshot["n_neutral"] = len(all_signals) - len(actionable)   # informational
 
     # Annotate staleness — useful for UI "last updated" badge
     snapshot["stale"] = _is_stale(snapshot)
