@@ -1631,7 +1631,7 @@ def main():
             f.write(json.dumps(sample) + "\n")
 
         # Wait until next sample
-        sleep_secs = min(SAMPLE_MINS * 60, max(30, int(mins * 60) - 60))
+        sleep_secs = int(min(SAMPLE_MINS * 60, max(30, int(mins * 60) - 60)))
         print(f"\n  Next sample in {sleep_secs//60}m{sleep_secs%60:02d}s  ({now.strftime('%H:%M')} → {(now+timedelta(seconds=sleep_secs)).strftime('%H:%M')} IST)")
         time.sleep(sleep_secs)
 
