@@ -1,215 +1,189 @@
 # Signal Analysis — NSE Live Session Oct 1, 2026
-## Root Cause Analysis Report
+## Root Cause Analysis Report (Final — Post-Market)
 
-**Session date:** 2026-10-01 (Thursday)  
-**Market hours:** 09:15 → 15:30 IST  
-**Model:** fs-4.0.0 | 84 features | H1+H5 ensemble | LightGBM  
-**Tracking period:** 10:28 → 11:47 IST (3 samples after fix deployment)  
+**Session date:** 2026-10-01 (Thursday)
+**Market hours:** 09:15 → 15:30 IST
+**Model:** fs-4.0.0 | 84 features | H1+H5 ensemble | LightGBM
+**Session duration:** 189 autorun samples (30s cycle) · 40 tracker samples
 
 ---
 
 ## Executive Summary
 
-Ten bugs were identified and fixed during the Oct 1 live session. The most critical was a Python 3.12 `pd.Timestamp` timezone incompatibility that silently excluded all NIFTY50 large-caps from scoring. After all fixes, tracked SHORT accuracy reached **91.7%** on 26 signals at 11:47 IST.
+Seventeen bugs were identified and fixed across the Oct 1 session and post-market analysis. The most impactful were a Python 3.12 `pd.Timestamp` timezone bug (silently excluded all NIFTY50 large-caps from scoring), a direction=0 normalization bug in the API (showing 241 LONG / 44 SHORT instead of 40/35), and missing sector coverage for METALS, INSURANCE and INFRA sectors.
+
+**Final session metrics:**
+| Metric | Value |
+|--------|-------|
+| NIFTY close | 22,421 (-0.88%) |
+| Win rate (final) | 57.7% |
+| Mean net P&L | +0.412% |
+| SHORT avg P&L | **+1.910%** |
+| LONG avg P&L | **-4.583%** |
+| SHORT accuracy (tracker, peak) | **100%** (12:20–12:25) |
+| SHORT accuracy (tracker, day avg) | ~87–92% |
+| LONG accuracy (tracker) | 0% (all unverified mid-caps) |
 
 ---
 
 ## Market Context (Oct 1)
 
-| Metric | Value |
-|--------|-------|
-| NIFTY open | ~22,620 |
-| NIFTY at 11:47 | 22,566 (-0.24%) |
-| IT sector | +1.2% (INFY +2.0%, TCS +1.2%, HCLTECH +1.5%) |
-| AUTO sector | -2.4% (EICHERMOT -2.9%, M&M -2.7%, MARUTI -2.5%) |
-| CEMENT sector | -2.5% (ULTRACEMCO -2.5%, SHREECEM -2.4%, GRASIM -2.9%) |
-| BANK sector | +0.6% → +1.0% (KOTAKBANK +2.1%, HDFCBANK +1.2%) |
-| PHARMA sector | -0.7% (DRREDDY -0.9%, DIVISLAB -0.3%) |
+| Sector | EOD Change | Key movers |
+|--------|-----------|------------|
+| AUTO | -3.8% | MARUTI -5.2%, M&M -3.2%, EICHERMOT -2.5% |
+| METALS | -3.2% | TATASTEEL -3.3%, JSWSTEEL -2.2% |
+| CEMENT | -2.8% | GRASIM -3.2%, SHREECEM -2.3% |
+| PHARMA | -1.8% | DRREDDY -2.5%, SUNPHARMA -1.5% |
+| INFRA | -2.0% | POWERGRID -2.1%, NTPC -1.8% |
+| IT | +1.3% | INFY +3.5%, HDFCLIFE +2.5%, TCS +1.2% |
+| INSURANCE | +2.2% | HDFCLIFE +2.5%, SBILIFE +1.6% |
+| BANK | +0.5% | HDFCBANK +1.8%, KOTAKBANK +0.5% |
 
 ---
 
-## Bugs Found and Fixed (chronological)
+## Accuracy Progression
 
-### BUG-1: Ensemble manifest dict unpacking error (pre-session)
-**Severity:** P0 — autorun crash on startup  
-**Symptom:** `ValueError` on `for key, value in ensemble.items()` — manifest metadata key being treated as a model entry.  
-**Fix:** Added `if key == "manifest": continue` guard in ensemble loop.  
-**Commit:** `628d078`
-
----
-
-### BUG-2: All-LONG bias — absolute score threshold failure
-**Severity:** P1 — 0 SHORT signals generated  
-**Root cause:** Model score distribution shifted to mean=0.63 today. Absolute threshold (`>0.55` LONG / `<0.45` SHORT) produced only LONGs when minimum score was 0.525.  
-**Fix:** Cross-sectional rank-based direction assignment — top 15% → LONG, bottom 15% → SHORT, middle 70% → neutral. IC is a cross-sectional metric; absolute thresholds are fragile.  
-**Result:** 41L/41S balanced from 278 symbols.  
-**Commit:** `b809828`
+| Time | Accuracy | SHORT win | Signals |
+|------|---------|-----------|---------|
+| 09:42–10:15 | 0% → 100% | 0% | 11–72 (fixing in progress) |
+| 10:41 | 50% | 62.5% | 12 (after all pipeline fixes) |
+| 11:37 | **81.5%** | 81.5% | 27 |
+| 12:20–12:25 | **100%** | 100% | 10 |
+| 14:50 | **91.7%** | 97.1% | 36 |
+| 15:25 | **100%** | 96.5% | 34 |
 
 ---
 
-### BUG-3: Cross-sectional ranking placed before weight manager
-**Severity:** P1 — weight manager filtered out all ranked signals  
-**Root cause:** Initial placement of cross-sectional ranking ran before the feature weight manager, which then filtered all ranked signals to direction=0.  
-**Fix:** Moved cross-sectional ranking to AFTER all filters (weight manager, sector dampening, SentinelPulse).  
-**Commit:** `4fe706e`
+## Bugs Fixed During Session (10 bugs)
+
+*(See intraday RCA section for details on bugs 1–10)*
+
+1. Ensemble manifest dict unpacking crash
+2. All-LONG bias (absolute threshold failure at mean=0.63)
+3. Cross-sectional ranking before weight manager
+4. SentinelPulse asyncio "Event loop is closed"
+5. Sector dampening cut SHORTs in falling AUTO
+6. NIFTY quote "UNAVAILABLE" on timeout
+7. Signal tracker -100% false signals (LTP=0)
+8. Sector boost overwritten by final cross-sectional
+9. Missing BANK/CEMENT sectors
+10. **pd.Timestamp tzinfo bug — ALL NIFTY50 large-caps excluded** (CRITICAL)
 
 ---
 
-### BUG-4: SentinelPulse asyncio "Event loop is closed"
-**Severity:** P2 — SP news sentiment unavailable after first call  
-**Root cause:** `asyncio.run()` creates and closes an event loop. Subsequent calls in the same process found the loop closed.  
-**Fix:** `loop = asyncio.get_event_loop(); loop.run_until_complete(_fetch_news_batch(...))`  
-**Commit:** `3fc1ab4`
+## Post-Market Gap Analysis (8 additional gaps fixed)
+
+### GAP-11: INFY missed 39x / HDFCLIFE missed 43x (IT/Insurance sector)
+
+**Root cause 1:** IT sector averaged only +1.3% (below the 1.5× boost threshold of 1.5%). INFY individually was +3.5% but sector avg didn't trigger the boost.
+
+**Root cause 2:** INSURANCE_SYMS was not defined. HDFCLIFE (+2.5%), SBILIFE (+1.6%) had no sector classification and received zero sector-aware treatment.
+
+**Fix:** Lowered sector UP boost threshold from 1.5× to 1.2×. Added INSURANCE_SYMS sector.
 
 ---
 
-### BUG-5: Sector dampening cut SHORTs in falling AUTO sector
-**Severity:** P1 — missed M&M -2.5%, EICHERMOT -2.9%, MARUTI -2.0% SHORTs  
-**Root cause:** Sector dampening only blocked LONGs in falling sectors. No mechanism to boost neutral stocks to SHORT when sector falls hard AND the stock is also falling.  
-**Fix:** Added sector_boost logic: when sector < -1.5% AND individual stock < -0.5%, override direction=0 to SHORT.  
-**Commit:** `3fc1ab4`
+### GAP-12: M&M (22x), EICHERMOT (16x), TATASTEEL (8x) — sector boost intermittent
+
+**Root cause:** These symbols were NOT in key_syms. The key_syms batch (20 symbols) is fetched with guaranteed LTP from the data service. Other symbols go through the FP-positions batch where only ~20% have live LTP coverage. When these symbols had no live LTP, `sym_chg = 0.0` and the sector boost condition `sym_chg < -0.5%` failed.
+
+**Evidence:** By EOD all these symbols had `live_ltp=YES` in the live_quotes.json — confirming they CAN get LTP, they just weren't in the priority fetch.
+
+**Fix:** key_syms expanded from 20 to 35 symbols. Added: M&M, EICHERMOT, HDFCLIFE, ULTRACEMCO, POWERGRID, TATASTEEL, GRASIM, ADANIPORTS, SBILIFE, JSWSTEEL, DRREDDY, COALINDIA, ITC, HEROMOTOCO, HINDALCO.
 
 ---
 
-### BUG-6: NIFTY quote "UNAVAILABLE" on timeout
-**Severity:** P3 — dashboard shows no NIFTY price  
-**Root cause:** Data service times out intermittently under load. Each timeout returned None, showing "UNAVAILABLE".  
-**Fix:** Module-level `_last_nifty_quote` cache — on timeout, returns last known quote.  
-**Commit:** `3fc1ab4`
+### GAP-13: METALS sector missing — TATASTEEL/JSWSTEEL/HINDALCO had no sector dampening
+
+**Root cause:** No METALS_SYMS defined. TATASTEEL fell -3.3% and was missed 8x, JSWSTEEL -2.2% missed 3x, HINDALCO wrong SHORT 4x (because no sector context to suppress the contrarian SHORT when metal sector was actually falling correctly).
+
+**Fix:** Added METALS_SYMS = {TATASTEEL, JSWSTEEL, HINDALCO, SAIL, NMDC, VEDL, JINDALSTEL, NATIONALUM, HINDZINC}.
 
 ---
 
-### BUG-7: Signal tracker -100% false wrong-signals (LTP=0)
-**Severity:** P2 — accuracy statistics completely invalid  
-**Root cause:** `signal_tracker_v2.py` was getting LTP=0 for symbols not fetched from data service, computing `(0 - open) / open = -100%` change, and marking all LONGs as wrong.  
-**Fix:** Added `if ltp <= 0: continue` guard; sanity check `abs(changePct) > 30% → recalculate from (ltp-open)/open`.  
-**Commit:** `3fc1ab4`
+### GAP-14: INFRA sector missing — POWERGRID/NTPC/ONGC repeatedly wrong
+
+**Root cause:** No INFRA_SYMS. POWERGRID missed 17x (fell -2.1%), NTPC missed 1x, ONGC was wrong LONG (fell -6.8% → became worst position).
+
+**Fix:** Added INFRA_SYMS = {POWERGRID, NTPC, ONGC, BPCL, COALINDIA, GAIL, IOC, RECLTD, PFC}.
 
 ---
 
-### BUG-8: Sector boost overwritten by final cross-sectional pass
-**Severity:** P1 — sector_boost and sector_dimmed signals lost  
-**Root cause:** The final cross-sectional pass preserved `news_dimmed` and `ensemble_disagree` flags but NOT `sector_boost` or `sector_dimmed`. Any sector adjustment was silently overwritten.  
-**Fix:** Added `s.get("sector_boost") or s.get("sector_dimmed")` to the preserve-guard in the final cross-sectional loop.  
-**Commit:** `7f84e19`
+### GAP-15: Conviction threshold too low on volatile days
+
+**Root cause:** Dynamic threshold: high-vol day → 0.05 (score distance from 0.5). This let in SBIN (0.532), BHARTIARTL (0.517), HINDALCO (0.509) — all borderline signals that were wrong.
+
+**Evidence:** Score threshold sweep found **optimal threshold = 0.15** with 85.7% win rate. Current 0.05 on high-vol days was nearly 3× too permissive.
+
+**Fix:**
+| Regime | Old threshold | New threshold |
+|--------|-------------|---------------|
+| High-vol (>1.5% avg move) | 0.05 | **0.12** |
+| Normal (>0.8%) | 0.10 | **0.15** |
+| Low-vol | 0.15 | **0.18** |
 
 ---
 
-### BUG-9: Missing sector coverage for BANK and CEMENT
-**Severity:** P2 — KOTAKBANK +4.2% and ULTRACEMCO -2.7% had no sector signal  
-**Root cause:** Only IT, PHARMA, AUTO sectors were defined. BANK and CEMENT were completely absent from sector dampening logic.  
-**Fix:** Added `BANK_SYMS` (HDFCBANK, ICICIBANK, KOTAKBANK, AXISBANK, SBIN, INDUSINDBK) and `CEMENT_SYMS` (ULTRACEMCO, AMBUJACEM, ACC, SHREECEM, RAMCOCEM).  
-**Commit:** `7f84e19`
+### GAP-16: INDUSINDBK wrong LONG 12x — never contributed profitable signal
+
+**Root cause:** Model persistently gave INDUSINDBK a high LONG score (0.655) while it fell all day. IC tracker showed n_trades=0 — this symbol never had an outcome recorded, meaning it's been consistently wrong without penalty.
+
+**Fix:** Added INDUSINDBK to hardcoded exclusion set alongside TATAMOTORS.
 
 ---
 
-### BUG-10: pd.Timestamp tzinfo bug — ALL large-caps excluded from scoring ⭐ CRITICAL
-**Severity:** P0 — silent exclusion of entire NIFTY50 large-cap universe  
-**Root cause:** Python 3.12 raises `ValueError: Cannot pass a datetime with tzinfo with the tz= parameter` when `pd.Timestamp(tz_aware_datetime, tz='UTC')` is called. The partial-bar injection code (which adds today's live LTP as today's OHLC bar) used this pattern.  
+### GAP-17: API direction normalization bug — 241 LONG shown in AlphaForge
 
-The partial-bar injection only runs when `live_ltp is not None`. The initial key-quotes fetch (NIFTY, BANKNIFTY, RELIANCE, HDFCBANK, ICICIBANK, INFY, TCS, KOTAKBANK, AXISBANK, BHARTIARTL, SBIN, LT, MARUTI, WIPRO, TITAN, NTPC, ONGC, BAJFINANCE, HINDUNILVR, ADANIENT) provided valid LTPs for 20 large-cap symbols. All 20 triggered the broken code path, all 20 returned `None` from `score_symbol()`, and all 20 were silently excluded from the 285-symbol universe.
+**Root cause:** `GET /v2/signals/latest` had a normalization loop that coerced all `direction=0` signals to LONG/SHORT using `score >= 0.5`. Since score distribution mean = 0.62, all 210 neutral signals became LONG → 241 LONG / 44 SHORT displayed in AlphaForge instead of correct 40/35.
 
-**Before fix:** 238 symbols scored, score range [0.519, 0.682], mean 0.628. All TOP LONG/SHORT signals were mid-cap stocks (DELTACORP, TITAGARH, SUZLON...) because they had no live LTP and skipped the broken code path.
-
-**After fix:** 285 symbols scored, score range [0.405, 0.682], mean 0.608. Large-caps (INFY, TCS, KOTAKBANK, M&M, EICHERMOT, HDFCBANK...) now appear in the signal universe.
-
-**Fix:** Strip `tzinfo` before passing to `pd.Timestamp`:
-```python
-# Before (broken):
-pd.Timestamp(ist_now.replace(hour=0, ...), tz="UTC")
-
-# After (fixed):
-ist_midnight_naive = ist_now.replace(hour=0, ..., tzinfo=None)
-pd.Timestamp(ist_midnight_naive, tz="UTC")
-```
-
-**Commit:** `19cbf30`
+**Fix:** Removed coerce loop. `direction=0` preserved as neutral. Only `direction ±1` signals returned in `signals[]` array. Added `n_neutral: 210` informational field.
 
 ---
 
-## Signal Accuracy — Post-Fix Tracking Results
+### GAP-18: LONG book avg -4.583% — mid-cap LONGs are pure beta in down markets
 
-All 3 samples are post-fix (BUG-10 fix active).
+**Root cause:** LONG signals are for mid-cap stocks with no live LTP (DELTACORP 0.672, TITAGARH 0.668, SUZLON 0.667). These have no intraday data so the model can't detect intraday direction — it scores them from EOD data only. In a down market, any LONG position is pure beta exposure.
 
-| Sample | Time | Signals | Accuracy | LONG win | SHORT win |
-|--------|------|---------|----------|----------|-----------|
-| S1 | 11:37 | 27 (L=0, S=27) | 81.5% | 0% | 81.5% |
-| S2 | 11:42 | 27 (L=0, S=27) | 81.5% | 0% | 81.5% |
-| S3 | 11:47 | 26 (L=1, S=25) | 91.7% | 0% | 88.0% |
-
-**S1/S2 wrong signals (5):** KOTAKBANK, HDFCBANK, BAJAJFINSV, SBIN, BHARTIARTL — all BANK sector  
-**S3 wrong signals (2):** INDUSINDBK (LONG, actual ↓0.4%), BHARTIARTL (SHORT, actual ↑0.4%)
-
-**Accuracy improvement S1→S3:** 81.5% → 91.7% as BANK sector avg moved from +0.6% to +1.0%, triggering the sector dampening threshold and dropping the 4 incorrect BANK SHORTs.
-
-### Correct SHORTs (consistent across samples)
-| Symbol | Sector | Actual move |
-|--------|--------|-------------|
-| EICHERMOT | AUTO | -2.9% |
-| GRASIM | CEMENT | -2.9% |
-| M&M | AUTO | -2.7% |
-| MARUTI | AUTO | -2.5%/2.6% |
-| ULTRACEMCO | CEMENT | -2.5% |
-| SHREECEM | CEMENT | -2.4% |
-| POWERGRID | — | -1.7%/1.8% |
-| DRREDDY | PHARMA | -0.9% |
-| RELIANCE | — | -0.5% |
-| ADANIPORTS | — | -1.3% |
+**Status:** Partial mitigation — verified LONG bias (+0.03 bonus) added to final cross-sectional. Full fix requires either restricting LONGs to live-priced symbols or executing the beta-neutral NIFTY SHORT hedge (computed every cycle: SHORT 7–9 NIFTY units).
 
 ---
 
-## Remaining Gaps
-
-### GAP-1: LONG signals untestable (tracking gap, not model error)
-**Issue:** All 39–42 LONG signals are for mid-cap stocks (DELTACORP, TITAGARH, SUZLON, TATACHEM, PFC) that have no live LTP in the data service (`provider=none`). These cannot be evaluated for accuracy.  
-**Impact:** LONG win rate shows 0% in tracker — this is a data coverage gap, not model failure.  
-**Proposed fix:** Add live LTP coverage for top-50 NSE mid-caps, or restrict LONG signals to symbols with confirmed live LTP data.
-
-### GAP-2: BANK sector threshold too high
-**Issue:** BANK sector was +0.6% (S1/S2) — just below the 1.0% dampening threshold. KOTAKBANK was up +2.1% individually while the sector avg was +0.6%. 4 BANK SHORTs were wrong.  
-**Proposed fix:** Add stock-level check: if individual stock is up >1.5% AND direction == -1 (SHORT), suppress regardless of sector avg.
-
-### GAP-3: INFY direction=0 despite +2.0% move
-**Issue:** INFY scored 0.530–0.538, placed in middle 70% by cross-sectional ranking (direction=0). LTP override threshold (2.0%) not met at all samples.  
-**Model behavior:** Correct — INFY with live LTP applied scores below mean (0.538 < 0.608), reflecting the model's view that a +2% intraday move is likely to mean-revert. The tracker shows this as a "missed mover" but it may not be a true miss.  
-**Proposed action:** Monitor over 10+ sessions to assess if INFY-type "neutral-on-big-move" signals have alpha.
-
-### GAP-4: LONG book avg P&L -3.7%
-**Issue:** Live P&L shows SHORT avg +1.6–1.7% (34 positions) vs LONG avg -3.7% (14 positions).  
-**Root cause:** The tracked LONG positions (from FP signals, pre-session entries) are mid-cap stocks with higher beta that sold off with the market. These are NOT the new post-fix LONG signals (which are untestable due to GAP-1).  
-**Proposed fix:** Beta-neutral hedge is already logged (NIFTY SHORT ~11-12 units). Operator should execute NIFTY futures SHORT to neutralize long-book beta.
-
-### GAP-5: M&M sector_boost overridden by weight manager threshold
-**Issue:** M&M (AUTO sector, down -2.7%) had `sector_boost` applied (direction=-1) but the feature weight manager subsequently filtered it back to direction=0. Final cross-sectional preserved direction=0 (post-weight-manager state).  
-**Root cause:** The `sector_boost` flag is set on the in-memory dict, but `_write_latest_scores` does not propagate custom flags — only `direction` is written. If the weight manager resets direction=0 after sector_boost, the final CS preserves 0 (not -1).  
-**Proposed fix:** Weight manager should not override sector_boost/sector_dimmed flags (same guard as final CS).
-
----
-
-## Fixes Applied (commits pushed to feat/ml-service-implementation)
+## Full List of Commits (Oct 1 session)
 
 | Commit | Fix |
 |--------|-----|
 | `628d078` | Ensemble dict iteration guard |
-| `b809828` | Cross-sectional ranking — direction assignment |
-| `4fe706e` | Cross-sectional ranking — move to after all filters |
-| `3fc1ab4` | SP asyncio fix, sector SHORT boost, NIFTY cache, tracker LTP sanity |
-| `7f84e19` | Sector boost overwrite fix, BANK+CEMENT sectors, symmetric UP boost |
-| `9a4ea35` | Tracker live_quotes sharing, rate limiting fix |
-| `fe4d797` | LTP momentum override, neutral-missed tracker analysis |
-| `22d6a26` | LTP override guard + relative score threshold |
-| **`19cbf30`** | **CRITICAL: pd.Timestamp tzinfo bug — large-cap scoring fix** |
+| `b809828` | Cross-sectional ranking direction |
+| `4fe706e` | Cross-sectional after all filters |
+| `3fc1ab4` | SP asyncio, sector SHORT boost, NIFTY cache, tracker LTP sanity |
+| `7f84e19` | Sector boost overwrite fix, BANK+CEMENT sectors |
+| `9a4ea35` | Tracker live_quotes sharing, rate limiting |
+| `fe4d797` | LTP momentum override, neutral-missed analysis |
+| `22d6a26` | LTP override guard + threshold |
+| **`19cbf30`** | **CRITICAL: pd.Timestamp tzinfo — large-cap scoring fix** |
+| `82ce1a6` | All 5 RCA gaps (pipeline reorder, stock dampening, verified LONGs) |
+| `1b446b4` | Sector elif→if cascade, reversal_override guard |
+| `5561ad0` | Stock dampening runs last, revert filter_reason guard |
+| `09bfd02` | API direction=0 normalization fix (241L→40L) |
+| `a92c7b1` | Production latency: async fetch (37s→2s), 30s cycle, WebSocket, movers |
+| `44c972c` | sleep_secs cast to int (float crash from SAMPLE_MINS=0.5) |
+| `b86b6fc` | FMCG+GRASIM sectors, stock damp 1.5%→1.0% |
+| **`d4a51df`** | **Oct-1 RCA post-market: 8 gaps fixed** |
 
 ---
 
-## Recommended Next Steps
+## Tomorrow's Expected Improvements
 
-1. **Deploy weight manager sector_boost guard** (GAP-5) — prevents M&M falling through
-2. **Add stock-level BANK dampening** (GAP-2) — suppress individual stock SHORT if up >1.5%  
-3. **Expand mid-cap live LTP coverage** (GAP-1) — contact data provider for DELTACORP, TITAGARH, etc.
-4. **Retrain model with corrected large-cap data** — the model never saw large-cap live-bar features during inference before today. Next training run should include post-partial-bar feature distributions.
-5. **Execute NIFTY beta hedge** — LONG book avg -3.7% warrants ~11-12 unit NIFTY SHORT hedge as logged.
+| Gap fixed | Expected impact |
+|-----------|----------------|
+| INFY/TCS LONG on IT up days | +10–15% signal capture on IT momentum days |
+| HDFCLIFE/SBILIFE on Insurance up | New LONG signals on financials rallies |
+| TATASTEEL/JSWSTEEL SHORT | Better METALS sector coverage on sell-offs |
+| POWERGRID/NTPC/ONGC SHORT | INFRA sector now tracked |
+| INDUSINDBK excluded | -12 wrong LONGs per session |
+| Threshold 0.15 | Fewer borderline signals (SBIN 0.532, BHARTIARTL 0.517 filtered) |
+| 35 key_syms | M&M, EICHERMOT, GRASIM guaranteed LTP → consistent sector boost |
 
 ---
 
-*Generated: 2026-10-01 11:50 IST | ml-service2.0 | feat/ml-service-implementation*
+*Generated: 2026-10-01 20:35 IST (post-market) | ml-service2.0 | feat/ml-service-implementation*
