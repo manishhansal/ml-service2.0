@@ -1332,7 +1332,40 @@ def main():
                 f"{n_each}L + {n_each}S from {n_rank} ranked"
             )
 
-        # ── Beta-neutral LONG overlay ──────────────────────────────────────────
+        # ── Live-LTP momentum override ─────────────────────────────────────────
+        # Problem: cross-sectional ranking favors mid-cap volatile scores that have
+        # NO live LTP data (provider=none), leaving large-caps like TCS/KOTAKBANK
+        # at direction=0 even when they're moving 2-4% intraday.
+        # Fix: after all filters, any symbol in live_quotes that moved ≥2% today
+        # AND whose ML score aligns with the direction → force a signal.
+        # These override direction=0 but do NOT override sector_dimmed/news_dimmed.
+        LIVE_MOVE_THRESHOLD = 2.0   # % intraday move to qualify for override
+        n_ltp_overrides = 0
+        sym_map = {s["symbol"]: s for s in scores}
+        for sym, q in live_quotes.items():
+            s = sym_map.get(sym)
+            if s is None:
+                continue   # not in scoring universe
+            if s.get("news_dimmed") or s.get("sector_dimmed"):
+                continue   # explicitly suppressed — don't override
+            if s.get("direction", 0) != 0:
+                continue   # already has a signal
+            ltp_c = float(q.get("changePct", 0) or 0)
+            if abs(ltp_c) < LIVE_MOVE_THRESHOLD:
+                continue   # move too small
+            # Score must align with actual move direction
+            if ltp_c > 0 and s["score"] > 0.52:
+                s["direction"] = 1
+                s["ltp_override"] = f"LIVE_MOVE_{ltp_c:+.1f}pct"
+                n_ltp_overrides += 1
+            elif ltp_c < 0 and s["score"] < 0.48:
+                s["direction"] = -1
+                s["ltp_override"] = f"LIVE_MOVE_{ltp_c:+.1f}pct"
+                n_ltp_overrides += 1
+        if n_ltp_overrides:
+            print(f"[{now.strftime('%H:%M')}] LTP override: {n_ltp_overrides} signals added from live moves")
+
+
         # Sep-30 finding: LONG book avg -2.5% while SHORT avg +1.35%.  Root cause:
         # the model scores LONGs and SHORTs independently — when markets drift up
         # the SHORT book partially hedges by design, but LONGs accumulate market
