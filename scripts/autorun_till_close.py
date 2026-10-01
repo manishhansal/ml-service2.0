@@ -427,9 +427,12 @@ def score_symbol_ensemble(
     thresholds = manifest.get("thresholds", {})
     signals: list[dict] = []
 
-    for key, (est, feat_names, norm) in ensemble.items():
+    for key, value in ensemble.items():
         if not isinstance(key, str) or not key.startswith("h"):
             continue
+        if not isinstance(value, tuple) or len(value) != 3:
+            continue
+        est, feat_names, norm = value
         h_signal = score_symbol(sym, est, feat_names, norm, live_ltp=live_ltp)
         if h_signal is None:
             return None
