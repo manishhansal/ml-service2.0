@@ -1212,25 +1212,26 @@ def main():
             elif sym in CEMENT_SYMS:  chg_now = cement_chg
             if chg_now is None:
                 continue
-            # Sector strongly UP → neutralize SHORT (chasing sector against ML)
+            # Pass 1: neutralize conflicting directional signals
             if chg_now > SECTOR_THRESHOLD and s.get("direction") == -1:
                 s["direction"] = 0
                 s["sector_dimmed"] = f"SECTOR_UP_{chg_now:+.1f}pct"
                 n_sector_dampened += 1
-            # Sector strongly DOWN → neutralize LONG (fighting sector tailwind)
             elif chg_now < -SECTOR_THRESHOLD and s.get("direction") == 1:
                 s["direction"] = 0
                 s["sector_dimmed"] = f"SECTOR_DN_{chg_now:+.1f}pct"
                 n_sector_dampened += 1
-            # Sector strongly DOWN + stock also falling → boost neutral to SHORT
-            elif (chg_now < -(SECTOR_THRESHOLD * 1.5) and s.get("direction") == 0):
+            # Pass 2: boost neutral → directional when sector moves hard
+            # Runs as a separate if (not elif) so a stock that was just dampened
+            # LONG→neutral in Pass 1 can still be boosted to SHORT here if the
+            # sector is down hard AND the stock itself is also falling.
+            if (chg_now < -(SECTOR_THRESHOLD * 1.5) and s.get("direction") == 0):
                 sym_q = live_quotes.get(sym, {}) if live_quotes else {}
                 sym_chg = float(sym_q.get("changePct", 0) or 0) if isinstance(sym_q, dict) else 0.0
                 if sym_chg < -(SECTOR_THRESHOLD * 0.5):
                     s["direction"] = -1
                     s["sector_boost"] = f"SECTOR_CONF_DN_{chg_now:+.1f}pct"
                     n_sector_boosted += 1
-            # Sector strongly UP + stock also rising → boost neutral to LONG (symmetric)
             elif (chg_now > (SECTOR_THRESHOLD * 1.5) and s.get("direction") == 0):
                 sym_q = live_quotes.get(sym, {}) if live_quotes else {}
                 sym_chg = float(sym_q.get("changePct", 0) or 0) if isinstance(sym_q, dict) else 0.0
@@ -1375,7 +1376,7 @@ def main():
             for s in scores:
                 if (s.get("news_dimmed") or s.get("ensemble_disagree")
                         or s.get("sector_boost") or s.get("sector_dimmed")
-                        or s.get("stock_dampened")):
+                        or s.get("stock_dampened") or s.get("reversal_override")):
                     continue   # don't override explicit damper/boost decisions
                 sym = s["symbol"]
                 if sym in top_syms:
@@ -1618,11 +1619,12 @@ def _write_latest_scores(
                 "conviction":   _conviction(s["score"]),
                 "has_live_ltp": s.get("has_live_ltp", False),
                 # Diagnostic flags — present only when set
-                **({"ltp_override":   s["ltp_override"]}   if s.get("ltp_override")   else {}),
-                **({"sector_boost":   s["sector_boost"]}   if s.get("sector_boost")   else {}),
-                **({"sector_dimmed":  s["sector_dimmed"]}  if s.get("sector_dimmed")  else {}),
-                **({"stock_dampened": s["stock_dampened"]} if s.get("stock_dampened") else {}),
-                **({"news_dimmed":    s["news_dimmed"]}    if s.get("news_dimmed")    else {}),
+                **({"ltp_override":      s["ltp_override"]}      if s.get("ltp_override")      else {}),
+                **({"sector_boost":      s["sector_boost"]}      if s.get("sector_boost")      else {}),
+                **({"sector_dimmed":     s["sector_dimmed"]}     if s.get("sector_dimmed")     else {}),
+                **({"stock_dampened":    s["stock_dampened"]}    if s.get("stock_dampened")    else {}),
+                **({"news_dimmed":       s["news_dimmed"]}       if s.get("news_dimmed")       else {}),
+                **({"reversal_override": s["reversal_override"]} if s.get("reversal_override") else {}),
             }
             if s["symbol"] in pnl_by_sym:
                 entry["live_pnl"] = pnl_by_sym[s["symbol"]]
