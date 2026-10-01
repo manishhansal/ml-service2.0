@@ -1,11 +1,11 @@
 {
   "schema": "forward_paper_resolution_v1",
-  "resolved_at": "2026-09-29T19:30:13.441390+00:00",
-  "n_resolved": 85,
-  "n_pending": 133,
-  "mean_net_return": -0.004227,
-  "win_rate": 0.5059,
-  "max_drawdown": -0.519268,
+  "resolved_at": "2026-09-30T10:03:03.582920+00:00",
+  "n_resolved": 88,
+  "n_pending": 130,
+  "mean_net_return": -0.004309,
+  "win_rate": 0.5,
+  "max_drawdown": -0.528778,
   "regimes_tested": [
     "UNKNOWN"
   ],
@@ -13,16 +13,16 @@
   "promotion_reason": "Failed gates: G2_NET_EXPECTANCY, G4_COST_ROBUST, G5_REGIME_COVERAGE, G6_DRAWDOWN",
   "gate_results": {
     "G1_TRADE_COUNT": "PASS",
-    "G2_NET_EXPECTANCY": "FAIL (expectancy=-0.004227 <= min=0.0)",
+    "G2_NET_EXPECTANCY": "FAIL (expectancy=-0.004309 <= min=0.0)",
     "G3_CALIBRATION": "PASS",
-    "G4_COST_ROBUST": "FAIL (expectancy at 1.5\u00d7cost=-0.005610)",
+    "G4_COST_ROBUST": "FAIL (expectancy at 1.5\u00d7cost=-0.005691)",
     "G5_REGIME_COVERAGE": "FAIL (regimes=1 < min=2)",
-    "G6_DRAWDOWN": "FAIL (max_dd=-0.5193 < min=-0.15)"
+    "G6_DRAWDOWN": "FAIL (max_dd=-0.5288 < min=-0.15)"
   },
   "per_regime": {
     "UNKNOWN": {
-      "n": 85,
-      "mean_net_return": -0.004227
+      "n": 88,
+      "mean_net_return": -0.004309
     }
   }
 }
