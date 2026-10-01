@@ -490,32 +490,71 @@ class DataServiceClient:
             "exchange": exchange,
             "interval": interval,
         }
+        # NOTE: The data-service API uses query aliases "from" and "to" (FastAPI alias=)
+        # not "from_date" / "to_date". Sending the wrong key silently falls back to
+        # the MINIMUM_HISTORY_DAYS default (180 days for 5m).
         if from_date is not None:
-            params["from_date"] = from_date
+            params["from"] = from_date
         if to_date is not None:
-            params["to_date"] = to_date
+            params["to"] = to_date
         if pit_date is not None:
             params["pit_date"] = pit_date
 
-        data = await self._get("/v1/india/historical", params=params)
-        self._check_quality_gates(
-            data,
-            instrument=symbol,
-            request_timestamp=datetime.now(tz=timezone.utc).isoformat(),
-        )
+        # ── Paginated fetch ─────────────────────────────────────────────────
+        # The API returns at most 10,000 bars per response and sets
+        # metadata.truncated=True when the limit is hit.  For multi-year
+        # intraday requests (5m = ~75 bars/day × 1250 days = ~94k bars),
+        # we must page by advancing `from` to the last returned timestamp.
+        all_bars: list[dict[str, Any]] = []
+        max_pages = 100   # safety cap (100 × 10k = 1M bars max)
 
-        # The response may wrap bars in a "data" list
-        bars = data.get("data") or data.get("bars") or data
-        if isinstance(bars, list):
-            if bars:
-                return bars  # type: ignore[return-value]
-            # Empty response from data-service — fall back to on-disk parquet
-            # (Task 4 fix: parquet fallback when provider unavailable after restart)
-            parquet_bars = self._load_bars_from_parquet(symbol, interval)
-            if parquet_bars:
-                return parquet_bars
-            return bars  # empty
-        return [bars]  # type: ignore[list-item]
+        for _page in range(max_pages):
+            data = await self._get("/v1/india/historical", params=params)
+
+            # Extract truncation flag from metadata
+            meta = data.get("metadata") or {}
+            quality = meta.get("quality") or {}
+            is_truncated = (
+                meta.get("truncated", False)
+                or quality.get("truncated", False)
+            )
+
+            bars = data.get("data") or data.get("bars") or data
+            if not isinstance(bars, list):
+                bars = [bars]
+
+            if not bars:
+                break
+
+            all_bars.extend(bars)
+
+            if not is_truncated:
+                # Received all records for this date range — done
+                break
+
+            # Advance `from` to one second after the last returned bar
+            # to fetch the next page
+            last_time = bars[-1].get("time") or bars[-1].get("t") or 0
+            if isinstance(last_time, (int, float)) and last_time > 0:
+                next_from_dt = datetime.fromtimestamp(last_time + 1, tz=timezone.utc)
+                params["from"] = next_from_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            else:
+                break   # can't advance without a parseable timestamp
+
+        if all_bars:
+            # Quality gate on the combined result (use the last page's envelope)
+            self._check_quality_gates(
+                data,
+                instrument=symbol,
+                request_timestamp=datetime.now(tz=timezone.utc).isoformat(),
+            )
+            return all_bars  # type: ignore[return-value]
+
+        # Empty response — fall back to on-disk parquet
+        parquet_bars = self._load_bars_from_parquet(symbol, interval)
+        if parquet_bars:
+            return parquet_bars
+        return []
 
     @staticmethod
     def _load_bars_from_parquet(symbol: str, interval: str) -> list[dict[str, Any]]:
