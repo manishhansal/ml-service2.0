@@ -1346,19 +1346,30 @@ def main():
             s = sym_map.get(sym)
             if s is None:
                 continue   # not in scoring universe
-            if s.get("news_dimmed") or s.get("sector_dimmed"):
-                continue   # explicitly suppressed — don't override
+            if s.get("news_dimmed"):
+                continue   # fundamental news constraint — never override
             if s.get("direction", 0) != 0:
                 continue   # already has a signal
             ltp_c = float(q.get("changePct", 0) or 0)
             if abs(ltp_c) < LIVE_MOVE_THRESHOLD:
                 continue   # move too small
+            # sector_dimmed guard: skip only when dimming direction conflicts with
+            # the LTP move.  Example: stock was dimmed SHORT→0 because sector was UP
+            # (sector_dimmed=SECTOR_UP_...) — now stock is +2%: we SHOULD override to LONG.
+            # But if stock was dimmed LONG→0 because sector was DOWN and stock is now -2%:
+            # allow SHORT override (sector already agrees).
+            sd = s.get("sector_dimmed", "")
+            if sd and "UP" in sd and ltp_c < 0:
+                continue   # sector is up, stock falling — conflicting, skip
+            if sd and "DN" in sd and ltp_c > 0:
+                continue   # sector is down, stock rising — conflicting, skip
             # Score must align with actual move direction
-            if ltp_c > 0 and s["score"] > 0.52:
+            score_mean_approx = 0.628   # empirical mean for today's distribution
+            if ltp_c > 0 and s["score"] >= score_mean_approx:
                 s["direction"] = 1
                 s["ltp_override"] = f"LIVE_MOVE_{ltp_c:+.1f}pct"
                 n_ltp_overrides += 1
-            elif ltp_c < 0 and s["score"] < 0.48:
+            elif ltp_c < 0 and s["score"] < score_mean_approx:
                 s["direction"] = -1
                 s["ltp_override"] = f"LIVE_MOVE_{ltp_c:+.1f}pct"
                 n_ltp_overrides += 1
