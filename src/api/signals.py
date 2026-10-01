@@ -75,7 +75,12 @@ def _today_ist() -> str:
 
 
 def _is_stale(snapshot: dict[str, Any]) -> bool:
-    """A snapshot is stale if it was generated more than 15 minutes ago."""
+    """A snapshot is stale if it was generated more than 2 minutes ago.
+
+    Threshold lowered from 15 min → 2 min because the async refactor now
+    runs a 30-second cycle; anything older than 2 minutes indicates the
+    autorun has stopped or the data-service is unavailable.
+    """
     gen = snapshot.get("generated_at")
     if not gen:
         return True
@@ -83,10 +88,24 @@ def _is_stale(snapshot: dict[str, Any]) -> bool:
         ts = datetime.fromisoformat(gen)
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
-        age_mins = (datetime.now(tz=timezone.utc) - ts).total_seconds() / 60
-        return age_mins > 15
+        age_secs = (datetime.now(tz=timezone.utc) - ts).total_seconds()
+        return age_secs > 120   # 2 minutes
     except Exception:
         return True
+
+
+def _age_seconds(snapshot: dict[str, Any]) -> float | None:
+    """Return how many seconds ago the snapshot was generated, or None."""
+    gen = snapshot.get("generated_at")
+    if not gen:
+        return None
+    try:
+        ts = datetime.fromisoformat(gen)
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return (datetime.now(tz=timezone.utc) - ts).total_seconds()
+    except Exception:
+        return None
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -176,6 +195,7 @@ async def get_latest_signals() -> JSONResponse:
 
     # Annotate staleness — useful for UI "last updated" badge
     snapshot["stale"] = _is_stale(snapshot)
+    snapshot["age_seconds"] = _age_seconds(snapshot)   # handy for UI "N secs ago"
 
     # Annotate whether the snapshot is from today's IST session
     today = _today_ist()
@@ -207,6 +227,80 @@ async def get_session_summary() -> JSONResponse:
     today = _today_ist()
     summary["is_today"] = summary.get("session_date") == today
     return JSONResponse(content=summary)
+
+
+@router.get("/signals/movers")
+async def get_movers(limit: int = 10) -> JSONResponse:
+    """F&O top gainers and losers from the latest live-quote snapshot.
+
+    Reads ``artifacts/live_session/live_quotes.json`` (written by the autorun
+    every 30 s) and returns the top-N gainers and top-N losers ranked by
+    intraday ``changePct``.
+
+    Query parameters:
+      - ``limit`` — number of gainers *and* losers to return (default: 10)
+
+    Response shape::
+
+        {
+          "gainers": [{"symbol": "KOTAKBANK", "ltp": 426.0, "changePct": 2.1}, ...],
+          "losers":  [{"symbol": "M&M",       "ltp": 2840.0, "changePct": -3.4}, ...],
+          "nifty":   {"ltp": 22466.0, "changePct": -0.87},
+          "generated_at": "...",
+          "age_seconds": 12.4,
+          "stale": false
+        }
+
+    GET /v2/signals/movers
+    """
+    _LQ_PATH = _BASE / "artifacts" / "live_session" / "live_quotes.json"
+    lq = _read_json(_LQ_PATH)
+
+    if lq is None:
+        return JSONResponse(content={
+            "gainers": [], "losers": [], "nifty": None,
+            "stale": True, "message": "Live quotes not yet available.",
+        })
+
+    quotes = lq.get("quotes", {})
+    movers: list[dict] = []
+
+    for sym, q in quotes.items():
+        if not isinstance(q, dict):
+            continue
+        ltp = q.get("ltp")
+        chg = q.get("changePct")
+        if ltp is None or chg is None:
+            continue
+        try:
+            movers.append({
+                "symbol":    sym,
+                "ltp":       float(ltp),
+                "changePct": float(chg),
+            })
+        except (TypeError, ValueError):
+            continue
+
+    movers.sort(key=lambda x: x["changePct"], reverse=True)
+    gainers = movers[:limit]
+    losers  = list(reversed(movers[-limit:])) if len(movers) >= limit else list(reversed(movers))
+
+    nifty_q = quotes.get("NIFTY")
+    nifty   = (
+        {"ltp": float(nifty_q.get("ltp", 0)), "changePct": float(nifty_q.get("changePct", 0))}
+        if isinstance(nifty_q, dict) and nifty_q.get("ltp") else None
+    )
+
+    age = _age_seconds(lq)
+
+    return JSONResponse(content={
+        "gainers":      gainers,
+        "losers":       losers,
+        "nifty":        nifty,
+        "generated_at": lq.get("generated_at"),
+        "age_seconds":  age,
+        "stale":        age is None or age > 120,
+    })
 
 
 @router.get("/signals/history")

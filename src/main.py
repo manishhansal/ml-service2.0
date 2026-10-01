@@ -87,9 +87,44 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         version="2.0.0",
     )
 
+    # ── File-watcher: auto-broadcast scores whenever latest_scores.json changes ──
+    # Polls mtime every 2 s (negligible CPU). When the autorun writes a new
+    # snapshot (every ~30 s), we push it to all connected WebSocket clients
+    # immediately — no polling from the browser needed.
+    import asyncio as _aio
+    import json as _json
+    from pathlib import Path as _Path
+
+    _LATEST_PATH_WATCH = _Path(__file__).parent.parent / "artifacts" / "live_session" / "latest_scores.json"
+
+    async def _watch_and_broadcast() -> None:
+        last_mtime: float = 0.0
+        while True:
+            try:
+                if _LATEST_PATH_WATCH.exists():
+                    mtime = _LATEST_PATH_WATCH.stat().st_mtime
+                    if mtime != last_mtime:
+                        last_mtime = mtime
+                        try:
+                            snapshot = _json.loads(_LATEST_PATH_WATCH.read_text())
+                            await _signal_streamer.broadcast_scores(snapshot)
+                        except Exception as _be:
+                            logger.debug("broadcast_scores_error", error=str(_be))
+            except Exception:
+                pass
+            await _aio.sleep(2)   # check every 2 s
+
+    _watcher_task = _aio.create_task(_watch_and_broadcast())
+    logger.info("signal_file_watcher_started", path=str(_LATEST_PATH_WATCH))
+
     yield  # ── application runs ──────────────────────────────────────────────
 
-    # Shutdown
+    # Shutdown — cancel file-watcher cleanly
+    _watcher_task.cancel()
+    try:
+        await _watcher_task
+    except _aio.CancelledError:
+        pass
     await cache.disconnect()
     logger.info("ml_service_shutdown")
 

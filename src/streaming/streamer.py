@@ -117,3 +117,40 @@ class SignalStreamer:
             action=event.action,
             n_clients=self.manager.client_count,
         )
+
+    async def broadcast_scores(self, snapshot: dict[str, Any]) -> None:
+        """Broadcast a full scoring snapshot to all connected WebSocket clients.
+
+        Called by the file-watcher background task every time
+        ``latest_scores.json`` is updated (every ~30s during live session).
+
+        The message shape mirrors ``GET /v2/signals/latest`` so the frontend
+        can use the same deserialization path for both REST and WebSocket data.
+        """
+        if self.manager.client_count == 0:
+            return
+
+        # Only send actionable signals to reduce payload size
+        all_sigs = snapshot.get("signals", [])
+        actionable = [s for s in all_sigs if s.get("direction") in (1, -1)]
+
+        message = {
+            "type":         "scores_update",
+            "session_date": snapshot.get("session_date"),
+            "generated_at": snapshot.get("generated_at"),
+            "market_open":  snapshot.get("market_open", False),
+            "nifty_chg":    snapshot.get("nifty_chg"),
+            "nifty_ltp":    snapshot.get("nifty_ltp"),
+            "n_long":       sum(1 for s in actionable if s["direction"] == 1),
+            "n_short":      sum(1 for s in actionable if s["direction"] == -1),
+            "n_neutral":    len(all_sigs) - len(actionable),
+            "session_pnl":  snapshot.get("session_pnl", {}),
+            "signals":      actionable,
+        }
+
+        await self.manager.broadcast(message)
+        logger.debug(
+            "scores_broadcast",
+            n_clients=self.manager.client_count,
+            n_signals=len(actionable),
+        )
