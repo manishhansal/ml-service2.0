@@ -1,10 +1,10 @@
 {
   "schema": "forward_paper_resolution_v1",
-  "resolved_at": "2026-10-01T10:03:11.891414+00:00",
-  "n_resolved": 212,
-  "n_pending": 6,
-  "mean_net_return": 0.004586,
-  "win_rate": 0.6085,
+  "resolved_at": "2026-10-05T10:03:10.587566+00:00",
+  "n_resolved": 218,
+  "n_pending": 0,
+  "mean_net_return": 0.00474,
+  "win_rate": 0.6101,
   "max_drawdown": -0.528778,
   "regimes_tested": [
     "UNKNOWN"
@@ -21,8 +21,8 @@
   },
   "per_regime": {
     "UNKNOWN": {
-      "n": 212,
-      "mean_net_return": 0.004586
+      "n": 218,
+      "mean_net_return": 0.00474
     }
   }
 }

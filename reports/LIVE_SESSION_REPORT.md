@@ -396,3 +396,21 @@ Two consecutive 0/6 LONG sessions confirm this is structural, not variance. The 
 | Positions tracked | 26 |
 
 *Report auto-updated at 15:30 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:30 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 1 |
+| NIFTY close | 22535.45 (+0.51%) |
+| SHORT mean P&L | +1.7845% |
+| LONG mean P&L | -3.8370% |
+| Mean net P&L | +0.3431% |
+| Win rate | 56.4% |
+| Positions tracked | 39 |
+
+*Report auto-updated at 15:30 IST by autorun_till_close.py*
