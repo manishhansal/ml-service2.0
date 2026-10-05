@@ -218,7 +218,13 @@ def test_v2_model_positive_oos_ic(v2c_model_dict):
     estimator = v2c_model_dict["estimator"]
     norm_state = v2c_model_dict.get("normalizer_state", {})
 
-    X = df_oos[avail].fillna(0.0)
+    # Build a full feature matrix with ALL model-expected features.
+    # Missing features (not in OOS dataset) are filled with 0.0.
+    # Using only `avail` columns causes a feature-count mismatch when
+    # len(avail) < len(feature_names), crashing LGBMRegressor.predict().
+    X = pd.DataFrame(0.0, index=df_oos.index, columns=feature_names)
+    for col in avail:
+        X[col] = df_oos[col].fillna(0.0)
     if norm_state:
         try:
             norm = FeatureNormalizer()

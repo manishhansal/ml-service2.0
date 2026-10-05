@@ -100,6 +100,38 @@ def resolve_signal(signal: dict, ohlcv: pd.DataFrame) -> dict | None:
     gross_return = direction * (exit_price - entry_price) / entry_price
     net_return = gross_return - ROUND_TRIP_COST_FRAC
 
+    # ── RC-007 / CB-009 sanity check ─────────────────────────────────────────
+    # NSE F&O stocks do not move ±30% in 5-7 bars under normal conditions.
+    # Values outside this band indicate a data error (price split, DVR/regular
+    # mismatch like TATAMOTORS DQ-001, stale parquet, or wrong instrument key).
+    # Flag and skip rather than let implausible values corrupt summary stats.
+    _MAX_PLAUSIBLE_NET = 0.30   # ±30% 5-7 bar move → data quality flag
+    if abs(net_return) > _MAX_PLAUSIBLE_NET:
+        import warnings as _w
+        _w.warn(
+            f"[resolve_forward_paper] Implausible net_return={net_return:.4f} "
+            f"for {signal.get('symbol','?')} signal_ts={signal_ts_str} "
+            f"entry={entry_price:.2f} exit={exit_price:.2f} dir={direction}. "
+            "Flagging as DATA_ERROR — excluded from summary stats. "
+            "Check: price splits, DVR/regular mismatch, stale parquet.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return {
+            "signal_id":        signal["signal_id"],
+            "symbol":           signal["symbol"],
+            "signal_ts":        signal_ts_str,
+            "outcome":          "DATA_ERROR",
+            "net_return":       round(net_return, 6),
+            "gross_return":     round(gross_return, 6),
+            "entry_price":      round(entry_price, 4),
+            "exit_price":       round(exit_price, 4),
+            "direction":        direction,
+            "note":             f"implausible_net_return_exceeds_{_MAX_PLAUSIBLE_NET:.0%}",
+            "data_error":       True,
+        }
+    # ── end sanity check ────────────────────────────────────────────────────
+
     return {
         "signal_id": signal["signal_id"],
         "symbol": signal["symbol"],
@@ -227,6 +259,16 @@ def main() -> None:
             print(f"  FAILED: {f}")
 
     # ── Signal Promotion Evaluation ───────────────────────────────────────
+    # RC-007: exclude DATA_ERROR outcomes from all summary statistics so
+    # implausible values (TATAMOTORS DVR mismatch, stale parquets) don't
+    # corrupt the promotion decision or mean_net calculation.
+    data_error_outcomes = [o for o in all_outcomes if o.get("data_error") or o.get("outcome") == "DATA_ERROR"]
+    all_outcomes        = [o for o in all_outcomes if not o.get("data_error") and o.get("outcome") != "DATA_ERROR"]
+    if data_error_outcomes:
+        print(f"\n  ⚠  DATA_ERROR outcomes excluded from stats: {len(data_error_outcomes)}")
+        for de in data_error_outcomes[:5]:
+            print(f"      {de.get('symbol','?')} | net={de.get('net_return',0):.4f} | {de.get('note','')}")
+
     if len(all_outcomes) >= 10:
         print("\n=== SIGNAL PROMOTION EVALUATION ===")
         from src.analytics.signal_promotion import (
