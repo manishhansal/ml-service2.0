@@ -447,6 +447,32 @@ class FeatureNormalizer:
     def from_json(cls, s: str) -> "FeatureNormalizer":
         return cls.from_dict(json.loads(s))
 
+    def load_state(self, state: dict[str, Any]) -> "FeatureNormalizer":
+        """Restore fitted state from a serialized dict (in-place).
+
+        Equivalent to ``from_dict(state)`` but mutates self rather than
+        creating a new instance. Use this when the normalizer is already
+        instantiated and you want to load a previously-saved state.
+
+        Example::
+
+            norm = FeatureNormalizer()
+            norm.load_state(model_dict["normalizer_state"])
+            X_live = norm.transform(live_df)
+        """
+        if not state:
+            raise ValueError(
+                "load_state() called with empty dict. "
+                "Ensure the model artifact includes a non-empty normalizer_state."
+            )
+        restored = self.__class__.from_dict(state)
+        self._winsor_pct     = restored._winsor_pct
+        self._min_scale      = restored._min_scale
+        self._default_method = restored._default_method
+        self._specs          = restored._specs
+        self._fitted         = restored._fitted
+        return self
+
     # ── Diagnostics ───────────────────────────────────────────────────────────
 
     def summary(self) -> pd.DataFrame:
