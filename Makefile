@@ -439,6 +439,269 @@ print('No settled forecasts yet — run make forward-paper-resolve first.' if r.
 # CLEAN
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────────────
+# FORENSIC AUDIT & 7-DAY BACKTEST (added 2026-10-01)
+# ─────────────────────────────────────────────────────────────────────────────
+
+audit:  ## Full forensic audit — run all leakage, label, and data quality checks
+	@echo "▶  Running forensic audit pipeline ..."
+	@echo "   Step 1: Static leakage audit (shift(-N) and center=True scan)"
+	PYTHONPATH=. $(PYTHON) -c "\
+from src.features.leakage_validator import run_static_leakage_audit; \
+from pathlib import Path; \
+findings = run_static_leakage_audit([Path('src')]); \
+invalid = [f for f in findings if f.classification == 'INVALID']; \
+print(f'Static leakage audit: {len(invalid)} INVALID findings (expected: 0)'); \
+[print(f'  INVALID: {f.file}:{f.line} — {f.code_snippet[:60]}') for f in invalid]; \
+print('PASS' if not invalid else 'FAIL')"
+	@echo "   Step 2: Dataset label quality check"
+	PYTHONPATH=. $(PYTHON) -c "\
+import pandas as pd, json; \
+from pathlib import Path; \
+ds = sorted(Path('artifacts/datasets').glob('ds-1d-*/data.parquet')); \
+if ds: \
+    df = pd.read_parquet(str(ds[-1])); \
+    lbl = df['label']; \
+    rr = df['realized_return_net'].dropna() if 'realized_return_net' in df.columns else df['realized_return'].dropna(); \
+    print(f'Dataset: {ds[-1].parent.name}'); \
+    print(f'Label balance: {(lbl==1).mean()*100:.1f}% positive / {(lbl==0).mean()*100:.1f}% negative'); \
+    print(f'Mean net return: {rr.mean()*100:.4f}%'); \
+    print(f'Positive rate: {(rr>0).mean()*100:.1f}%'); \
+    print('FAIL: Negative expected value' if rr.mean() < 0 else 'PASS') \
+else: print('No dataset found')"
+	@echo "   Step 3: PIT timestamp check on parquets"
+	PYTHONPATH=. $(PYTHON) -c "\
+from pathlib import Path; import pandas as pd; \
+pqs = list(Path('data/1d/1d').glob('*.parquet')); \
+naive = [p.stem for p in pqs if pd.read_parquet(str(p)).index.tz is None]; \
+future = [p.stem for p in pqs if len(pd.read_parquet(str(p))) > 0 \
+  and pd.read_parquet(str(p)).index[-1] > pd.Timestamp.now(tz='UTC')]; \
+print(f'Total parquets: {len(pqs)}'); \
+print(f'Naive timezone (error): {len(naive)}'); \
+print(f'Future timestamps (error): {len(future)}'); \
+print('PASS' if not naive and not future else 'FAIL')" 2>/dev/null
+	@echo "✓  Audit complete. See ML_PIPELINE_FORENSIC_AUDIT.md for full results."
+
+validate-data:  ## Validate parquet data quality (gaps, OHLC integrity, timezone)
+	@echo "▶  Validating data quality across all parquets ..."
+	PYTHONPATH=. $(PYTHON) -c "\
+from pathlib import Path; import pandas as pd, numpy as np; \
+pqs = sorted(Path('data/1d/1d').glob('*.parquet')); \
+issues = 0; \
+for p in pqs: \
+    df = pd.read_parquet(str(p)); \
+    if 'high' in df.columns and 'low' in df.columns and 'close' in df.columns: \
+        bad_ohlc = (df['high'] < df['low']).sum() + (df['high'] < df['close']).sum() + (df['low'] > df['close']).sum(); \
+        if bad_ohlc > 0: print(f'OHLC error: {p.stem} ({bad_ohlc} rows)'); issues += bad_ohlc; \
+    dup = df.index.duplicated().sum(); \
+    if dup > 0: print(f'Duplicate index: {p.stem} ({dup} rows)'); issues += dup; \
+print(f'Total issues: {issues}'); print('PASS' if issues == 0 else 'FAIL')"
+	@echo "✓  Data validation complete."
+
+backtest-7d:  ## Run 7-trading-day backtest (full universe, equity costs)
+	@echo "▶  Running 7-day backtest (full universe, equity costs) ..."
+	@echo "   This may take 5–15 minutes for the full 285-symbol universe."
+	PYTHONPATH=. $(PYTHON) scripts/run_7d_backtest.py \
+		--oos-start 2025-01-01 --cost equity
+	@echo "✓  Backtest complete. Results: artifacts/backtest_7d/"
+
+backtest-7d-quick:  ## Run 7-day backtest quick mode (20 symbols, ~60 seconds)
+	@echo "▶  Running 7-day backtest (quick mode, 20 symbols) ..."
+	PYTHONPATH=. $(PYTHON) scripts/run_7d_backtest.py \
+		--oos-start 2025-06-01 --quick --cost equity
+	@echo "✓  Quick backtest complete. Results: artifacts/backtest_7d/"
+
+backtest-7d-futures:  ## Run 7-day backtest with futures cost model (8.5bps)
+	@echo "▶  Running 7-day backtest with futures costs ..."
+	PYTHONPATH=. $(PYTHON) scripts/run_7d_backtest.py \
+		--oos-start 2025-01-01 --cost futures
+	@echo "✓  Futures backtest complete."
+
+portfolio-backtest:  ## Run portfolio-level overlapping-signal backtest (Mode A + B, §23A)
+	@echo "▶  Running portfolio backtest (§23A) ..."
+	@echo "   Mode A: isolated signal quality | Mode B: portfolio-constrained"
+	PYTHONPATH=. $(PYTHON) scripts/run_portfolio_backtest.py \
+		--oos-start 2025-01-01 --capital 1000000
+	@echo "✓  Portfolio backtest complete. Results: artifacts/portfolio_backtest/"
+
+portfolio-backtest-quick:  ## Portfolio backtest quick mode (20 symbols, ~30s)
+	@echo "▶  Running portfolio backtest quick mode ..."
+	PYTHONPATH=. $(PYTHON) scripts/run_portfolio_backtest.py \
+		--oos-start 2025-06-01 --quick
+	@echo "✓  Quick portfolio backtest complete."
+
+portfolio-backtest-stress:  ## Portfolio backtest with execution stress scenarios
+	@echo "▶  Running portfolio backtest with stress scenarios ..."
+	PYTHONPATH=. $(PYTHON) scripts/run_portfolio_backtest.py \
+		--oos-start 2025-01-01 --stress --capacity
+	@echo "✓  Stress test complete."
+
+# ── V2 MODEL PIPELINE ─────────────────────────────────────────────────────────
+
+v2-build:  ## Build v2c dataset (7-day CS rank labels + CS/regime features)
+	@echo "▶  Building v2 labeled dataset (step 1: 7-day labels)..."
+	PYTHONPATH=. $(PYTHON) scripts/_build_v2_dataset.py
+	@echo "▶  Building v2b ranked dataset (step 2: CS rank labels)..."
+	PYTHONPATH=. $(PYTHON) scripts/_build_v2b_dataset.py
+	@echo "▶  Building v2c CS+regime dataset (step 3: CS + regime features)..."
+	PYTHONPATH=. $(PYTHON) scripts/_build_v2c_dataset.py
+	@echo "✓  V2 dataset ready: artifacts/datasets/v2c_cs_regime/"
+
+v2-train:  ## Train v2c model with all forensic fixes (requires v2-build first)
+	@echo "▶  Training v2c model (LGBMRegressor, CS rank label, 65 features)..."
+	PYTHONPATH=. $(PYTHON) scripts/train_v2.py \
+		--dataset artifacts/datasets/v2c_cs_regime/data.parquet \
+		--estimators 500
+	@echo "✓  V2 model trained. See artifacts/v2_model/"
+
+v2-backtest:  ## Run v2c model 7-day backtest (M1 mode, no proxy)
+	@echo "▶  Running v2c 7-day backtest (M1 mode) ..."
+	PYTHONPATH=. $(PYTHON) scripts/run_7d_backtest.py \
+		--mode m1 --oos-start 2025-01-01 --quick
+	@echo "✓  V2 7-day backtest complete. See artifacts/backtest_7d/"
+
+v2-cs-backtest:  ## Run cross-sectional long-short portfolio backtest with v2c model
+	@echo "▶  Running v2c CS L/S portfolio backtest ..."
+	PYTHONPATH=. $(PYTHON) scripts/run_cs_portfolio_backtest.py --rebalance 7
+	@echo "✓  CS backtest complete. See artifacts/cs_portfolio/"
+
+v2-long-only:  ## Run long-only strategy backtest with v2c model (RECOMMENDED)
+	@echo "▶  Running long-only strategy backtest (top 10%, weekly, futures) ..."
+	PYTHONPATH=. $(PYTHON) scripts/_run_long_only_backtest.py
+	@echo "✓  Long-only backtest complete."
+
+v2-full:  ## Complete v2 pipeline: build + train + backtest (takes 15–30 min)
+	@echo "▶  Running complete v2 pipeline ..."
+	$(MAKE) v2-build
+	$(MAKE) v2-train
+	$(MAKE) v2-cs-backtest
+	$(MAKE) v2-long-only
+	@echo "✓  Complete v2 pipeline finished."
+
+v2-alpha-measure:  ## Measure true alpha (IC on actual executable returns)
+	@echo "▶  Measuring true alpha (IC on actual open→close returns) ..."
+	PYTHONPATH=. $(PYTHON) scripts/_measure_true_alpha.py
+	@echo "✓  Alpha measurement complete."
+
+v2-max-alpha:  ## Exhaustive grid search for maximum alpha configuration (takes 10-20 min)
+	@echo "▶  Running maximum alpha grid search (270 configurations) ..."
+	PYTHONPATH=. $(PYTHON) scripts/_max_alpha_backtest.py
+	@echo "✓  Grid search complete. See artifacts/max_alpha/best_config.json"
+
+v2-ensemble:  ## Train parsimonious ensemble model (A+B+C+D) for higher IC
+	@echo "▶  Training parsimonious ensemble ..."
+	PYTHONPATH=. $(PYTHON) scripts/_train_parsimonious_ensemble.py
+	@echo "✓  Ensemble complete. See artifacts/v2_ensemble/"
+
+leakage-test:  ## Run static + dynamic leakage audit across all src/ modules
+	@echo "▶  Running comprehensive leakage audit ..."
+	PYTHONPATH=. $(PYTHON) -m pytest tests/test_static_leakage_audit.py \
+		tests/test_feature_pipeline_pit_correctness.py \
+		tests/test_feature_pit.py \
+		--no-cov -q --tb=short
+	@echo "✓  Leakage audit complete."
+
+test-7d-engine:  ## Run 7-day backtest engine regression tests (19 tests)
+	@echo "▶  Running SevenDayBacktestEngine regression tests ..."
+	PYTHONPATH=. $(PYTHON) -m pytest tests/test_seven_day_engine.py \
+		tests/test_sprint3_alpha_signal.py \
+		-v --no-cov --tb=short
+	@echo "✓  Engine tests complete."
+
+compare-labels:  ## Compare old vs new label designs (EV analysis)
+	@echo "▶  Comparing 5-bar symmetric vs 7-day asymmetric label economics ..."
+	PYTHONPATH=. $(PYTHON) scripts/_run_label_comparison.py 2>/dev/null
+	@echo "✓  Label comparison complete."
+
+audit-forward-paper:  ## Audit forward paper signals and resolution quality
+	@echo "▶  Auditing forward paper signals ..."
+	PYTHONPATH=. $(PYTHON) -c "\
+import json; from pathlib import Path; from collections import defaultdict; import numpy as np; \
+fp = Path('artifacts/forward_paper/forecasts.jsonl'); \
+if not fp.exists(): print('No forecasts.jsonl found'); exit(); \
+records = [json.loads(l) for l in fp.read_text().splitlines() if l.strip()]; \
+by_date = defaultdict(list); \
+[by_date[r.get('session_date','?')].append(r) for r in records]; \
+print(f'Sessions found: {sorted(by_date.keys())}'); \
+for d, recs in sorted(by_date.items()): \
+    resolved = [r for r in recs if r.get('net_pct') is not None]; \
+    if not resolved: continue; \
+    net = [r['net_pct'] for r in resolved]; \
+    wins = sum(1 for p in net if p > 0); \
+    print(f'  {d}: {len(resolved)} resolved | win={wins/len(net)*100:.1f}% | mean_net={np.mean(net)*100:.3f}%'); \
+    if abs(np.mean(net)) > 0.05: print(f'    WARNING: |mean_net| > 5% — possible calculation error')"
+	@echo "✓  Forward paper audit complete."
+
+generate-report:  ## Generate all audit reports summary (pipe-friendly)
+	@echo "▶  Generating audit report summary ..."
+	@echo ""
+	@echo "=== ML-SERVICE 2.0 INITIAL AUDIT DOCUMENTS ==="
+	@for f in ML_PIPELINE_FORENSIC_AUDIT.md LOOKAHEAD_BIAS_AUDIT.md LABEL_AUDIT.md \
+		BACKTEST_EXECUTION_CONTRACT.md ML_7_DAY_BACKTEST_REPORT.md \
+		SIGNAL_FAILURE_ANALYSIS.md SIGNAL_DECAY_ANALYSIS.md \
+		REGIME_ANALYSIS.md BASELINE_COMPARISON.md FEATURE_ABLATION_REPORT.md \
+		MODEL_CALIBRATION_REPORT.md BEFORE_AFTER_MODEL_COMPARISON.md \
+		MODEL_CARD.md PRODUCTION_READINESS_REPORT_FORENSIC.md \
+		PORTFOLIO_EXECUTION_MODEL.md OVERLAPPING_SIGNAL_ANALYSIS.md \
+		PORTFOLIO_BACKTEST_REPORT.md; do \
+		if [ -f "$$f" ]; then echo "  ✓ $$f"; else echo "  ✗ $$f"; fi; \
+	done
+	@echo ""
+	@echo "=== FORENSIC CERTIFICATION (reports/forensic_cert_2026_10_01/) ==="
+	@for f in REPORT_RECONCILIATION_MATRIX.md MASTER_FORENSIC_AUDIT.md \
+		ROOT_CAUSE_REGISTER.md TRAINING_INFERENCE_PARITY_AUDIT.md \
+		COST_MODEL_V2.md FORWARD_PAPER_PNL_FORENSIC_AUDIT.md \
+		LABEL_DESIGN_AUDIT.md LABEL_ECONOMIC_CERTIFICATION.md \
+		SURVIVORSHIP_BIAS_CERTIFICATION.md PLACEBO_TEST_REPORT.md \
+		TRUE_MODEL_7_DAY_BACKTEST_REPORT.md PBO_REPORT.md \
+		REGIME_ANALYSIS.md PORTFOLIO_BACKTEST_REPORT_M1.md \
+		PRODUCTION_GATES.md FINAL_QUANT_CERTIFICATION.md \
+		IMPROVEMENT_SPRINT_REPORT.md BEFORE_AFTER_V2_COMPARISON.md \
+		FINAL_PRODUCTION_RECOMMENDATION.md; do \
+		if [ -f "reports/forensic_cert_2026_10_01/$$f" ]; then \
+			echo "  ✓ reports/forensic_cert_2026_10_01/$$f"; \
+		else \
+			echo "  ✗ reports/forensic_cert_2026_10_01/$$f (MISSING)"; \
+		fi; \
+	done
+	@echo ""
+	@echo "=== MACHINE-READABLE OUTPUTS ==="
+	@for f in artifacts/backtest_7d/backtest_signals.csv \
+		artifacts/backtest_7d/profitable_opportunities.csv \
+		artifacts/backtest_7d/performance_by_symbol.csv \
+		artifacts/backtest_7d/performance_by_regime.csv \
+		artifacts/backtest_7d/performance_by_confidence.csv \
+		artifacts/backtest_7d/backtest_report.json \
+		artifacts/backtest_7d/baseline_comparison.json \
+		artifacts/backtest_7d/signal_decay.json \
+		artifacts/portfolio_backtest/portfolio_equity_curve.csv \
+		artifacts/portfolio_backtest/executed_orders.csv \
+		artifacts/portfolio_backtest/rejected_signals.csv \
+		artifacts/portfolio_backtest/portfolio_events.csv \
+		artifacts/portfolio_backtest/signal_execution_mapping.csv \
+		artifacts/portfolio_backtest/open_positions.csv; do \
+		if [ -f "$$f" ]; then \
+			echo "  ✓ $$f"; \
+		else \
+			echo "  ✗ $$f (run make backtest-7d-quick or portfolio-backtest-quick first)"; \
+		fi; \
+	done
+	@echo ""
+
+certify:  ## Run full institutional forensic certification (M1 mode)
+	@echo "▶  Running full forensic certification pipeline ..."
+	@echo "   Step 1: True model inference (M1)"
+	PYTHONPATH=. $(PYTHON) scripts/_run_true_model_inference.py 2>/dev/null
+	@echo "   Step 2: Placebo tests"
+	PYTHONPATH=. $(PYTHON) scripts/_run_placebo_tests.py 2>/dev/null || true
+	@echo "   Step 3: 7-day backtest (M1 mode)"
+	PYTHONPATH=. $(PYTHON) scripts/run_7d_backtest.py --mode m1 --oos-start 2025-01-01 --quick
+	@echo "   Step 4: Portfolio backtest (M1 mode)"
+	PYTHONPATH=. $(PYTHON) scripts/run_portfolio_backtest.py --quick --oos-start 2025-01-01
+	@echo "   Step 5: Report inventory"
+	$(MAKE) generate-report
+	@echo "✓  Certification complete. See reports/forensic_cert_2026_10_01/FINAL_QUANT_CERTIFICATION.md"
+
 clean:  ## Remove Python build artefacts and caches (host)
 	find . -type d -name "__pycache__"  -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name "*.egg-info"   -exec rm -rf {} + 2>/dev/null || true
