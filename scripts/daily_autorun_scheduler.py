@@ -77,17 +77,49 @@ def stop_watchdog():
     _proc = None
 
 
+def check_upstox_token_expiry() -> None:
+    """Warn if the Upstox token will expire within the next 12 hours."""
+    try:
+        import base64, json as _json
+        env_path = BASE.parent / "data-service2.0" / ".env"
+        if not env_path.exists():
+            return
+        for line in env_path.read_text().splitlines():
+            if line.startswith("UPSTOX_ACCESS_TOKEN="):
+                token = line.split("=", 1)[1].strip()
+                parts = token.split(".")
+                if len(parts) == 3:
+                    pad = parts[1] + "=="
+                    payload = _json.loads(base64.b64decode(pad))
+                    from datetime import datetime as _dt
+                    exp = _dt.fromtimestamp(payload["exp"])
+                    hrs = (exp - _dt.now()).total_seconds() / 3600
+                    if hrs < 12:
+                        print(f"\n{'!'*60}")
+                        print(f"  ⚠️  UPSTOX TOKEN EXPIRES IN {hrs:.1f}h ({exp.strftime('%Y-%m-%d %H:%M IST')})")
+                        print("  Run: python3 scripts/refresh_upstox_token.py")
+                        print(f"{'!'*60}\n")
+                    else:
+                        print(f"[scheduler] Upstox token valid for {hrs:.1f}h (expires {exp.strftime('%H:%M IST')})")
+                break
+    except Exception:
+        pass  # non-critical — don't crash the scheduler
+
+
 def main():
     print("=" * 60)
     print(f"  DAILY AUTORUN SCHEDULER  |  {ist_now().strftime('%Y-%m-%d %H:%M IST')}")
     print("  Launches session_watchdog.py every trading day.")
     print("=" * 60)
 
+    check_upstox_token_expiry()
+
     while True:
         now = ist_now()
 
         if market_open():
             if not watchdog_alive():
+                check_upstox_token_expiry()   # re-check at session start
                 start_watchdog()
             else:
                 pid_str = str(_proc.pid) if _proc else "?"

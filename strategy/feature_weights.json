@@ -111,8 +111,8 @@
   "symbol_overrides": {
     "_description": "Per-symbol signal overrides. Use sparingly \u2014 prefer sector_regime_filters.",
     "TATAMOTORS": {
-      "enabled": false,
-      "reason": "DQ-001: DVR price mismatch (295 vs 961). Excluded until instrument token fixed."
+      "enabled": true,
+      "reason": "DQ-001 RESOLVED (2026-10-05): Angel One token collision fixed (3432→3456). Upstox INE155A01022 is correct regular share ISIN. Transient price discrepancy was a Sep-Oct 2026 CDN issue, not a permanent mapping error. Re-enabled for live scoring."
     }
   },
   "long_book_limits": {

@@ -1,0 +1,148 @@
+{
+  "gate": "G_ABLATION",
+  "model": "v2c",
+  "oos_period": "2025-01-01 \u2192 2026-09-21",
+  "baseline_ic": 0.0178,
+  "baseline_pval": 0.0,
+  "gate_pass": true,
+  "ablation_results": [
+    {
+      "group": "D_vol_rsi",
+      "n_features": 13,
+      "features": [
+        "atr_14_pct",
+        "rsi_14",
+        "stoch_k_14",
+        "bb_zscore_20",
+        "vol_norm_ret_5",
+        "vol_norm_ret_20",
+        "parkinson_vol",
+        "garman_klass_vol",
+        "vol_of_vol_20",
+        "atr_zscore",
+        "rsi_oversold_flag",
+        "rsi_overbought_flag",
+        "bb_below_lower"
+      ],
+      "ic_ablated": 0.0085,
+      "pval_ablated": 0.003692,
+      "ic_drop": 0.0093,
+      "pct_drop": 52.2,
+      "verdict": "\ud83d\udd11 CRITICAL"
+    },
+    {
+      "group": "A_price_returns",
+      "n_features": 8,
+      "features": [
+        "ret_1",
+        "ret_5",
+        "ret_10",
+        "ret_20",
+        "log_ret_1",
+        "ret_3",
+        "ret_60",
+        "ret_60_rel_vol"
+      ],
+      "ic_ablated": 0.0104,
+      "pval_ablated": 0.000386,
+      "ic_drop": 0.0074,
+      "pct_drop": 41.6,
+      "verdict": "\ud83d\udd11 CRITICAL"
+    },
+    {
+      "group": "B_ext_momentum",
+      "n_features": 13,
+      "features": [
+        "gap_pct",
+        "mom_accel_5",
+        "mom_accel_20",
+        "trend_strength",
+        "trend_direction",
+        "trend_persistence",
+        "gap_magnitude",
+        "gap_regime_rolling",
+        "gap_direction",
+        "trend_regime",
+        "mom_12_1",
+        "consec_down_bars",
+        "consec_up_bars"
+      ],
+      "ic_ablated": 0.0249,
+      "pval_ablated": 0.0,
+      "ic_drop": -0.0071,
+      "pct_drop": -39.8,
+      "verdict": "\ud83d\udd11 CRITICAL"
+    },
+    {
+      "group": "E_cross_sectional",
+      "n_features": 15,
+      "features": [
+        "cs_rank_ret_1d",
+        "cs_rank_ret_5d",
+        "cs_rank_ret_20d",
+        "cs_rank_rs_nifty",
+        "cs_rank_rsi",
+        "cs_rank_beta_adj",
+        "cs_mom_12_1",
+        "cs_ret_252",
+        "cs_pct_from_52w_high",
+        "cs_pos_in_52w_range",
+        "cs_neg_amihud",
+        "cs_neg_ret_1",
+        "cs_neg_ret_5",
+        "cs_up_down_vol_ratio",
+        "cs_ret_accel_5_10"
+      ],
+      "ic_ablated": 0.0208,
+      "pval_ablated": 0.0,
+      "ic_drop": -0.003,
+      "pct_drop": -16.6,
+      "verdict": "\ud83d\udccc IMPORTANT"
+    },
+    {
+      "group": "C_time_context",
+      "n_features": 7,
+      "features": [
+        "weekday",
+        "weekday_sin",
+        "weekday_cos",
+        "month_end_proximity",
+        "quarter_end",
+        "is_monday",
+        "is_friday"
+      ],
+      "ic_ablated": 0.0198,
+      "pval_ablated": 0.0,
+      "ic_drop": -0.002,
+      "pct_drop": -11.0,
+      "verdict": "\ud83d\udccc IMPORTANT"
+    },
+    {
+      "group": "F_regime",
+      "n_features": 3,
+      "features": [
+        "vol_regime_zscore",
+        "vol_regime_pctile",
+        "trend_regime"
+      ],
+      "ic_ablated": 0.0195,
+      "pval_ablated": 0.0,
+      "ic_drop": -0.0017,
+      "pct_drop": -9.3,
+      "verdict": "\u27a1 MODERATE"
+    },
+    {
+      "group": "G_news_sentiment",
+      "n_features": 1,
+      "features": [
+        "news_event_importance"
+      ],
+      "ic_ablated": 0.0176,
+      "pval_ablated": 0.0,
+      "ic_drop": 0.0003,
+      "pct_drop": 1.6,
+      "verdict": "\u27a1 MODERATE"
+    }
+  ],
+  "generated_at": "2026-10-05T15:35:08.848821+00:00"
+}
