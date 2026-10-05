@@ -1,0 +1,11 @@
+{
+  "mode": "M1",
+  "model_version": "1.0.0-20260928053134956099",
+  "feature_schema": "fs-2.0.0",
+  "n_features": 55,
+  "oos_start": "2025-01-01",
+  "n_oos_rows": 118266,
+  "n_symbols": 279,
+  "score_mean": 0.4544859435657102,
+  "score_std": 0.009584109173239288
+}
