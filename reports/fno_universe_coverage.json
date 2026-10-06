@@ -1,0 +1,1792 @@
+{
+  "generated_at": "2026-09-24T16:48:14.065835+00:00",
+  "data_source_class": "HISTORICAL_REAL",
+  "interval": "1d",
+  "min_bars": 400,
+  "probe_window_days": 1200,
+  "universe": {
+    "availability": "VALID_UNIVERSE",
+    "reported_symbol_count": 220,
+    "probed_symbol_count": 220,
+    "survivorship_classification": "CURRENT_UNIVERSE_ONLY",
+    "survivorship_note": "Membership metadata carries a single open effective_from window; this is a CURRENT-membership bootstrap, NOT point-in-time historical F&O membership. Any cross-sectional result on this universe is SURVIVORSHIP-LIMITED and must not be represented as unbiased historical evidence (mandate \u00a711, \u00a754)."
+  },
+  "coverage": {
+    "status_counts": {
+      "VALID_DATA": 217,
+      "PARTIAL_DATA": 3
+    },
+    "valid_symbol_count": 217,
+    "partial_symbol_count": 3,
+    "median_bars_per_symbol": 2481,
+    "valid_symbols": [
+      "360ONE",
+      "ABB",
+      "ABCAPITAL",
+      "ADANIENSOL",
+      "ADANIENT",
+      "ADANIGREEN",
+      "ADANIPORTS",
+      "ADANIPOWER",
+      "ALKEM",
+      "AMBER",
+      "AMBUJACEM",
+      "ANGELONE",
+      "APLAPOLLO",
+      "APOLLOHOSP",
+      "ASHOKLEY",
+      "ASIANPAINT",
+      "ASTRAL",
+      "ATHERENERG",
+      "AUBANK",
+      "AUROPHARMA",
+      "AXISBANK",
+      "BAJAJ-AUTO",
+      "BAJAJFINSV",
+      "BAJAJHLDNG",
+      "BAJFINANCE",
+      "BANDHANBNK",
+      "BANKBARODA",
+      "BANKINDIA",
+      "BANKNIFTY",
+      "BDL",
+      "BEL",
+      "BHARATFORG",
+      "BHARTIARTL",
+      "BHEL",
+      "BIOCON",
+      "BLUESTARCO",
+      "BOSCHLTD",
+      "BPCL",
+      "BRITANNIA",
+      "BSE",
+      "CAMS",
+      "CANBK",
+      "CDSL",
+      "CGPOWER",
+      "CHOLAFIN",
+      "CIPLA",
+      "COALINDIA",
+      "COCHINSHIP",
+      "COFORGE",
+      "COLPAL",
+      "CONCOR",
+      "CROMPTON",
+      "CUMMINSIND",
+      "DABUR",
+      "DELHIVERY",
+      "DIVISLAB",
+      "DIXON",
+      "DLF",
+      "DMART",
+      "DRREDDY",
+      "EICHERMOT",
+      "ETERNAL",
+      "FEDERALBNK",
+      "FINNIFTY",
+      "FORCEMOT",
+      "FORTIS",
+      "GAIL",
+      "GLENMARK",
+      "GMRAIRPORT",
+      "GODFRYPHLP",
+      "GODREJCP",
+      "GODREJPROP",
+      "GRASIM",
+      "GVT&D",
+      "HAL",
+      "HAVELLS",
+      "HCLTECH",
+      "HDFCAMC",
+      "HDFCBANK",
+      "HDFCLIFE",
+      "HEROMOTOCO",
+      "HINDALCO",
+      "HINDPETRO",
+      "HINDUNILVR",
+      "HINDZINC",
+      "HYUNDAI",
+      "ICICIBANK",
+      "ICICIGI",
+      "ICICIPRULI",
+      "IDEA",
+      "IDFCFIRSTB",
+      "IEX",
+      "INDHOTEL",
+      "INDIANB",
+      "INDIGO",
+      "INDUSINDBK",
+      "INDUSTOWER",
+      "INFY",
+      "INOXWIND",
+      "IOC",
+      "IPCALAB",
+      "IRCTC",
+      "IREDA",
+      "IRFC",
+      "ITC",
+      "JINDALSTEL",
+      "JIOFIN",
+      "JSWENERGY",
+      "JSWSTEEL",
+      "JUBLFOOD",
+      "KALYANKJIL",
+      "KAYNES",
+      "KEI",
+      "KFINTECH",
+      "KOTAKBANK",
+      "KPITTECH",
+      "LAURUSLABS",
+      "LICHSGFIN",
+      "LICI",
+      "LODHA",
+      "LT",
+      "LTF",
+      "LTM",
+      "LUPIN",
+      "M&M",
+      "MAHABANK",
+      "MANAPPURAM",
+      "MANKIND",
+      "MARICO",
+      "MARUTI",
+      "MAXHEALTH",
+      "MAZDOCK",
+      "MCX",
+      "MFSL",
+      "MIDCPNIFTY",
+      "MOTHERSON",
+      "MOTILALOFS",
+      "MPHASIS",
+      "MUTHOOTFIN",
+      "NAM-INDIA",
+      "NATIONALUM",
+      "NAUKRI",
+      "NBCC",
+      "NESTLEIND",
+      "NHPC",
+      "NIFTY",
+      "NMDC",
+      "NTPC",
+      "NYKAA",
+      "OBEROIRLTY",
+      "OFSS",
+      "OIL",
+      "ONGC",
+      "PAGEIND",
+      "PATANJALI",
+      "PAYTM",
+      "PERSISTENT",
+      "PETRONET",
+      "PFC",
+      "PGEL",
+      "PHOENIXLTD",
+      "PIDILITIND",
+      "PIIND",
+      "PNB",
+      "PNBHOUSING",
+      "POLICYBZR",
+      "POLYCAB",
+      "POWERGRID",
+      "POWERINDIA",
+      "PREMIERENE",
+      "PRESTIGE",
+      "RADICO",
+      "RBLBANK",
+      "RECLTD",
+      "RVNL",
+      "SAGILITY",
+      "SAIL",
+      "SBICARD",
+      "SBILIFE",
+      "SBIN",
+      "SHREECEM",
+      "SHRIRAMFIN",
+      "SIEMENS",
+      "SOLARINDS",
+      "SONACOMS",
+      "SRF",
+      "SUNPHARMA",
+      "SUPREMEIND",
+      "SUZLON",
+      "SWIGGY",
+      "TATACOMM",
+      "TATACONSUM",
+      "TATAELXSI",
+      "TATAMOTORS",
+      "TATAPOWER",
+      "TATASTEEL",
+      "TCS",
+      "TECHM",
+      "TIINDIA",
+      "TITAN",
+      "TMPV",
+      "TORNTPHARM",
+      "TRENT",
+      "TVSMOTOR",
+      "ULTRACEMCO",
+      "UNIONBANK",
+      "UNITDSPR",
+      "UNOMINDA",
+      "UPL",
+      "VBL",
+      "VEDL",
+      "VMM",
+      "VOLTAS",
+      "WAAREEENER",
+      "WIPRO",
+      "YESBANK",
+      "ZYDUSLIFE"
+    ],
+    "partial_symbols": [
+      "LTIM",
+      "NIFTYFPI",
+      "NIFTYNXT50"
+    ]
+  },
+  "per_symbol": {
+    "ADANIENSOL": {
+      "symbol": "ADANIENSOL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ABB": {
+      "symbol": "ABB",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ABCAPITAL": {
+      "symbol": "ABCAPITAL",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ADANIPORTS": {
+      "symbol": "ADANIPORTS",
+      "n_bars": 1251,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "ADANIPOWER": {
+      "symbol": "ADANIPOWER",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ALKEM": {
+      "symbol": "ALKEM",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ADANIENT": {
+      "symbol": "ADANIENT",
+      "n_bars": 1502,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "360ONE": {
+      "symbol": "360ONE",
+      "n_bars": 2238,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "AMBER": {
+      "symbol": "AMBER",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "AMBUJACEM": {
+      "symbol": "AMBUJACEM",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ANGELONE": {
+      "symbol": "ANGELONE",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ADANIGREEN": {
+      "symbol": "ADANIGREEN",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "APLAPOLLO": {
+      "symbol": "APLAPOLLO",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "APOLLOHOSP": {
+      "symbol": "APOLLOHOSP",
+      "n_bars": 1500,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "ATHERENERG": {
+      "symbol": "ATHERENERG",
+      "n_bars": 693,
+      "status": "VALID_DATA",
+      "first_ts": 1746469800,
+      "last_ts": 1790101800
+    },
+    "ASIANPAINT": {
+      "symbol": "ASIANPAINT",
+      "n_bars": 1251,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "ASHOKLEY": {
+      "symbol": "ASHOKLEY",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ASTRAL": {
+      "symbol": "ASTRAL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "AUBANK": {
+      "symbol": "AUBANK",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "BAJAJ-AUTO": {
+      "symbol": "BAJAJ-AUTO",
+      "n_bars": 1244,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "BAJAJFINSV": {
+      "symbol": "BAJAJFINSV",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "BAJAJHLDNG": {
+      "symbol": "BAJAJHLDNG",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "AXISBANK": {
+      "symbol": "AXISBANK",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "AUROPHARMA": {
+      "symbol": "AUROPHARMA",
+      "n_bars": 2480,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "BANKNIFTY": {
+      "symbol": "BANKNIFTY",
+      "n_bars": 1263,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "BANKINDIA": {
+      "symbol": "BANKINDIA",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "BANKBARODA": {
+      "symbol": "BANKBARODA",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "BANDHANBNK": {
+      "symbol": "BANDHANBNK",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "BAJFINANCE": {
+      "symbol": "BAJFINANCE",
+      "n_bars": 1247,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790221500
+    },
+    "BDL": {
+      "symbol": "BDL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "BHARTIARTL": {
+      "symbol": "BHARTIARTL",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "BHARATFORG": {
+      "symbol": "BHARATFORG",
+      "n_bars": 2480,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "BIOCON": {
+      "symbol": "BIOCON",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "BLUESTARCO": {
+      "symbol": "BLUESTARCO",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "BOSCHLTD": {
+      "symbol": "BOSCHLTD",
+      "n_bars": 2479,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "BPCL": {
+      "symbol": "BPCL",
+      "n_bars": 1251,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "BRITANNIA": {
+      "symbol": "BRITANNIA",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "BHEL": {
+      "symbol": "BHEL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "BEL": {
+      "symbol": "BEL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "CAMS": {
+      "symbol": "CAMS",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "BSE": {
+      "symbol": "BSE",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "CANBK": {
+      "symbol": "CANBK",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "CDSL": {
+      "symbol": "CDSL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "CIPLA": {
+      "symbol": "CIPLA",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "CGPOWER": {
+      "symbol": "CGPOWER",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "COALINDIA": {
+      "symbol": "COALINDIA",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "CHOLAFIN": {
+      "symbol": "CHOLAFIN",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "COCHINSHIP": {
+      "symbol": "COCHINSHIP",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "COFORGE": {
+      "symbol": "COFORGE",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "COLPAL": {
+      "symbol": "COLPAL",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "CONCOR": {
+      "symbol": "CONCOR",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "DABUR": {
+      "symbol": "DABUR",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "CUMMINSIND": {
+      "symbol": "CUMMINSIND",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "CROMPTON": {
+      "symbol": "CROMPTON",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "DELHIVERY": {
+      "symbol": "DELHIVERY",
+      "n_bars": 2150,
+      "status": "VALID_DATA",
+      "first_ts": 1653330600,
+      "last_ts": 1790101800
+    },
+    "DIXON": {
+      "symbol": "DIXON",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "DIVISLAB": {
+      "symbol": "DIVISLAB",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "DLF": {
+      "symbol": "DLF",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "DRREDDY": {
+      "symbol": "DRREDDY",
+      "n_bars": 1251,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "DMART": {
+      "symbol": "DMART",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "FINNIFTY": {
+      "symbol": "FINNIFTY",
+      "n_bars": 1245,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "EICHERMOT": {
+      "symbol": "EICHERMOT",
+      "n_bars": 1250,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "ETERNAL": {
+      "symbol": "ETERNAL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "FORCEMOT": {
+      "symbol": "FORCEMOT",
+      "n_bars": 2365,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "FEDERALBNK": {
+      "symbol": "FEDERALBNK",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "FORTIS": {
+      "symbol": "FORTIS",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "GAIL": {
+      "symbol": "GAIL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "GMRAIRPORT": {
+      "symbol": "GMRAIRPORT",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "GLENMARK": {
+      "symbol": "GLENMARK",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "GODREJCP": {
+      "symbol": "GODREJCP",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "GODREJPROP": {
+      "symbol": "GODREJPROP",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "GODFRYPHLP": {
+      "symbol": "GODFRYPHLP",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "GRASIM": {
+      "symbol": "GRASIM",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "GVT&D": {
+      "symbol": "GVT&D",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "HAL": {
+      "symbol": "HAL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "HAVELLS": {
+      "symbol": "HAVELLS",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "HCLTECH": {
+      "symbol": "HCLTECH",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "HDFCAMC": {
+      "symbol": "HDFCAMC",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "HDFCBANK": {
+      "symbol": "HDFCBANK",
+      "n_bars": 1279,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "HDFCLIFE": {
+      "symbol": "HDFCLIFE",
+      "n_bars": 1502,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "HEROMOTOCO": {
+      "symbol": "HEROMOTOCO",
+      "n_bars": 1251,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "HINDALCO": {
+      "symbol": "HINDALCO",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "HINDPETRO": {
+      "symbol": "HINDPETRO",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "HYUNDAI": {
+      "symbol": "HYUNDAI",
+      "n_bars": 955,
+      "status": "VALID_DATA",
+      "first_ts": 1729535400,
+      "last_ts": 1790101800
+    },
+    "HINDZINC": {
+      "symbol": "HINDZINC",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "HINDUNILVR": {
+      "symbol": "HINDUNILVR",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "IDEA": {
+      "symbol": "IDEA",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ICICIBANK": {
+      "symbol": "ICICIBANK",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "IEX": {
+      "symbol": "IEX",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "INDHOTEL": {
+      "symbol": "INDHOTEL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ICICIGI": {
+      "symbol": "ICICIGI",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ICICIPRULI": {
+      "symbol": "ICICIPRULI",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "INDIANB": {
+      "symbol": "INDIANB",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "IDFCFIRSTB": {
+      "symbol": "IDFCFIRSTB",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "INDIGO": {
+      "symbol": "INDIGO",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "INDUSINDBK": {
+      "symbol": "INDUSINDBK",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "INDUSTOWER": {
+      "symbol": "INDUSTOWER",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "INOXWIND": {
+      "symbol": "INOXWIND",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "INFY": {
+      "symbol": "INFY",
+      "n_bars": 1260,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "IOC": {
+      "symbol": "IOC",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "IPCALAB": {
+      "symbol": "IPCALAB",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "IREDA": {
+      "symbol": "IREDA",
+      "n_bars": 1398,
+      "status": "VALID_DATA",
+      "first_ts": 1701196200,
+      "last_ts": 1790101800
+    },
+    "IRCTC": {
+      "symbol": "IRCTC",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "IRFC": {
+      "symbol": "IRFC",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ITC": {
+      "symbol": "ITC",
+      "n_bars": 1502,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "JINDALSTEL": {
+      "symbol": "JINDALSTEL",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "JSWSTEEL": {
+      "symbol": "JSWSTEEL",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "JIOFIN": {
+      "symbol": "JIOFIN",
+      "n_bars": 1533,
+      "status": "VALID_DATA",
+      "first_ts": 1692556200,
+      "last_ts": 1790101800
+    },
+    "JSWENERGY": {
+      "symbol": "JSWENERGY",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "JUBLFOOD": {
+      "symbol": "JUBLFOOD",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "KALYANKJIL": {
+      "symbol": "KALYANKJIL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "KAYNES": {
+      "symbol": "KAYNES",
+      "n_bars": 1903,
+      "status": "VALID_DATA",
+      "first_ts": 1669055400,
+      "last_ts": 1790101800
+    },
+    "KEI": {
+      "symbol": "KEI",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "KFINTECH": {
+      "symbol": "KFINTECH",
+      "n_bars": 1848,
+      "status": "VALID_DATA",
+      "first_ts": 1672252200,
+      "last_ts": 1790101800
+    },
+    "KOTAKBANK": {
+      "symbol": "KOTAKBANK",
+      "n_bars": 1246,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790221500
+    },
+    "KPITTECH": {
+      "symbol": "KPITTECH",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "LICHSGFIN": {
+      "symbol": "LICHSGFIN",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "LAURUSLABS": {
+      "symbol": "LAURUSLABS",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "LICI": {
+      "symbol": "LICI",
+      "n_bars": 2161,
+      "status": "VALID_DATA",
+      "first_ts": 1652725800,
+      "last_ts": 1790101800
+    },
+    "LODHA": {
+      "symbol": "LODHA",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "LTIM": {
+      "symbol": "LTIM",
+      "n_bars": 1,
+      "status": "PARTIAL_DATA"
+    },
+    "LT": {
+      "symbol": "LT",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "LTM": {
+      "symbol": "LTM",
+      "n_bars": 1245,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790221500
+    },
+    "LTF": {
+      "symbol": "LTF",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "LUPIN": {
+      "symbol": "LUPIN",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "M&M": {
+      "symbol": "M&M",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "MAHABANK": {
+      "symbol": "MAHABANK",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "MANAPPURAM": {
+      "symbol": "MANAPPURAM",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "MARICO": {
+      "symbol": "MARICO",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "MANKIND": {
+      "symbol": "MANKIND",
+      "n_bars": 1676,
+      "status": "VALID_DATA",
+      "first_ts": 1683570600,
+      "last_ts": 1790101800
+    },
+    "MARUTI": {
+      "symbol": "MARUTI",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "MAXHEALTH": {
+      "symbol": "MAXHEALTH",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "MAZDOCK": {
+      "symbol": "MAZDOCK",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "MCX": {
+      "symbol": "MCX",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "MFSL": {
+      "symbol": "MFSL",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "MIDCPNIFTY": {
+      "symbol": "MIDCPNIFTY",
+      "n_bars": 1233,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790221500
+    },
+    "MOTHERSON": {
+      "symbol": "MOTHERSON",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "MOTILALOFS": {
+      "symbol": "MOTILALOFS",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "MPHASIS": {
+      "symbol": "MPHASIS",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "NAM-INDIA": {
+      "symbol": "NAM-INDIA",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "MUTHOOTFIN": {
+      "symbol": "MUTHOOTFIN",
+      "n_bars": 2480,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "NATIONALUM": {
+      "symbol": "NATIONALUM",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "NESTLEIND": {
+      "symbol": "NESTLEIND",
+      "n_bars": 1247,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790221500
+    },
+    "NBCC": {
+      "symbol": "NBCC",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "NIFTY": {
+      "symbol": "NIFTY",
+      "n_bars": 1251,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "NIFTYFPI": {
+      "symbol": "NIFTYFPI",
+      "n_bars": 1,
+      "status": "PARTIAL_DATA"
+    },
+    "NIFTYNXT50": {
+      "symbol": "NIFTYNXT50",
+      "n_bars": 1,
+      "status": "PARTIAL_DATA"
+    },
+    "NAUKRI": {
+      "symbol": "NAUKRI",
+      "n_bars": 2480,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "NTPC": {
+      "symbol": "NTPC",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "NHPC": {
+      "symbol": "NHPC",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "OBEROIRLTY": {
+      "symbol": "OBEROIRLTY",
+      "n_bars": 2480,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "OFSS": {
+      "symbol": "OFSS",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "NYKAA": {
+      "symbol": "NYKAA",
+      "n_bars": 2415,
+      "status": "VALID_DATA",
+      "first_ts": 1636482600,
+      "last_ts": 1790101800
+    },
+    "NMDC": {
+      "symbol": "NMDC",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "PAGEIND": {
+      "symbol": "PAGEIND",
+      "n_bars": 2480,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "PATANJALI": {
+      "symbol": "PATANJALI",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "OIL": {
+      "symbol": "OIL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ONGC": {
+      "symbol": "ONGC",
+      "n_bars": 1251,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "PAYTM": {
+      "symbol": "PAYTM",
+      "n_bars": 2403,
+      "status": "VALID_DATA",
+      "first_ts": 1637173800,
+      "last_ts": 1790101800
+    },
+    "PERSISTENT": {
+      "symbol": "PERSISTENT",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "PETRONET": {
+      "symbol": "PETRONET",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "PFC": {
+      "symbol": "PFC",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "PHOENIXLTD": {
+      "symbol": "PHOENIXLTD",
+      "n_bars": 2479,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "PIIND": {
+      "symbol": "PIIND",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "PNBHOUSING": {
+      "symbol": "PNBHOUSING",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "PNB": {
+      "symbol": "PNB",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "POLICYBZR": {
+      "symbol": "POLICYBZR",
+      "n_bars": 2408,
+      "status": "VALID_DATA",
+      "first_ts": 1636914600,
+      "last_ts": 1790101800
+    },
+    "POLYCAB": {
+      "symbol": "POLYCAB",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "POWERGRID": {
+      "symbol": "POWERGRID",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "PIDILITIND": {
+      "symbol": "PIDILITIND",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "POWERINDIA": {
+      "symbol": "POWERINDIA",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "PGEL": {
+      "symbol": "PGEL",
+      "n_bars": 1245,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790221500
+    },
+    "PRESTIGE": {
+      "symbol": "PRESTIGE",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "PREMIERENE": {
+      "symbol": "PREMIERENE",
+      "n_bars": 1023,
+      "status": "VALID_DATA",
+      "first_ts": 1725301800,
+      "last_ts": 1790101800
+    },
+    "RECLTD": {
+      "symbol": "RECLTD",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "RBLBANK": {
+      "symbol": "RBLBANK",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "RADICO": {
+      "symbol": "RADICO",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "SAGILITY": {
+      "symbol": "SAGILITY",
+      "n_bars": 925,
+      "status": "VALID_DATA",
+      "first_ts": 1731349800,
+      "last_ts": 1790101800
+    },
+    "RVNL": {
+      "symbol": "RVNL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "SAIL": {
+      "symbol": "SAIL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "SBICARD": {
+      "symbol": "SBICARD",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "SBIN": {
+      "symbol": "SBIN",
+      "n_bars": 1261,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "SBILIFE": {
+      "symbol": "SBILIFE",
+      "n_bars": 1502,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "SHREECEM": {
+      "symbol": "SHREECEM",
+      "n_bars": 1250,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "SHRIRAMFIN": {
+      "symbol": "SHRIRAMFIN",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "SIEMENS": {
+      "symbol": "SIEMENS",
+      "n_bars": 2480,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "SOLARINDS": {
+      "symbol": "SOLARINDS",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "SONACOMS": {
+      "symbol": "SONACOMS",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "SRF": {
+      "symbol": "SRF",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "SUNPHARMA": {
+      "symbol": "SUNPHARMA",
+      "n_bars": 1251,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "SUPREMEIND": {
+      "symbol": "SUPREMEIND",
+      "n_bars": 2480,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "SUZLON": {
+      "symbol": "SUZLON",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "SWIGGY": {
+      "symbol": "SWIGGY",
+      "n_bars": 923,
+      "status": "VALID_DATA",
+      "first_ts": 1731436200,
+      "last_ts": 1790101800
+    },
+    "TATACONSUM": {
+      "symbol": "TATACONSUM",
+      "n_bars": 1244,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "TATACOMM": {
+      "symbol": "TATACOMM",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "TATAMOTORS": {
+      "symbol": "TATAMOTORS",
+      "n_bars": 1243,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790015400
+    },
+    "TATAELXSI": {
+      "symbol": "TATAELXSI",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "TATASTEEL": {
+      "symbol": "TATASTEEL",
+      "n_bars": 1252,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "TATAPOWER": {
+      "symbol": "TATAPOWER",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "TECHM": {
+      "symbol": "TECHM",
+      "n_bars": 1250,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "TCS": {
+      "symbol": "TCS",
+      "n_bars": 1309,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "TIINDIA": {
+      "symbol": "TIINDIA",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "TMPV": {
+      "symbol": "TMPV",
+      "n_bars": 1245,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790221500
+    },
+    "TITAN": {
+      "symbol": "TITAN",
+      "n_bars": 1251,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "TORNTPHARM": {
+      "symbol": "TORNTPHARM",
+      "n_bars": 2481,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "TRENT": {
+      "symbol": "TRENT",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "TVSMOTOR": {
+      "symbol": "TVSMOTOR",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "UNIONBANK": {
+      "symbol": "UNIONBANK",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ULTRACEMCO": {
+      "symbol": "ULTRACEMCO",
+      "n_bars": 1251,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "UPL": {
+      "symbol": "UPL",
+      "n_bars": 1244,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "VBL": {
+      "symbol": "VBL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "VMM": {
+      "symbol": "VMM",
+      "n_bars": 877,
+      "status": "VALID_DATA",
+      "first_ts": 1734460200,
+      "last_ts": 1790101800
+    },
+    "VEDL": {
+      "symbol": "VEDL",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "VOLTAS": {
+      "symbol": "VOLTAS",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "WAAREEENER": {
+      "symbol": "WAAREEENER",
+      "n_bars": 947,
+      "status": "VALID_DATA",
+      "first_ts": 1730053800,
+      "last_ts": 1790101800
+    },
+    "UNITDSPR": {
+      "symbol": "UNITDSPR",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "WIPRO": {
+      "symbol": "WIPRO",
+      "n_bars": 1256,
+      "status": "VALID_DATA",
+      "first_ts": 1632076200,
+      "last_ts": 1790101800
+    },
+    "UNOMINDA": {
+      "symbol": "UNOMINDA",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "YESBANK": {
+      "symbol": "YESBANK",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    },
+    "ZYDUSLIFE": {
+      "symbol": "ZYDUSLIFE",
+      "n_bars": 2482,
+      "status": "VALID_DATA",
+      "first_ts": 1632109500,
+      "last_ts": 1790101800
+    }
+  },
+  "research_gate": {
+    "n_valid_symbols": 217,
+    "state": "CROSS_SECTIONAL_READY_PREFERRED",
+    "thresholds": {
+      "preferred": 100,
+      "minimum": 50,
+      "limited": 10
+    }
+  }
+}

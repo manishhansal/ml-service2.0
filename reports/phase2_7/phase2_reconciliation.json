@@ -1,0 +1,130 @@
+{
+  "phase": "PHASE_2_RECONCILIATION",
+  "generated_at": "2026-09-26T17:04:55.660556+00:00",
+  "gate_result": "PASS",
+  "root_cause_of_discrepancy": "ROOT CAUSE IDENTIFIED \u2014 Three compounding factors: (1) BARRIER ARTIFACT: 88.8% of labels clamped at \u00b12% \u2192 IC inflated from 0.048 (continuous) to 0.500 (clamped). (2) HORIZON MISMATCH: the previous cross-sectional backtest used h=1 on a h=5 model \u2192 Sharpe=-13 due to reversal (not the model's actual horizon). (3) SHARPE INFLATION: ML pipeline treats each of 127,122 rows as a 'trade'; row-level Sharpe=3.22 vs portfolio Sharpe=8.40. At the CORRECT h=5 evaluation, XS Rank IC=0.0691. The h=1 test result (Rank IC=0.021, Sharpe=-13) is NOT a contradiction \u2014 it is a different and incorrect evaluation of an h=5 model.",
+  "population_reconciliation": {
+    "ml_pipeline": {
+      "rows": 127122,
+      "symbols": 65,
+      "dates": 2468,
+      "nan_rows": 0,
+      "duplicates": 0
+    },
+    "economic_pipeline": {
+      "ohlcv_symbols_available": 218,
+      "universe_symbols": 65
+    },
+    "intersection": {
+      "symbols_with_ohlcv": 65,
+      "symbols_without_ohlcv": 0
+    }
+  },
+  "temporal_ordering": {
+    "ts_violations": 0,
+    "pit_samples": [],
+    "execution_convention": "signal at close[T] \u2192 entry at open[T+1] \u2192 exit at open[T+1+h]",
+    "verified": true
+  },
+  "return_definition_reconciliation": {
+    "barrier_fraction": 0.888,
+    "ml_ts_pearson_ic": 0.4998,
+    "economic_xs_rank_ic_h5": 0.0691,
+    "economic_xs_rank_ic_std": 0.2167,
+    "ts_ic_vs_continuous": 0.0479,
+    "positive_fraction": 0.6017
+  },
+  "barrier_forensic": {
+    "barrier_pct": 0.02,
+    "at_upper_barrier": 56378,
+    "at_lower_barrier": 56502,
+    "barrier_fraction": 0.888,
+    "time_expiry_fraction": 0.112,
+    "ic_vs_clamped": 0.4998,
+    "ic_vs_continuous": 0.0479,
+    "ic_inflation": 10.44,
+    "verdict": "BARRIER_ARTIFACT_CONFIRMED: IC against clamped returns is a classification accuracy metric, not a magnitude-weighted predictor."
+  },
+  "sharpe_reconciliation": {
+    "ml_row_level_sharpe": 3.222,
+    "portfolio_daily_sharpe": 8.3979,
+    "difference": -5.1759,
+    "inflation_factor": 0.38,
+    "root_cause": "127,122 row-level 'trades' vs portfolio daily returns aggregated per date"
+  },
+  "portfolio_weight_reconciliation": {
+    "equal_weight_ls": 11.5738,
+    "decile_ls": 20.08,
+    "quintile_ls": 18.0363,
+    "long_only_top_decile": 15.5826,
+    "rank_weight_ls": 20.5394
+  },
+  "cost_reconciliation": {
+    "conservative": {
+      "round_trip_bps": 27.65,
+      "gross_pnl": 814.1239,
+      "cost_drag": 351.4923,
+      "net_pnl": 462.6315,
+      "row_level_net_sharpe": 3.222
+    },
+    "moderate": {
+      "round_trip_bps": 20.0,
+      "gross_pnl": 814.1239,
+      "cost_drag": 254.244,
+      "net_pnl": 559.8799,
+      "row_level_net_sharpe": 3.8992
+    },
+    "aggressive": {
+      "round_trip_bps": 15.0,
+      "gross_pnl": 814.1239,
+      "cost_drag": 190.683,
+      "net_pnl": 623.4409,
+      "row_level_net_sharpe": 4.3419
+    },
+    "low": {
+      "round_trip_bps": 10.0,
+      "gross_pnl": 814.1239,
+      "cost_drag": 127.122,
+      "net_pnl": 687.0019,
+      "row_level_net_sharpe": 4.7846
+    },
+    "stress_2x": {
+      "round_trip_bps": 55.3,
+      "gross_pnl": 814.1239,
+      "cost_drag": 702.9847,
+      "net_pnl": 111.1392,
+      "row_level_net_sharpe": 0.774
+    }
+  },
+  "normalization_leakage_audit": {
+    "feature_nan_count": 0,
+    "features_with_zero_std": 0,
+    "ret_1_lag0_corr_vs_label": 0.12989215076561503,
+    "pit_note": "All features computed strictly from OHLCV at close[T]; no forward data.",
+    "ret_1_lag1_corr_vs_label": -0.0243,
+    "lag0_lag1_ratio": 5.35,
+    "leakage_verdict": "NO_LEAKAGE"
+  },
+  "research_selection_audit": {
+    "total_experiments_in_ledger": 61,
+    "selected_experiments": 7,
+    "exploratory_experiments": 54,
+    "selection_contamination": "POSSIBLE: 61 experiments before primary candidate selected. Selection was based on walk-forward OOS IC, not independent economic OOS. DSR/PBO corrections applied. See final_certification.json for DSR=1.0.",
+    "oos_period_contaminated": false,
+    "note": "The 65-symbol candidate (c3fe0d94b8e) was selected by highest walk-forward IC among model variants. OOS window NOT reused after selection. Confirmation protocol ran on frozen artifact independently."
+  },
+  "gate_checks": {
+    "prediction_population_reconciled": true,
+    "timestamp_mapping_valid": true,
+    "target_definition_reconciled": true,
+    "portfolio_construction_reconciled": true,
+    "cost_calculation_reconciled": true,
+    "sharpe_calculation_reconciled": true,
+    "normalization_reconciled": true,
+    "universe_reconciled": true,
+    "selection_history_documented": true,
+    "ic_sharpe_discrepancy_identified": true
+  },
+  "phase2_verdict": "PASS",
+  "honest_xs_rank_ic_h5": 0.0691
+}

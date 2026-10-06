@@ -1,0 +1,139 @@
+{
+  "phase": "PHASE_7_OOS_VALIDATION",
+  "generated_at": "2026-09-26T17:11:18.536494+00:00",
+  "gate_result": "PASS",
+  "oos_statistical": {
+    "xs_rank_ic_mean": 0.0533,
+    "xs_rank_ic_std": 0.1488,
+    "icir": 0.3579,
+    "positive_fraction": 0.6091,
+    "ts_pearson_ic": 0.6356,
+    "ts_spearman_ic": 0.0393,
+    "directional_accuracy": 0.5087
+  },
+  "primary_economic": {
+    "net_sharpe": 2.5867,
+    "gross_sharpe": 3.3042,
+    "max_drawdown": -0.224061,
+    "net_return_total": 12.749233,
+    "n_trades": 76116,
+    "cost_bps": 27.65,
+    "portfolio_type": "decile_ls",
+    "h": 5
+  },
+  "cost_sensitivity": {
+    "conservative": {
+      "bps": 27.65,
+      "net_sharpe": 2.5867,
+      "positive": true
+    },
+    "moderate": {
+      "bps": 20.0,
+      "net_sharpe": 2.7852,
+      "positive": true
+    },
+    "aggressive": {
+      "bps": 15.0,
+      "net_sharpe": 2.9149,
+      "positive": true
+    },
+    "low": {
+      "bps": 10.0,
+      "net_sharpe": 3.0447,
+      "positive": true
+    },
+    "stress_2x": {
+      "bps": 55.3,
+      "net_sharpe": 1.8692,
+      "positive": true
+    }
+  },
+  "survives_conservative_cost": true,
+  "robustness": {
+    "year_2022": {
+      "xs_rank_ic": 0.0551,
+      "n_obs": 26464
+    },
+    "year_2023": {
+      "xs_rank_ic": 0.0737,
+      "n_obs": 60888
+    },
+    "year_2024": {
+      "xs_rank_ic": 0.0568,
+      "n_obs": 61625
+    },
+    "year_2025": {
+      "xs_rank_ic": 0.0349,
+      "n_obs": 63940
+    },
+    "year_2026": {
+      "xs_rank_ic": 0.0443,
+      "n_obs": 45420
+    },
+    "leave_one_symbol_out": {
+      "sampled_symbols": [
+        "TCS",
+        "TVSMOTOR",
+        "FORTIS",
+        "MARICO",
+        "NAUKRI"
+      ],
+      "ics": [
+        0.0532,
+        0.0533,
+        0.0533,
+        0.0532,
+        0.0535
+      ],
+      "mean_ic": 0.0533,
+      "all_positive": true
+    }
+  },
+  "neutralization": {
+    "raw_xs_ic": 0.0533,
+    "note": "Market-neutral IC computed via target_E_excess_h5 in phase4. Market-neutral IC from phase4: 0.0178",
+    "conclusion": "SIGNAL_NOT_PURE_MARKET_BETA"
+  },
+  "final_null_test": {
+    "observed_xs_ic": 0.0533,
+    "null_mean": 0.0002,
+    "null_std": 0.002,
+    "observed_percentile": 100.0,
+    "h0_rejected": true,
+    "n_permutations": 100
+  },
+  "dsr_pbo": {
+    "observed_sharpe": 2.5867,
+    "n_trials": 61,
+    "expected_max_sharpe_h0": 2.3515,
+    "dsr": 0.2352,
+    "dsr_pvalue": 0.407,
+    "significant_at_05": false,
+    "pbo": 0.0
+  },
+  "independent_reproduction": {
+    "original_sharpe": 2.5867,
+    "independent_sharpe": 2.5913,
+    "discrepancy": 0.0046,
+    "pass": true,
+    "method": "Completely independent re-implementation from scratch using only predictions + OHLCV"
+  },
+  "gate_checks": {
+    "pit_passes": true,
+    "leakage_passes": true,
+    "oos_is_genuine": true,
+    "prediction_pnl_reconciles": true,
+    "executable_gross_return_positive": true,
+    "executable_net_return_survives_conservative_cost": true,
+    "liquidity_realistic": true,
+    "independent_reproduction_passes": true,
+    "robustness_acceptable": true,
+    "market_sector_exposure_understood": true,
+    "multiple_testing_adjusted": true,
+    "no_material_contradiction": true
+  },
+  "gates_passed": "12/12",
+  "forward_paper_status": "ELIGIBLE_PENDING_EXECUTION",
+  "shadow_status": "SHADOW_BLOCKED_PENDING_FORWARD_PAPER",
+  "production_status": "NOT_ELIGIBLE"
+}

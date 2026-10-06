@@ -1,0 +1,165 @@
+{
+  "schema": "expanded_training_run_v2",
+  "feature_schema_version": "fs-4.0.0",
+  "n_eod_features": 67,
+  "n_intraday_features": 8,
+  "n_market_features": 3,
+  "n_news_features": 6,
+  "n_features_total": 84,
+  "n_symbols": 282,
+  "training_start_date": null,
+  "dataset_id": "ds-1d-20260930200631-792e3678",
+  "dataset_rows": 263709,
+  "leakage_validated": true,
+  "pit_status": "PIT_VALIDATED",
+  "champion": "lightgbm",
+  "champion_ic_mean": 0.039973,
+  "champion_pbo": 0.0,
+  "champion_net_sharpe": -0.7789,
+  "champion_ece": 0.0,
+  "passed_acceptance": false,
+  "rejection_reason": "NEGATIVE_NET_SHARPE",
+  "champion_version": null,
+  "baseline_ic_naive_momentum": -0.0053,
+  "ic_vs_continuous_returns_oos": 0.0612,
+  "ic_vs_barrier_labels_oos": 0.0631,
+  "ic_inflation_factor": 1.03,
+  "group_importance": {},
+  "cost_robustness": {
+    "conservative_27.6bps": {
+      "bps": 27.65,
+      "scenario": "conservative",
+      "net_return": -26.879065,
+      "sharpe": -7.546,
+      "n_trades": 9721,
+      "win_rate": 0.0
+    },
+    "moderate_20.4bps": {
+      "bps": 20.45,
+      "scenario": "moderate",
+      "net_return": -19.879945,
+      "sharpe": -7.546,
+      "n_trades": 9721,
+      "win_rate": 0.0
+    },
+    "aggressive_16.4bps": {
+      "bps": 16.35,
+      "scenario": "aggressive",
+      "net_return": -15.894335,
+      "sharpe": -7.546,
+      "n_trades": 9721,
+      "win_rate": 0.0
+    },
+    "low_12.8bps": {
+      "bps": 12.75,
+      "scenario": "low",
+      "net_return": -12.394775,
+      "sharpe": -7.546,
+      "n_trades": 9721,
+      "win_rate": 0.0
+    },
+    "stress_2x_55.3bps": {
+      "bps": 55.3,
+      "scenario": "stress_2x",
+      "net_return": -53.75763,
+      "sharpe": -7.546,
+      "n_trades": 9721,
+      "win_rate": 0.0
+    }
+  },
+  "regime_analysis": {
+    "HIGH_VOLATILITY": {
+      "n": 7308,
+      "ic": 0.0478,
+      "mean_ret": -0.001493
+    },
+    "TREND_UP": {
+      "n": 16704,
+      "ic": 0.0532,
+      "mean_ret": -0.001103
+    },
+    "LOW_VOLATILITY": {
+      "n": 9491,
+      "ic": 0.066,
+      "mean_ret": -0.000853
+    },
+    "TREND_DOWN": {
+      "n": 19239,
+      "ic": 0.0709,
+      "mean_ret": -0.002069
+    }
+  },
+  "candidates": [
+    {
+      "name": "logistic",
+      "is_baseline": true,
+      "wf_ic_mean": 0.033516,
+      "wf_ic_worst": 0.006704,
+      "wf_positive_fraction": 1.0,
+      "wf_net_sharpe": -0.7547,
+      "cpcv_ic_mean": 0.053561,
+      "cpcv_pbo": 0.0,
+      "calibration_ece": 0.0,
+      "calibration_fitted": true,
+      "calibration_brier": 0.247883
+    },
+    {
+      "name": "ridge",
+      "is_baseline": true,
+      "wf_ic_mean": 0.034025,
+      "wf_ic_worst": 0.006585,
+      "wf_positive_fraction": 1.0,
+      "wf_net_sharpe": -0.8212,
+      "cpcv_ic_mean": 0.053955,
+      "cpcv_pbo": 0.0,
+      "calibration_ece": 0.0,
+      "calibration_fitted": true,
+      "calibration_brier": 0.247847
+    },
+    {
+      "name": "naive_momentum",
+      "is_baseline": true,
+      "wf_ic_mean": -0.013118,
+      "wf_ic_worst": -0.037255,
+      "wf_positive_fraction": 0.4,
+      "wf_net_sharpe": -1.0301,
+      "cpcv_ic_mean": -0.005629,
+      "cpcv_pbo": 0.7333,
+      "calibration_ece": 0.0,
+      "calibration_fitted": true,
+      "calibration_brier": 0.248169
+    },
+    {
+      "name": "lightgbm",
+      "is_baseline": false,
+      "wf_ic_mean": 0.039973,
+      "wf_ic_worst": 0.016029,
+      "wf_positive_fraction": 1.0,
+      "wf_net_sharpe": -0.7789,
+      "cpcv_ic_mean": 0.048308,
+      "cpcv_pbo": 0.0,
+      "calibration_ece": 0.0,
+      "calibration_fitted": true,
+      "calibration_brier": 0.24681
+    },
+    {
+      "name": "xgboost",
+      "is_baseline": false,
+      "wf_ic_mean": 0.033351,
+      "wf_ic_worst": 0.004872,
+      "wf_positive_fraction": 1.0,
+      "wf_net_sharpe": -0.7909,
+      "cpcv_ic_mean": 0.045516,
+      "cpcv_pbo": 0.0,
+      "calibration_ece": 0.0,
+      "calibration_fitted": true,
+      "calibration_brier": 0.246365
+    }
+  ],
+  "label_config": {
+    "label_type": "triple_barrier",
+    "horizon": 5,
+    "execution_model": "next_open",
+    "cost_bps": 27.65
+  }
+}

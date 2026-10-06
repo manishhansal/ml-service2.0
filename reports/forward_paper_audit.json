@@ -1,0 +1,35 @@
+{
+  "audit_timestamp": "2026-09-25T18:37:50.543213+00:00",
+  "mandate": "\u00a746 \u2014 daily paper audit",
+  "baseline_id": "CONFIRMATION_BASELINE_V1",
+  "model_version": "1.0.0-20260925080931531542",
+  "signal_store_path": "artifacts/forward_paper/signals.jsonl",
+  "signal_counts": {
+    "n_total_recorded": 65,
+    "n_trade_signals": 54,
+    "n_no_trade_signals": 11,
+    "n_due_for_resolution": 0,
+    "n_resolved": 0
+  },
+  "model_versions_in_store": {
+    "1.0.0-20260925080931531542": 65
+  },
+  "forward_paper_status": {
+    "state": "INSUFFICIENT_SAMPLE",
+    "n_signals_recorded": 65,
+    "n_resolved": 0,
+    "min_trades_for_validation": 20,
+    "preferred_trades": 100,
+    "note": "Forward-paper is genuine signal-at-T / outcome-after-T. Historical replay does NOT count (\u00a796). No auto-promotion to shadow/production (\u00a761)."
+  },
+  "anomalies": [],
+  "interpretation": "FORWARD PAPER STATUS: NOT_RUN. No genuine signal-at-T / outcome-after-T pairs have been accumulated. This is the correct state \u2014 the infrastructure is ready but live operation has not begun. Shadow and production eligibility are BLOCKED until sufficient forward-paper evidence accrues (minimum 20 resolved TRADE signals, mandate \u00a729).",
+  "immutability_note": "The signal store is append-only. Resolution writes a SEPARATE record and never edits the original signal. No historical replay counts as forward evidence.",
+  "next_steps": [
+    "Start live/paper trading session during NSE market hours (09:15-15:30 IST)",
+    "Run signal generation at market close for all 65 baseline symbols",
+    "Persist each signal via ForwardPaperRunner.record_signal()",
+    "After horizon elapses (5 trading days), resolve outcomes with real market data",
+    "Accumulate >= 20 resolved TRADE signals before any performance conclusions"
+  ]
+}
