@@ -434,6 +434,8 @@ class TrainingPipeline:
         fewer than 3 folds the prior simplified estimate is used because bootstrap
         resampling is unreliable with n ≤ 2.
 
+        B = 1,000 resamples (not 500 as mentioned in older docs — corrected 2026-10-06).
+
         References:
             López de Prado (2018), "Advances in Financial Machine Learning",
             Chapter 11 — Combinatorial Purged Cross-Validation.

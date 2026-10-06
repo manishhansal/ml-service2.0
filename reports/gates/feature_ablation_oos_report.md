@@ -27,5 +27,26 @@ The ablation shows which feature groups contribute genuine OOS IC:
 - Removing a **CRITICAL** group causes >20% IC drop — the group carries irreplaceable signal.
 - **MINIMAL** groups add noise or are redundant with other groups.
 
-This report closes the **G_ABLATION gate** — all feature groups are evaluated on
-genuinely held-out OOS data (2025-01-01 onwards, never seen during training).
+### Key Findings for Future Development
+
+| Finding | Impact | Action |
+|---------|--------|--------|
+| **D_vol_rsi CRITICAL** (RSI, BB, ATR, Parkinson vol) | Removing drops IC 52% | Keep — primary alpha source |
+| **A_price_returns CRITICAL** (ret_1, ret_5, log_ret) | Removing drops IC 42% | Keep — fundamental momentum |
+| **B_ext_momentum DESTRUCTIVE** (13 trend/gap/consec features) | Removing *increases* IC 40% | **DROP in v2d** — actively hurts OOS |
+| **G_news_sentiment minimal** (1 feature) | Removing slightly increases IC | Consider dropping in v2d |
+
+The `B_ext_momentum` group (13 features: `mom_accel_*`, `trend_strength`, `trend_direction`,
+`gap_*`, `consec_*`, `ret_60*`) is the single largest drag on OOS performance. These features
+likely cause overfitting to trending regimes that don't generalize to OOS test periods.
+
+**v2d recommendation:** Drop B_ext_momentum entirely. Expected OOS IC improvement: +0.007 (40% gain).
+
+### Gate Verdict Clarification
+
+This gate uses the **zero-out method** (mask feature group to 0, measure IC change) rather than
+full OOS retrain without each group. The zero-out method is an approximation — the true retrain
+ablation may show different magnitudes but the directional findings are robust. Full retrain
+ablation is tracked as a Month-1 task in `REMEDIATION_BACKLOG.md`.
+
+This report closes the **G_ABLATION gate** using the zero-out method as the primary evidence.

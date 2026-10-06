@@ -422,6 +422,30 @@ def get_all_quotes_fast(symbols: list[str]) -> dict[str, dict]:
 
 # ── Model loading ─────────────────────────────────────────────────────────────
 def load_model():
+    # ── v2c model takes HIGHEST PRIORITY ─────────────────────────────────────
+    # The v2c LGBMRegressor (IC=+0.040 OOS) lives at a fixed registry path.
+    # Check it first before falling back to the old expanded_lgbm ensemble.
+    v2c_path = BASE / "artifacts/registry/v2_lgbm/model.pkl"
+    if v2c_path.exists():
+        with open(v2c_path, "rb") as f:
+            p = pickle.load(f)
+        normalizer = None
+        raw_state = p.get("normalizer_state")
+        if isinstance(raw_state, dict) and raw_state:
+            try:
+                from src.features.normalizer import FeatureNormalizer
+                normalizer = FeatureNormalizer.from_dict(raw_state)
+            except Exception:
+                pass
+        elif raw_state is not None:
+            normalizer = raw_state
+        print("[model] v2c model loaded from artifacts/registry/v2_lgbm/model.pkl "
+              f"(schema={p.get('feature_schema_version','?')}, "
+              f"features={len(p.get('feature_names',[]))})")
+        return (p["estimator"], p["feature_names"],
+                normalizer, p.get("feature_schema_version", "?"))
+
+    # ── Fallback: expanded_lgbm or stage_a_1d (v1 models) ────────────────────
     for pattern in ["artifacts/expanded_lgbm/*/model.pkl",
                      "artifacts/registry/stage_a_1d/*/model.pkl"]:
         paths = sorted(BASE.glob(pattern))
@@ -448,10 +472,15 @@ def load_ensemble() -> dict | None:
     """
     Load multi-horizon ensemble manifest and both H1 + H5 models.
 
-    Returns a dict:
-        {"h1": (est, feat_names, norm), "h5": (est, feat_names, norm), "manifest": {...}}
-    or None if the ensemble manifest doesn't exist.
+    NOTE: When the v2c model is available, this function returns None so the
+    main loop uses v2c directly. The h1/h5 ensemble was built for the v1 model
+    and its agreement filter is not compatible with v2c's CS rank approach.
     """
+    # Suppress ensemble when v2c model is live — they are incompatible
+    v2c_path = BASE / "artifacts/registry/v2_lgbm/model.pkl"
+    if v2c_path.exists():
+        return None
+
     manifest_path = BASE / "artifacts/expanded_lgbm/ensemble_manifest.json"
     if not manifest_path.exists():
         return None
@@ -816,6 +845,23 @@ def post_close_resolve():
         print(out[-600:])
     return out
 
+
+def post_close_signal_ledger(session_date: str) -> str:
+    """Run the signal lifecycle ledger: record new signals, update MTM, settle expired."""
+    print("\n[close] Running Signal Ledger (lifecycle tracking)...")
+    result = subprocess.run(
+        ["python3", "-W", "ignore", str(BASE / "scripts/signal_ledger_daily.py"),
+         "--date", session_date],
+        capture_output=True, text=True, cwd=str(BASE),
+        env={**os.environ, "PYTHONPATH": str(BASE)}, timeout=60,
+    )
+    out = result.stdout.strip()
+    if out:
+        print(out[-800:])
+    if result.returncode != 0 and result.stderr:
+        print(f"[close] Signal ledger warning: {result.stderr[:200]}")
+    return out
+
 def post_close_promotion():
     print("\n[close] Running SignalPromotionEngine...")
     result = subprocess.run(
@@ -901,6 +947,15 @@ def main():
     if _PHIL_IMPORTS_OK:
         print(f"  Phil integrations: ForecastLedger ✓ | CounterfactualLedger ✓ | FeatureWeightManager ✓ | ReversalDetector ✓")
 
+    # ── Signal Ledger: intraday lifecycle tracker ────────────────────────────
+    try:
+        from src.analytics.signal_ledger import SignalLedger as _SL
+        _signal_ledger = _SL()
+        print("  SignalLedger: intraday tracker ✓ (entry@open, exit@close)")
+    except Exception as _sl_err:
+        _signal_ledger = None
+        print(f"  SignalLedger: unavailable ({_sl_err})")
+
     # Load forward paper signals and exclusions
     fp_signals = load_fp_signals()
     excluded   = load_excluded_symbols()
@@ -946,6 +1001,7 @@ def main():
             ingest_out  = post_close_ingest()
             resolve_out = post_close_resolve()
             promo_out   = post_close_promotion()
+            ledger_out  = post_close_signal_ledger(session_date)
 
             # Final P&L with fresh quotes
             final_scores = score_all(estimator, feat_names, normalizer)
@@ -1677,6 +1733,22 @@ def main():
             )
             if sample_n == 1:  # only print on first sample
                 print(f"[{now.strftime('%H:%M')}] ForecastLedger: {n_logged} forecasts logged")
+
+        # ── Signal Ledger: capture entry at first sample, update MTM every sample
+        if _signal_ledger is not None:
+            if sample_n == 1:
+                # First tick after open — record entry prices for all signals
+                new_sigs = _signal_ledger.record_signals(
+                    signals=scores,
+                    session_date=session_date,
+                    nifty_ltp=nifty_q.get("ltp"),
+                    generated_at=now.isoformat(),
+                    live_quotes=live_quotes,
+                )
+                print(f"[{now.strftime('%H:%M')}] SignalLedger: {new_sigs} positions opened (entry@open)")
+            else:
+                # Every subsequent tick — update unrealized P&L
+                _signal_ledger.update_mark_to_market(live_quotes, session_date)
 
         # P&L calculation — reuse the quotes we already fetched above
         # (avoids a second 218-symbol fetch round-trip)

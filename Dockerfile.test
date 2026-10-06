@@ -41,6 +41,7 @@ RUN pip install --no-cache-dir --timeout=120 --retries=3 \
     "ruff==0.8.4" \
     "prometheus-client==0.21.1" \
     "shap==0.46.0" \
+    "psycopg2-binary==2.9.10" \
     || echo "WARNING: Some optional packages failed to install — continuing"
 
 # Copy only what we need for tests (source is usually volume-mounted in CI)

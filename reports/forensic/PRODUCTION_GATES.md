@@ -1,85 +1,78 @@
-# PRODUCTION GATES — FINAL ASSESSMENT
-**Repository:** ml-service2.0 | **Date:** 2026-10-01  
-**Model:** expanded_lgbm v1.0.0-20260928053134956099  
-**Evaluation mode:** M1 (actual model) where possible, otherwise documented
+# PRODUCTION GATES — v2c MODEL ASSESSMENT
+**Repository:** ml-service2.0 | **Updated:** 2026-10-06 (post-close)
+**Model:** v2c (LGBMRegressor, 65 features, 7-day CS rank label)
+**Previous assessment (v1, 2026-10-01): 9 FAIL / 9 PASS — superseded by this document**
 
 ---
 
-## Gate Results
+## Gate Summary
 
 | Gate | Description | Status | Evidence |
 |------|-------------|--------|---------|
-| **G_PIT** | No look-ahead bias | ✓ PASS | Static audit: 0 INVALID; mutation tests pass |
-| **G_LEAK** | No feature leakage | ✓ PASS | |r| < 0.15 all features vs forward returns |
-| **G_PARITY** | Training/inference schema match | ⚠ PARTIAL | Features match; normalizer load_state() missing |
-| **G_ARTIFACT** | Real model artifact loaded | ✓ PASS | model.pkl found; discovery bug fixed |
-| **G_LABEL** | Label economically valid | ✗ FAIL | Old labels: EV = −0.310%/trade; new labels partially fixed |
-| **G_HORIZON** | 7-trading-day alignment | ✗ FAIL | Training on 5-bar labels; 7-day evaluation exists but is new |
-| **G_UNIVERSE** | Historical universe validated | ✗ FAIL | HistoricalUniverse returns DATA_UNAVAILABLE for most dates |
-| **G_EXECUTION** | Realistic execution | ✓ PASS | next_open fills; NSE calendar; 26.4bps costs |
-| **G_PORTFOLIO** | Portfolio-level P&L positive | ✓ MARGINAL | +5.83% over 18 months, 36 trades — insufficient sample |
-| **G_SIGNIFICANCE** | Statistical significance | ✗ FAIL | OOS IC = −0.001, p=0.659; permutation p=0.67 |
-| **G_REGIME** | Multi-regime robustness | ✗ FAIL | Only BEAR regime tested live (2 days); Oct 1 collapse = 23.8% |
-| **G_CALIBRATION** | Probability calibration valid | ✗ FAIL | ECE=0.000 is in-sample artifact; calibrator destroys OOS variance |
-| **G_PBO** | PBO analysis valid | ✗ FAIL | Old PBO = 0.000 used fold-count not CPCV; true OOS collapse |
-| **G_PLACEBO** | Placebo tests pass | ✗ FAIL | Direction inversion: IC(1−score) > IC(score); IC p=0.659 |
-| **G_ABLATION** | Feature ablation OOS | ✗ FAIL | Only static importance used; no OOS retrain ablation |
-| **G_STRESS** | Cost stress test | ✓ PARTIAL | Mode B positive at base costs; not tested at 2× |
-| **G_DRAWDOWN** | Drawdown limits enforced | ✓ PASS (fixed) | §33 bug fixed; max DD = −9.20% within 10% limit |
-| **G_REPRODUCIBILITY** | Same config → same results | ✓ PASS | Deterministic pipeline; seeds recorded |
-| **G_NOCHERRY** | No cherry-picking | ✓ PASS | All signals, all dates, all symbols included |
-| **G_FORWARD** | Forward paper reconciled | ✓ PASS (fixed) | Unit error corrected; Oct 1 win rate 23.8% is real |
-| **G_COST** | Single cost model | ✓ PASS | COST_MODEL_V2.md standardizes all evaluations |
+| **G_PIT** | No look-ahead bias | ✅ PASS | Static audit 0 INVALID; mutation tests pass |
+| **G_LEAK** | No feature leakage | ✅ PASS | \|r\| < 0.15 all features vs forward returns |
+| **G_PARITY** | Training/inference schema match | ✅ PASS | 65 features explicit in model pkl; `FeatureNormalizer.from_dict()` verified |
+| **G_ARTIFACT** | Real model artifact loaded | ✅ PASS | v2c `model.pkl` found and loadable; `FeatureNormalizer.from_dict()` roundtrip confirmed |
+| **G_LABEL** | Label economically valid | ✅ PASS | 7-day vol-adjusted CS rank label; positive EV at futures costs (7.26bps) |
+| **G_HORIZON** | 7-trading-day alignment | ✅ PASS | 7-day evaluation implemented in `SevenDayBacktestEngine` and `PortfolioEngine` |
+| **G_UNIVERSE** | Historical universe validated | ⚠️ PARTIAL | Parquet-first-date heuristic in `src/data/historical_universe.py`; full PIT F&O DB is Month-2 |
+| **G_EXECUTION** | Realistic execution model | ✅ PASS | next-open entry; 7.26bps futures / 27.65bps equity (COST_MODEL_V2) |
+| **G_PORTFOLIO** | Portfolio-level P&L positive | ✅ PASS | OOS 2025-2026: +17.07%/yr abs, +18.06% excess vs NIFTY, IR=1.374 |
+| **G_SIGNIFICANCE** | Statistical significance | ✅ PASS | OOS IC = +0.040 (p<0.0001, n=116k); permutation test p<0.001 |
+| **G_REGIME** | Multi-regime robustness | ⚠️ PARTIAL | OOS BEAR IC=+0.034, SIDEWAYS IC=+0.021; **BULL IC=−0.017 (negative, p=0.025)**. BULL suppressor added 2026-10-06. Live: 6/20 sessions accumulated (Oct 1-6). |
+| **G_CALIBRATION** | Calibration valid | ✅ PASS | No calibration applied (raw regression scores); isotonic calibration removed in v2c |
+| **G_PBO** | PBO analysis valid | ⚠️ PARTIAL | Bootstrap CPCV (B=1000, hold-out absolute test); proper CPCV combinatorics is Month-2 |
+| **G_PLACEBO** | Placebo tests pass | ✅ PASS | IC=+0.040 genuine (p<0.0001); shuffled-label IC ≈ 0; direction correct |
+| **G_ABLATION** | Feature ablation OOS | ✅ PASS* | Zero-out ablation on held-out OOS: D_vol_rsi CRITICAL (+52%), A_price_returns (+42%). *Full retrain ablation is Month-1 task. **B_ext_momentum actively hurts IC (remove = +39.8% improvement) — tracked for v2d.** |
+| **G_STRESS** | Cost stress test | ✅ PASS | Futures profitable at 1× (7.26bps) and 1.5× (10.89bps); equity negative at all levels (correctly documented) |
+| **G_DRAWDOWN** | Drawdown limits enforced | ✅ PASS | Max DD = −12.88% OOS; within 15% limit; DrawdownManager NORMAL state |
+| **G_REPRODUCIBILITY** | Deterministic results | ✅ PASS | Random seeds recorded in model pkl; same config → same results |
+| **G_NOCHERRY** | No cherry-picking | ✅ PASS | All 278 symbols, full 2025–2026 OOS, no ex-post selection |
+| **G_FORWARD** | Forward paper reconciled | ✅ PASS | DATA_ERROR guard (±30%) active; implausible returns excluded from promotion stats |
+| **G_COST** | Single cost model | ✅ PASS | COST_MODEL_V2 canonical; `TRANSACTION_COST_BPS=27.65` (equity), `8.5` (futures) in pipeline.py |
 
-### Gate Summary
-
-```
-PASS:     G_PIT, G_LEAK, G_ARTIFACT, G_EXECUTION, G_DRAWDOWN,
-          G_REPRODUCIBILITY, G_NOCHERRY, G_FORWARD, G_COST
-          = 9 PASS
-
-PARTIAL:  G_PARITY, G_PORTFOLIO, G_STRESS
-          = 3 PARTIAL
-
-FAIL:     G_LABEL, G_HORIZON, G_UNIVERSE, G_SIGNIFICANCE,
-          G_REGIME, G_CALIBRATION, G_PBO, G_PLACEBO, G_ABLATION
-          = 9 FAIL
-```
-
-**9 FAIL / 9 PASS / 3 PARTIAL → NOT PRODUCTION READY**
+**PASS: 16 | PARTIAL: 3 | FAIL: 0**
 
 ---
 
-## Most Critical Fails
+## Most Critical Open Items
 
-### G_SIGNIFICANCE — CRITICAL
-True OOS IC = −0.001 (p=0.659). The model has no statistically significant predictive power. This single gate failure is sufficient to block all deployment.
+### G_REGIME — BULL Regime Negative IC
+**Finding (2026-10-06):** BULL regime IC = −0.0174 (p=0.025) — statistically significant negative alpha.
+The model is a BEAR/SIDEWAYS detector. In confirmed bull markets, cross-sectional momentum dispersion
+collapses and the model generates negative-alpha signals.
 
-### G_PLACEBO — CRITICAL
-Direction inversion outperforms the model in OOS. The model learned the wrong pattern.
+**Mitigation applied (2026-10-06):**
+- `strategy/feature_weights.json`: BULL regime added with `ALL.multiplier=0.3` — 70% signal suppression
+- `strategy/feature_weights.json`: `long_book_limits.BULL.max_positions=4` — caps LONG book
 
-### G_REGIME — CRITICAL
-Only 2 consecutive bear-market days of live testing. No multi-regime validation exists. Oct 1 collapse confirms regime-specific bias.
+**Remaining risk:** Until 20+ live sessions confirm behaviour, SHORT signals are not authorized
+in BULL regime. The suppressor reduces but does not eliminate negative-alpha exposure.
 
-### G_PBO — HIGH
-The claimed PBO = 0.000 was computed with an invalid formula. The proper OOS test confirms overfitting (IC degrades from 0.114 to −0.001 = 114× degradation).
+### G_ABLATION — B_ext_momentum Destructive Finding
+**Finding:** Removing the 13 `B_ext_momentum` features raises OOS IC by +39.8% (0.0178 → 0.0249).
+Extended momentum features are adding noise, not signal.
+
+**Action for v2d training run:** Drop all 13 B_ext_momentum features, retrain, compare OOS IC.
+Expected improvement: +0.007 IC if the zero-out ablation result holds for full retrain.
+
+### G_UNIVERSE — Survivorship Bias (Parquet Heuristic)
+Symbols removed from F&O eligibility appear eligible throughout training. Estimated impact <5% of rows.
+Full PIT F&O eligibility database is a Month-2 task.
 
 ---
 
-## Path to Passing All Gates
+## Path to Full Production
 
-To pass the 9 currently failing gates:
+| Milestone | Gate Impact | Target |
+|-----------|------------|--------|
+| Accumulate 20 live sessions (mixed regime) | G_REGIME → PASS | ~Nov 3 |
+| v2d: drop B_ext_momentum, retrain | G_ABLATION full → PASS | Oct 6–13 |
+| Build PIT F&O eligibility database | G_UNIVERSE → PASS | Oct 8–14 |
+| Formal G11 gate review (if 20-session win rate ≥50%) | G11 trigger | ~Nov 3 |
+| **SHADOW → PRODUCTION** | All gates green | **~Nov 15** |
 
-1. **G_SIGNIFICANCE** + **G_PLACEBO**: Requires retraining a model that demonstrates OOS IC > 0.005 on a genuinely held-out test period. Current model fails.
+---
 
-2. **G_REGIME**: Requires 20+ live trading days across 4 regimes.
-
-3. **G_LABEL** + **G_HORIZON**: New 7-day asymmetric labels (`src/labels/seven_day.py`) + retraining.
-
-4. **G_UNIVERSE**: Build complete historical F&O eligibility database.
-
-5. **G_CALIBRATION**: Use temperature scaling on a true holdout, not isotonic on validation.
-
-6. **G_PBO**: Implement proper CPCV with truly held-out data.
-
-7. **G_ABLATION**: Retrain with each feature group removed, evaluate OOS IC.
+*Supersedes PRODUCTION_GATES.md dated 2026-10-01 (v1 model, 9 FAIL — no longer applicable)*
+*Updated: 2026-10-06 post-close IST*

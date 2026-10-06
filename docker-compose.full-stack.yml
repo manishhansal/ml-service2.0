@@ -166,6 +166,29 @@ services:
   #   ports:
   #     - "3001:3001"
 
+  # ── ml-service2.0 PostgreSQL (ACTIVE) ───────────────────────────────────────
+  # Dedicated PostgreSQL / TimescaleDB for ml-service2.0 signal + model storage.
+  # Port 5445 (distinct from data-service2.0:5444 and alpha-forge:5433).
+  ml-postgres:
+    image: timescale/timescaledb:latest-pg15
+    container_name: ml-service-postgres
+    environment:
+      POSTGRES_DB:       mlservice
+      POSTGRES_USER:     mlservice
+      POSTGRES_PASSWORD: ${ML_POSTGRES_PASSWORD:-mlservice_dev}
+    ports:
+      - "5445:5432"
+    networks:
+      - alphaforge-net
+    volumes:
+      - ml-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlservice -d mlservice"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   redis-data:
+  ml-postgres-data:
     driver: local
