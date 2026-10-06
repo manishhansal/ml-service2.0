@@ -2,9 +2,9 @@
 """
 scripts/_migrate_signals_to_db.py
 ───────────────────────────────────
-One-time migration: positions.json + signals.jsonl → SQLite (data/ml_signals.db).
+Migration: artifacts/signal_ledger/positions.json → PostgreSQL (ml_signals.db).
 
-Run once after upgrading to the SQLite-backed SignalLedger:
+Run once after setting up ml-service-postgres:
     PYTHONPATH=. python3 scripts/_migrate_signals_to_db.py
 """
 from __future__ import annotations
@@ -15,12 +15,11 @@ BASE = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE))
 
 POSITIONS_FILE = BASE / "artifacts/signal_ledger/positions.json"
-SIGNALS_FILE   = BASE / "artifacts/signal_ledger/signals.jsonl"
 
-from src.data.signal_db import SignalDB, DB_PATH
+from src.data.signal_db import SignalDB, DATABASE_URL
 
 def main() -> None:
-    print(f"Migrating to SQLite: {DB_PATH}")
+    print(f"Migrating to PostgreSQL: {DATABASE_URL.split('@')[-1]}")
     db = SignalDB()
 
     migrated_sessions = set()
@@ -94,27 +93,28 @@ def main() -> None:
     # ── 2. Fix session stats (n_long, n_short, n_scored) ─────────────────────
     for session_date in migrated_sessions:
         with db._connect() as conn:
-            stats = conn.execute("""
-                SELECT
-                    COUNT(*) AS n_scored,
-                    SUM(direction=1)  AS n_long,
-                    SUM(direction=-1) AS n_short
-                FROM signals WHERE session_date=?
-            """, (session_date,)).fetchone()
-            conn.execute("""
-                UPDATE sessions SET n_scored=?, n_long=?, n_short=?
-                WHERE session_date=?
-            """, (stats["n_scored"], stats["n_long"], stats["n_short"], session_date))
+            with conn.cursor(cursor_factory=__import__('psycopg2.extras', fromlist=['RealDictCursor']).RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT COUNT(*) AS n_scored,
+                           SUM((direction=1)::int)  AS n_long,
+                           SUM((direction=-1)::int) AS n_short
+                    FROM signals WHERE session_date=%s
+                """, (session_date,))
+                stats = cur.fetchone()
+                cur.execute("""
+                    UPDATE sessions SET n_scored=%s, n_long=%s, n_short=%s
+                    WHERE session_date=%s
+                """, (stats["n_scored"], stats["n_long"], stats["n_short"], session_date))
 
     # ── 3. Print final stats ──────────────────────────────────────────────────
     stats = db.db_stats()
-    print(f"\nSQLite DB stats:")
+    print(f"\nPostgreSQL DB stats:")
     print(f"  sessions:        {stats['sessions']}")
     print(f"  signals:         {stats['signals']}")
     print(f"  positions:       {stats['positions']}")
     print(f"  price_snapshots: {stats['price_snapshots']}")
-    print(f"  db size:         {stats['db_size_kb']} KB")
-    print(f"  db path:         {stats['db_path']}")
+    print(f"  db size:         {stats['db_size']}")
+    print(f"  host:            {stats['db_url']}")
     print(f"\nMigration complete ✓")
 
 if __name__ == "__main__":
