@@ -422,6 +422,30 @@ def get_all_quotes_fast(symbols: list[str]) -> dict[str, dict]:
 
 # ── Model loading ─────────────────────────────────────────────────────────────
 def load_model():
+    # ── v2c model takes HIGHEST PRIORITY ─────────────────────────────────────
+    # The v2c LGBMRegressor (IC=+0.040 OOS) lives at a fixed registry path.
+    # Check it first before falling back to the old expanded_lgbm ensemble.
+    v2c_path = BASE / "artifacts/registry/v2_lgbm/model.pkl"
+    if v2c_path.exists():
+        with open(v2c_path, "rb") as f:
+            p = pickle.load(f)
+        normalizer = None
+        raw_state = p.get("normalizer_state")
+        if isinstance(raw_state, dict) and raw_state:
+            try:
+                from src.features.normalizer import FeatureNormalizer
+                normalizer = FeatureNormalizer.from_dict(raw_state)
+            except Exception:
+                pass
+        elif raw_state is not None:
+            normalizer = raw_state
+        print("[model] v2c model loaded from artifacts/registry/v2_lgbm/model.pkl "
+              f"(schema={p.get('feature_schema_version','?')}, "
+              f"features={len(p.get('feature_names',[]))})")
+        return (p["estimator"], p["feature_names"],
+                normalizer, p.get("feature_schema_version", "?"))
+
+    # ── Fallback: expanded_lgbm or stage_a_1d (v1 models) ────────────────────
     for pattern in ["artifacts/expanded_lgbm/*/model.pkl",
                      "artifacts/registry/stage_a_1d/*/model.pkl"]:
         paths = sorted(BASE.glob(pattern))
@@ -448,10 +472,15 @@ def load_ensemble() -> dict | None:
     """
     Load multi-horizon ensemble manifest and both H1 + H5 models.
 
-    Returns a dict:
-        {"h1": (est, feat_names, norm), "h5": (est, feat_names, norm), "manifest": {...}}
-    or None if the ensemble manifest doesn't exist.
+    NOTE: When the v2c model is available, this function returns None so the
+    main loop uses v2c directly. The h1/h5 ensemble was built for the v1 model
+    and its agreement filter is not compatible with v2c's CS rank approach.
     """
+    # Suppress ensemble when v2c model is live — they are incompatible
+    v2c_path = BASE / "artifacts/registry/v2_lgbm/model.pkl"
+    if v2c_path.exists():
+        return None
+
     manifest_path = BASE / "artifacts/expanded_lgbm/ensemble_manifest.json"
     if not manifest_path.exists():
         return None
