@@ -947,6 +947,15 @@ def main():
     if _PHIL_IMPORTS_OK:
         print(f"  Phil integrations: ForecastLedger ✓ | CounterfactualLedger ✓ | FeatureWeightManager ✓ | ReversalDetector ✓")
 
+    # ── Signal Ledger: intraday lifecycle tracker ────────────────────────────
+    try:
+        from src.analytics.signal_ledger import SignalLedger as _SL
+        _signal_ledger = _SL()
+        print("  SignalLedger: intraday tracker ✓ (entry@open, exit@close)")
+    except Exception as _sl_err:
+        _signal_ledger = None
+        print(f"  SignalLedger: unavailable ({_sl_err})")
+
     # Load forward paper signals and exclusions
     fp_signals = load_fp_signals()
     excluded   = load_excluded_symbols()
@@ -1724,6 +1733,22 @@ def main():
             )
             if sample_n == 1:  # only print on first sample
                 print(f"[{now.strftime('%H:%M')}] ForecastLedger: {n_logged} forecasts logged")
+
+        # ── Signal Ledger: capture entry at first sample, update MTM every sample
+        if _signal_ledger is not None:
+            if sample_n == 1:
+                # First tick after open — record entry prices for all signals
+                new_sigs = _signal_ledger.record_signals(
+                    signals=scores,
+                    session_date=session_date,
+                    nifty_ltp=nifty_q.get("ltp"),
+                    generated_at=now.isoformat(),
+                    live_quotes=live_quotes,
+                )
+                print(f"[{now.strftime('%H:%M')}] SignalLedger: {new_sigs} positions opened (entry@open)")
+            else:
+                # Every subsequent tick — update unrealized P&L
+                _signal_ledger.update_mark_to_market(live_quotes, session_date)
 
         # P&L calculation — reuse the quotes we already fetched above
         # (avoids a second 218-symbol fetch round-trip)

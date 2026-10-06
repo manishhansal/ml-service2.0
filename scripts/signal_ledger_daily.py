@@ -103,28 +103,34 @@ def main(session_date: str | None = None, status_only: bool = False) -> None:
           f"SHORT={sum(1 for s in active_signals if s['direction']==-1)})")
     print(f"  Live quotes:    {sum(1 for q in quotes.values() if isinstance(q,dict) and q.get('ltp'))} symbols")
 
-    # 1. Settle expired positions first
-    settled = ledger.settle_expired(session_date, live_quotes=quotes)
+    # 1. Settle today's positions at close
+    settled = ledger.settle_session(session_date, final_quotes=quotes)
     if settled:
         wins   = [p for p in settled if p["status"] == "SETTLED_WIN"]
         losses = [p for p in settled if p["status"] == "SETTLED_LOSS"]
         exps   = [p for p in settled if p["status"] == "EXPIRED"]
+        settled_rets = [p["final_return_pct"] for p in wins + losses if p.get("final_return_pct") is not None]
+        mean_ret = sum(settled_rets) / len(settled_rets) if settled_rets else 0.0
         print(f"\n  SETTLED TODAY: {len(settled)} positions")
         print(f"    Wins:    {len(wins)}  |  Losses: {len(losses)}  |  Expired: {len(exps)}")
+        print(f"    Mean net return: {mean_ret:+.2f}%")
         if wins:
             top_win = max(wins, key=lambda p: p.get("final_return_pct") or 0)
-            print(f"    Best:   {top_win['symbol']} {top_win.get('final_return_pct',0):+.2f}%")
+            print(f"    Best:   {top_win['symbol']} {top_win['direction']==1 and 'LONG' or 'SHORT'} {top_win.get('final_return_pct',0):+.2f}%  "
+                  f"(entry ₹{top_win.get('entry_price','?'):.1f} → exit ₹{top_win.get('exit_price','?'):.1f})" if top_win.get("entry_price") else "")
         if losses:
             worst = min(losses, key=lambda p: p.get("final_return_pct") or 0)
-            print(f"    Worst:  {worst['symbol']} {worst.get('final_return_pct',0):+.2f}%")
+            print(f"    Worst:  {worst['symbol']} {worst['direction']==1 and 'LONG' or 'SHORT'} {worst.get('final_return_pct',0):+.2f}%  "
+                  f"(entry ₹{worst.get('entry_price','?'):.1f} → exit ₹{worst.get('exit_price','?'):.1f})" if worst.get("entry_price") else "")
     else:
-        print(f"\n  No positions expired today.")
+        print(f"\n  No positions to settle today (run at post-close time).")
 
-    # 2. Update mark-to-market on remaining open positions
+    # 2. Update mark-to-market on any remaining OPEN positions (safety net)
     updated = ledger.update_mark_to_market(live_quotes=quotes, today=session_date)
-    print(f"\n  Mark-to-market: {updated} open positions updated")
+    if updated:
+        print(f"  Mark-to-market: {updated} open positions updated (safety net)")
 
-    # 3. Record new signals
+    # 3. Record signals if not already captured during intraday (fallback path)
     new_count = ledger.record_signals(
         signals=active_signals,
         session_date=session_date,
@@ -132,7 +138,8 @@ def main(session_date: str | None = None, status_only: bool = False) -> None:
         generated_at=generated_at,
         live_quotes=quotes,
     )
-    print(f"  New signals recorded: {new_count}")
+    if new_count:
+        print(f"  New signals recorded (fallback): {new_count}")
 
     # 4. Status report
     rpt = ledger.status_report()

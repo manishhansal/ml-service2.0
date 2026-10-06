@@ -1,31 +1,31 @@
 """
-src.analytics.signal_ledger — Signal Lifecycle Tracking System
-==============================================================
+src.analytics.signal_ledger — Intraday Signal Lifecycle Tracker
+================================================================
 
-Fills the 4 gaps identified in the signal tracking audit (2026-10-06):
+Tracks every signal from open (9:15 IST) to close (15:15 IST) on the
+same trading day.
 
-  GAP 1  No expiry timestamp per live signal
-  GAP 2  No live status (OPEN / SUCCESS / FAILURE) in real-time
-  GAP 3  No per-signal entry time (only 2-min snapshots)
-  GAP 4  ForecastLedger never settling; coverage only 153/285 symbols
+Lifecycle
+---------
+  OPEN         Signal recorded at first live quote after 9:15 IST
+  SETTLED_WIN  Position closed profitably at 15:15 IST (net > 0)
+  SETTLED_LOSS Position closed at a loss at 15:15 IST (net ≤ 0)
 
-Signal Lifecycle:
-  OPEN        Signal generated; position not yet expired
-  SETTLED_WIN  Settled profitably (direction correct, return > cost)
-  SETTLED_LOSS Settled at a loss (direction wrong or cost > move)
-  EXPIRED     T+7 trading days elapsed; closed at last available price
+Flow (wired inside autorun_till_close.py)
+-----------------------------------------
+  sample_n == 1 (≈09:30 IST)
+      → record_signals(scores, live_quotes)   # entry prices captured
+  every sample (every 2 min)
+      → update_mark_to_market(live_quotes)    # unrealized P&L updated
+  post-close (15:30 IST)
+      → settle_expired(session_date, final_quotes)  # WIN / LOSS recorded
+      → write markdown report
 
-Storage (all append-only / atomic writes):
-  artifacts/signal_ledger/signals.jsonl     — immutable signal log
-  artifacts/signal_ledger/positions.json    — mutable current state per position
-  artifacts/signal_ledger/daily_reports/    — per-session markdown summaries
-
-Usage:
-    ledger = SignalLedger()
-    ledger.record_signals(signals, session_date, nifty_ltp, generated_at)
-    ledger.update_mark_to_market(live_quotes, session_date)
-    ledger.settle_expired(session_date, live_quotes)
-    report = ledger.status_report()
+Storage
+-------
+  artifacts/signal_ledger/signals.jsonl        append-only event log
+  artifacts/signal_ledger/positions.json       mutable current state
+  artifacts/signal_ledger/daily_reports/       per-session markdown files
 """
 from __future__ import annotations
 
@@ -35,34 +35,14 @@ from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
 
-# ── Storage paths ─────────────────────────────────────────────────────────────
-_BASE = Path(__file__).parent.parent.parent
+_BASE        = Path(__file__).parent.parent.parent
 LEDGER_DIR   = _BASE / "artifacts" / "signal_ledger"
-SIGNALS_FILE = LEDGER_DIR / "signals.jsonl"          # append-only log
-POSITIONS_FILE = LEDGER_DIR / "positions.json"        # mutable current state
+SIGNALS_FILE = LEDGER_DIR / "signals.jsonl"
+POSITIONS_FILE = LEDGER_DIR / "positions.json"
 REPORTS_DIR  = LEDGER_DIR / "daily_reports"
 
-COST_BPS_FUTURES = 7.26        # round-trip cost for futures (COST_MODEL_V2)
+COST_BPS_FUTURES = 7.26   # round-trip (COST_MODEL_V2)
 COST_BPS_EQUITY  = 27.65
-HORIZON_DAYS     = 7           # 7 trading days forward
-
-
-def _trading_days_ahead(start: date, n: int) -> date:
-    """Return the date that is exactly n NSE trading days after start.
-    Uses weekday check only (no holiday lookup — good enough for 7-day window).
-    """
-    try:
-        from src.validation.calendar import is_trading_day
-    except Exception:
-        is_trading_day = lambda d: d.weekday() < 5
-
-    current = start
-    days_counted = 0
-    while days_counted < n:
-        current += timedelta(days=1)
-        if is_trading_day(current):
-            days_counted += 1
-    return current
 
 
 def _now_utc() -> str:
@@ -71,10 +51,11 @@ def _now_utc() -> str:
 
 class SignalLedger:
     """
-    Tracks the full lifecycle of every live signal from generation to settlement.
+    Intraday signal lifecycle tracker.
 
-    Thread-safety: not thread-safe. Call from a single process (post-close runner).
-    Atomic writes: uses tmp-file + rename for positions.json to prevent corruption.
+    One position per (symbol, session_date).
+    Entry = first live price after 9:15 IST on session_date.
+    Exit  = live price at 15:15–15:30 IST on session_date.
     """
 
     def __init__(self, cost_bps: float = COST_BPS_FUTURES) -> None:
@@ -98,7 +79,7 @@ class SignalLedger:
         tmp.write_text(json.dumps(self._positions, indent=2, default=str))
         tmp.replace(POSITIONS_FILE)
 
-    def _append_signal(self, record: dict) -> None:
+    def _append_event(self, record: dict) -> None:
         SIGNALS_FILE.parent.mkdir(parents=True, exist_ok=True)
         with SIGNALS_FILE.open("a") as f:
             f.write(json.dumps(record, default=str) + "\n")
@@ -114,17 +95,15 @@ class SignalLedger:
         live_quotes: dict | None = None,
     ) -> int:
         """
-        Record new signals from today's scoring session.
+        Record signals at session open (first live quote ≈09:30 IST).
 
-        For each active signal (direction != 0):
-          - If this symbol+session_date combination is new → create position
-          - If position already exists for today → skip (idempotent)
+        Creates one OPEN position per active signal (direction != 0).
+        Idempotent: re-calling with the same session_date is a no-op.
 
-        Returns the number of NEW signals recorded.
+        Returns number of NEW positions created.
         """
         new_count = 0
-        session_dt = date.fromisoformat(session_date)
-        resolve_date = _trading_days_ahead(session_dt, HORIZON_DAYS)
+        entry_time = _now_utc()
 
         for sig in signals:
             sym       = sig.get("symbol", "")
@@ -132,47 +111,46 @@ class SignalLedger:
             if direction == 0 or not sym:
                 continue
 
-            # Position key: symbol + session date (one position per symbol per day)
             pos_key = f"{sym}:{session_date}"
             if pos_key in self._positions:
-                continue  # already recorded for today
+                continue  # idempotent
 
-            # Entry price from live quote if available
+            # Entry price from live quote
             entry_price: float | None = None
             if live_quotes and isinstance(live_quotes.get(sym), dict):
                 ltp = live_quotes[sym].get("ltp")
                 if ltp and float(ltp) > 0:
                     entry_price = float(ltp)
 
-            signal_id = str(uuid.uuid4())[:16]
             record: dict[str, Any] = {
-                "signal_id":         signal_id,
-                "pos_key":           pos_key,
-                "session_date":      session_date,
-                "symbol":            sym,
-                "generated_at":      generated_at,
-                "data_date":         sig.get("data_date", ""),
-                "direction":         direction,
-                "score":             round(sig.get("score", 0.5), 4),
-                "conviction":        sig.get("conviction", ""),
-                "rank":              sig.get("rank"),
-                "resolve_after":     resolve_date.isoformat(),
-                "horizon_days":      HORIZON_DAYS,
-                "entry_price":       entry_price,
-                "last_price":        entry_price,
-                "last_price_date":   session_date if entry_price else None,
-                "unrealized_pct":    0.0 if entry_price else None,
-                "status":            "OPEN",
-                "settled_at":        None,
-                "final_return_pct":  None,
-                "outcome":           None,
-                "nifty_at_signal":   nifty_ltp,
-                "cost_bps":          self._cost_frac * 10_000,
-                "regime":            _infer_regime(nifty_ltp),
+                "signal_id":       str(uuid.uuid4())[:16],
+                "pos_key":         pos_key,
+                "session_date":    session_date,
+                "symbol":          sym,
+                "generated_at":    generated_at,
+                "entry_time":      entry_time,
+                "data_date":       sig.get("data_date", ""),
+                "direction":       direction,
+                "score":           round(sig.get("score", 0.5), 4),
+                "conviction":      sig.get("conviction", ""),
+                "rank":            sig.get("rank"),
+                "resolve_after":   session_date,   # same day — settles at post-close
+                "entry_price":     entry_price,
+                "last_price":      entry_price,
+                "last_price_time": entry_time if entry_price else None,
+                "exit_time":       None,
+                "exit_price":      None,
+                "unrealized_pct":  0.0 if entry_price else None,
+                "status":          "OPEN",
+                "settled_at":      None,
+                "final_return_pct": None,
+                "outcome":         None,
+                "nifty_at_signal": nifty_ltp,
+                "cost_bps":        self._cost_frac * 10_000,
             }
 
             self._positions[pos_key] = record
-            self._append_signal(record)
+            self._append_event({**record, "_event": "OPEN"})
             new_count += 1
 
         if new_count > 0:
@@ -185,30 +163,32 @@ class SignalLedger:
         today: str,
     ) -> int:
         """
-        Update unrealized P&L for all OPEN positions using current live prices.
+        Update unrealized P&L for all OPEN positions of today.
+        Called every sample (~every 2 minutes).
         Returns count of positions updated.
         """
-        updated = 0
+        updated  = 0
+        now_str  = _now_utc()
+
         for pos_key, pos in self._positions.items():
-            if pos["status"] != "OPEN":
+            if pos["status"] != "OPEN" or pos["session_date"] != today:
                 continue
             sym = pos["symbol"]
-            q = live_quotes.get(sym, {})
+            q   = live_quotes.get(sym, {})
             if not isinstance(q, dict):
                 continue
             ltp = q.get("ltp")
             if not ltp or float(ltp) <= 0:
                 continue
 
-            current_price = float(ltp)
-            pos["last_price"]      = current_price
-            pos["last_price_date"] = today
+            current = float(ltp)
+            pos["last_price"]      = current
+            pos["last_price_time"] = now_str
 
             entry = pos.get("entry_price")
             if entry and entry > 0:
-                direction = pos["direction"]
-                gross     = direction * (current_price - entry) / entry
-                net       = gross - self._cost_frac
+                gross = pos["direction"] * (current - entry) / entry
+                net   = gross - self._cost_frac
                 pos["unrealized_pct"] = round(net * 100, 4)
             updated += 1
 
@@ -216,150 +196,149 @@ class SignalLedger:
             self._save_positions()
         return updated
 
-    def settle_expired(
+    def settle_session(
         self,
-        today: str,
-        live_quotes: dict | None = None,
+        session_date: str,
+        final_quotes: dict | None = None,
     ) -> list[dict]:
         """
-        Settle all OPEN positions whose resolve_after date has passed.
-        Uses last available price as exit price.
-        Returns list of settled position records.
+        Settle ALL OPEN positions for today at session close (15:15-15:30 IST).
+        Uses final live price as exit price.
+        Returns list of settled records.
         """
-        today_dt = date.fromisoformat(today)
         settled: list[dict] = []
+        exit_time = _now_utc()
 
         for pos_key, pos in self._positions.items():
-            if pos["status"] != "OPEN":
-                continue
-            resolve_dt = date.fromisoformat(pos["resolve_after"])
-            if today_dt < resolve_dt:
+            if pos["status"] != "OPEN" or pos["session_date"] != session_date:
                 continue
 
-            # Get exit price: prefer live quote, fall back to last_price
+            # Exit price: prefer final quote, fall back to last_price
             exit_price: float | None = pos.get("last_price")
-            if live_quotes:
+            if final_quotes:
                 sym = pos["symbol"]
-                q   = live_quotes.get(sym, {})
+                q   = final_quotes.get(sym, {})
                 if isinstance(q, dict) and q.get("ltp") and float(q.get("ltp", 0)) > 0:
                     exit_price = float(q["ltp"])
 
             if exit_price and pos.get("entry_price") and pos["entry_price"] > 0:
-                direction    = pos["direction"]
-                gross        = direction * (exit_price - pos["entry_price"]) / pos["entry_price"]
-                net          = gross - self._cost_frac
-                final_ret    = round(net * 100, 4)
-                outcome      = "SETTLED_WIN" if net > 0 else "SETTLED_LOSS"
+                gross     = pos["direction"] * (exit_price - pos["entry_price"]) / pos["entry_price"]
+                net       = gross - self._cost_frac
+                final_ret = round(net * 100, 4)
+                outcome   = "SETTLED_WIN" if net > 0 else "SETTLED_LOSS"
             else:
                 final_ret = None
                 outcome   = "EXPIRED"
 
-            pos["status"]           = outcome
-            pos["settled_at"]       = _now_utc()
-            pos["final_return_pct"] = final_ret
-            pos["outcome"]          = outcome
-            pos["last_price"]       = exit_price
-            pos["last_price_date"]  = today
-            pos["unrealized_pct"]   = final_ret  # final = realized
+            pos["status"]            = outcome
+            pos["exit_time"]         = exit_time
+            pos["exit_price"]        = exit_price
+            pos["settled_at"]        = exit_time
+            pos["final_return_pct"]  = final_ret
+            pos["outcome"]           = outcome
+            pos["unrealized_pct"]    = final_ret  # realized
 
-            # Append settlement record to signals.jsonl
-            self._append_signal({**pos, "_event": "SETTLED"})
+            self._append_event({**pos, "_event": "SETTLED"})
             settled.append(pos)
 
         if settled:
             self._save_positions()
         return settled
 
-    def status_report(self) -> dict:
-        """Return a summary dict of all positions by status."""
-        open_pos      = [p for p in self._positions.values() if p["status"] == "OPEN"]
-        wins          = [p for p in self._positions.values() if p["status"] == "SETTLED_WIN"]
-        losses        = [p for p in self._positions.values() if p["status"] == "SETTLED_LOSS"]
-        expired       = [p for p in self._positions.values() if p["status"] == "EXPIRED"]
+    # keep settle_expired as alias for settle_session (backward-compat)
+    def settle_expired(self, session_date: str, live_quotes: dict | None = None) -> list[dict]:
+        return self.settle_session(session_date, final_quotes=live_quotes)
 
-        # Unrealized P&L on open positions
-        open_with_pnl = [p for p in open_pos if p.get("unrealized_pct") is not None]
-        unrealized_mean = (
-            sum(p["unrealized_pct"] for p in open_with_pnl) / len(open_with_pnl)
-            if open_with_pnl else None
+    def status_report(self) -> dict:
+        open_pos  = [p for p in self._positions.values() if p["status"] == "OPEN"]
+        wins      = [p for p in self._positions.values() if p["status"] == "SETTLED_WIN"]
+        losses    = [p for p in self._positions.values() if p["status"] == "SETTLED_LOSS"]
+        expired   = [p for p in self._positions.values() if p["status"] == "EXPIRED"]
+
+        open_pnl   = [p["unrealized_pct"] for p in open_pos if p.get("unrealized_pct") is not None]
+        settled_pnl= [p["final_return_pct"] for p in wins + losses if p.get("final_return_pct") is not None]
+
+        open_sorted = sorted(
+            [p for p in open_pos if p.get("unrealized_pct") is not None],
+            key=lambda p: p["unrealized_pct"], reverse=True,
         )
 
-        # Realized P&L
-        settled_rets = [p["final_return_pct"] for p in wins + losses
-                        if p.get("final_return_pct") is not None]
-        realized_mean = sum(settled_rets) / len(settled_rets) if settled_rets else None
-
-        # Top unrealized winners/losers
-        open_sorted = sorted(open_with_pnl, key=lambda p: p["unrealized_pct"] or 0, reverse=True)
-
         return {
-            "total_positions":   len(self._positions),
-            "open":              len(open_pos),
-            "settled_win":       len(wins),
-            "settled_loss":      len(losses),
-            "expired":           len(expired),
-            "win_rate":          len(wins) / (len(wins) + len(losses)) if wins or losses else None,
-            "unrealized_mean_pct": round(unrealized_mean, 4) if unrealized_mean is not None else None,
-            "realized_mean_pct": round(realized_mean, 4) if realized_mean is not None else None,
-            "top_unrealized_wins":   [_pos_summary(p) for p in open_sorted[:5]],
-            "top_unrealized_losses": [_pos_summary(p) for p in open_sorted[-5:][::-1]],
+            "total_positions":     len(self._positions),
+            "open":                len(open_pos),
+            "settled_win":         len(wins),
+            "settled_loss":        len(losses),
+            "expired":             len(expired),
+            "win_rate":            len(wins) / (len(wins) + len(losses)) if (wins or losses) else None,
+            "unrealized_mean_pct": round(sum(open_pnl)/len(open_pnl), 4) if open_pnl else None,
+            "realized_mean_pct":   round(sum(settled_pnl)/len(settled_pnl), 4) if settled_pnl else None,
+            "top_unrealized_wins":   [_ps(p) for p in open_sorted[:5]],
+            "top_unrealized_losses": [_ps(p) for p in open_sorted[-5:][::-1]],
         }
 
     def open_positions(self) -> list[dict]:
         return [p for p in self._positions.values() if p["status"] == "OPEN"]
 
+    def today_positions(self, session_date: str) -> list[dict]:
+        return [p for p in self._positions.values() if p["session_date"] == session_date]
+
     def all_positions(self) -> list[dict]:
         return list(self._positions.values())
 
     def markdown_report(self, session_date: str) -> str:
-        rpt = self.status_report()
-        now = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        rpt  = self.status_report()
+        now  = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        today_pos = self.today_positions(session_date)
+        settled   = [p for p in today_pos if p["status"] != "OPEN"]
+
         lines = [
-            f"# Signal Ledger Report — {session_date}",
-            f"**Generated:** {now}  |  **Horizon:** {HORIZON_DAYS} trading days",
+            f"# Signal Ledger — {session_date}",
+            f"**Generated:** {now}  |  **Mode:** Intraday (09:15–15:15 IST)",
             "",
             "## Summary",
             f"| Status | Count | Mean Return |",
             f"|--------|-------|-------------|",
-            f"| OPEN | {rpt['open']} | {rpt['unrealized_mean_pct']:+.2f}% unrealized |" if rpt['unrealized_mean_pct'] is not None else f"| OPEN | {rpt['open']} | — |",
-            f"| SETTLED_WIN | {rpt['settled_win']} | {rpt['realized_mean_pct']:+.2f}% |" if rpt['realized_mean_pct'] is not None else f"| SETTLED_WIN | {rpt['settled_win']} | — |",
+            f"| OPEN | {rpt['open']} | {rpt['unrealized_mean_pct']:+.2f}% unrealized |"
+              if rpt['unrealized_mean_pct'] is not None else f"| OPEN | {rpt['open']} | — |",
+            f"| SETTLED_WIN | {rpt['settled_win']} | — |",
             f"| SETTLED_LOSS | {rpt['settled_loss']} | — |",
-            f"| EXPIRED | {rpt['expired']} | — |",
-            f"| **Win rate** | **{rpt['win_rate']:.0%}** | — |" if rpt['win_rate'] is not None else "| Win rate | — | — |",
+            f"| Win rate | {rpt['win_rate']:.0%} | Realized: {rpt['realized_mean_pct']:+.2f}% |"
+              if rpt['win_rate'] is not None and rpt['realized_mean_pct'] is not None
+              else f"| Win rate | — | — |",
             "",
         ]
 
-        if rpt["top_unrealized_wins"]:
-            lines += ["## Top Unrealized Wins (Open)", "| Symbol | Dir | Score | Entry | Last | Unrealized | Expires |", "|--------|-----|-------|-------|------|-----------|---------|"]
-            for p in rpt["top_unrealized_wins"]:
-                lines.append(f"| {p['symbol']} | {'LONG' if p['direction']==1 else 'SHORT'} | {p['score']:.4f} | {p.get('entry_price','—')} | {p.get('last_price','—')} | {p.get('unrealized_pct',0):+.2f}% | {p['resolve_after']} |")
+        if settled:
+            lines += [
+                f"## Settled Positions ({session_date})",
+                "| Symbol | Dir | Score | Entry | Exit | Return | Outcome |",
+                "|--------|-----|-------|-------|------|--------|---------|",
+            ]
+            for p in sorted(settled, key=lambda x: x.get("final_return_pct") or 0, reverse=True):
+                d   = "LONG" if p["direction"] == 1 else "SHORT"
+                ep  = f"₹{p['entry_price']:.2f}" if p.get("entry_price") else "—"
+                xp  = f"₹{p['exit_price']:.2f}"  if p.get("exit_price")  else "—"
+                ret = f"{p['final_return_pct']:+.2f}%" if p.get("final_return_pct") is not None else "—"
+                lines.append(f"| {p['symbol']} | {d} | {p['score']:.4f} | {ep} | {xp} | {ret} | {p['outcome']} |")
             lines.append("")
 
-        if rpt["top_unrealized_losses"]:
-            lines += ["## Top Unrealized Losses (Open)", "| Symbol | Dir | Score | Entry | Last | Unrealized | Expires |", "|--------|-----|-------|-------|------|-----------|---------|"]
-            for p in rpt["top_unrealized_losses"]:
-                lines.append(f"| {p['symbol']} | {'LONG' if p['direction']==1 else 'SHORT'} | {p['score']:.4f} | {p.get('entry_price','—')} | {p.get('last_price','—')} | {p.get('unrealized_pct',0):+.2f}% | {p['resolve_after']} |")
-            lines.append("")
+        if rpt["top_unrealized_wins"]:
+            lines += [
+                "## Top Open (by unrealized P&L)",
+                "| Symbol | Dir | Score | Entry | Last | Unrealized |",
+                "|--------|-----|-------|-------|------|-----------|",
+            ]
+            for p in rpt["top_unrealized_wins"] + rpt["top_unrealized_losses"]:
+                d  = "LONG" if p["direction"] == 1 else "SHORT"
+                ep = f"₹{p['entry_price']:.2f}" if p.get("entry_price") else "—"
+                lp = f"₹{p['last_price']:.2f}"  if p.get("last_price")  else "—"
+                ur = f"{p['unrealized_pct']:+.2f}%" if p.get("unrealized_pct") is not None else "—"
+                lines.append(f"| {p['symbol']} | {d} | {p['score']:.4f} | {ep} | {lp} | {ur} |")
 
         return "\n".join(lines)
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _infer_regime(nifty_ltp: float | None) -> str:
-    """Infer regime from NIFTY LTP — placeholder; proper regime uses 20d return."""
-    return "UNKNOWN"
-
-
-def _pos_summary(pos: dict) -> dict:
-    return {
-        "symbol":         pos["symbol"],
-        "direction":      pos["direction"],
-        "score":          pos["score"],
-        "conviction":     pos.get("conviction", ""),
-        "entry_price":    pos.get("entry_price"),
-        "last_price":     pos.get("last_price"),
-        "unrealized_pct": pos.get("unrealized_pct"),
-        "resolve_after":  pos["resolve_after"],
-        "session_date":   pos["session_date"],
-    }
+def _ps(pos: dict) -> dict:
+    return {k: pos.get(k) for k in
+            ["symbol", "direction", "score", "conviction", "entry_price",
+             "last_price", "unrealized_pct", "session_date"]}
