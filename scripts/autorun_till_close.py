@@ -845,6 +845,23 @@ def post_close_resolve():
         print(out[-600:])
     return out
 
+
+def post_close_signal_ledger(session_date: str) -> str:
+    """Run the signal lifecycle ledger: record new signals, update MTM, settle expired."""
+    print("\n[close] Running Signal Ledger (lifecycle tracking)...")
+    result = subprocess.run(
+        ["python3", "-W", "ignore", str(BASE / "scripts/signal_ledger_daily.py"),
+         "--date", session_date],
+        capture_output=True, text=True, cwd=str(BASE),
+        env={**os.environ, "PYTHONPATH": str(BASE)}, timeout=60,
+    )
+    out = result.stdout.strip()
+    if out:
+        print(out[-800:])
+    if result.returncode != 0 and result.stderr:
+        print(f"[close] Signal ledger warning: {result.stderr[:200]}")
+    return out
+
 def post_close_promotion():
     print("\n[close] Running SignalPromotionEngine...")
     result = subprocess.run(
@@ -975,6 +992,7 @@ def main():
             ingest_out  = post_close_ingest()
             resolve_out = post_close_resolve()
             promo_out   = post_close_promotion()
+            ledger_out  = post_close_signal_ledger(session_date)
 
             # Final P&L with fresh quotes
             final_scores = score_all(estimator, feat_names, normalizer)
