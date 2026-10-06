@@ -2,46 +2,37 @@
 src.analytics.signal_ledger — Intraday Signal Lifecycle Tracker
 ================================================================
 
-Tracks every signal from open (9:15 IST) to close (15:15 IST) on the
-same trading day.
+Primary storage: SQLite via src.data.signal_db.SignalDB
+  data/ml_signals.db  — sessions, signals, positions, price_snapshots tables
+Audit trail:  artifacts/signal_ledger/signals.jsonl  (append-only backup)
 
-Lifecycle
----------
-  OPEN         Signal recorded at first live quote after 9:15 IST
-  SETTLED_WIN  Position closed profitably at 15:15 IST (net > 0)
-  SETTLED_LOSS Position closed at a loss at 15:15 IST (net ≤ 0)
+Lifecycle (same-day intraday)
+------------------------------
+  OPEN         Entry price recorded at first live quote after 09:15 IST
+  SETTLED_WIN  Closed at 15:15 IST with net positive return
+  SETTLED_LOSS Closed at 15:15 IST with net negative return
+  EXPIRED      Closed at 15:15 IST but entry price unavailable
 
-Flow (wired inside autorun_till_close.py)
------------------------------------------
-  sample_n == 1 (≈09:30 IST)
-      → record_signals(scores, live_quotes)   # entry prices captured
-  every sample (every 2 min)
-      → update_mark_to_market(live_quotes)    # unrealized P&L updated
-  post-close (15:30 IST)
-      → settle_expired(session_date, final_quotes)  # WIN / LOSS recorded
-      → write markdown report
-
-Storage
--------
-  artifacts/signal_ledger/signals.jsonl        append-only event log
-  artifacts/signal_ledger/positions.json       mutable current state
-  artifacts/signal_ledger/daily_reports/       per-session markdown files
+Flow (wired in autorun_till_close.py)
+--------------------------------------
+  sample_n==1  (≈09:30 IST) → record_signals()       entry prices captured
+  every sample (every 2 min) → update_mark_to_market() unrealized P&L live
+  post-close (15:30 IST)    → settle_session()        WIN / LOSS + report
 """
 from __future__ import annotations
 
 import json
 import uuid
-from datetime import date, datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-_BASE        = Path(__file__).parent.parent.parent
-LEDGER_DIR   = _BASE / "artifacts" / "signal_ledger"
-SIGNALS_FILE = LEDGER_DIR / "signals.jsonl"
-POSITIONS_FILE = LEDGER_DIR / "positions.json"
-REPORTS_DIR  = LEDGER_DIR / "daily_reports"
+_BASE         = Path(__file__).parent.parent.parent
+LEDGER_DIR    = _BASE / "artifacts" / "signal_ledger"
+SIGNALS_FILE  = LEDGER_DIR / "signals.jsonl"   # append-only audit backup
+REPORTS_DIR   = LEDGER_DIR / "daily_reports"
 
-COST_BPS_FUTURES = 7.26   # round-trip (COST_MODEL_V2)
+COST_BPS_FUTURES = 7.26
 COST_BPS_EQUITY  = 27.65
 
 
@@ -51,35 +42,24 @@ def _now_utc() -> str:
 
 class SignalLedger:
     """
-    Intraday signal lifecycle tracker.
+    Intraday signal lifecycle tracker backed by SQLite.
 
-    One position per (symbol, session_date).
-    Entry = first live price after 9:15 IST on session_date.
-    Exit  = live price at 15:15–15:30 IST on session_date.
+    All data is stored in data/ml_signals.db (via SignalDB).
+    JSONL audit trail kept in artifacts/signal_ledger/signals.jsonl.
     """
 
     def __init__(self, cost_bps: float = COST_BPS_FUTURES) -> None:
         LEDGER_DIR.mkdir(parents=True, exist_ok=True)
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
         self._cost_frac = cost_bps / 10_000.0
-        self._positions: dict[str, dict[str, Any]] = self._load_positions()
 
-    # ── Persistence ───────────────────────────────────────────────────────────
+        # Primary: SQLite
+        from src.data.signal_db import SignalDB
+        self._db = SignalDB()
 
-    def _load_positions(self) -> dict[str, dict]:
-        if POSITIONS_FILE.exists():
-            try:
-                return json.loads(POSITIONS_FILE.read_text())
-            except Exception:
-                return {}
-        return {}
+    # ── Audit trail ───────────────────────────────────────────────────────────
 
-    def _save_positions(self) -> None:
-        tmp = POSITIONS_FILE.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self._positions, indent=2, default=str))
-        tmp.replace(POSITIONS_FILE)
-
-    def _append_event(self, record: dict) -> None:
+    def _append_audit(self, record: dict) -> None:
         SIGNALS_FILE.parent.mkdir(parents=True, exist_ok=True)
         with SIGNALS_FILE.open("a") as f:
             f.write(json.dumps(record, default=str) + "\n")
@@ -95,25 +75,30 @@ class SignalLedger:
         live_quotes: dict | None = None,
     ) -> int:
         """
-        Record signals at session open (first live quote ≈09:30 IST).
-
-        Creates one OPEN position per active signal (direction != 0).
-        Idempotent: re-calling with the same session_date is a no-op.
-
+        Record active signals at session open (≈09:30 IST).
+        Idempotent: re-calling with same session_date is a no-op.
         Returns number of NEW positions created.
         """
-        new_count = 0
-        entry_time = _now_utc()
+        entry_time  = _now_utc()
+        active      = [s for s in signals if s.get("direction", 0) != 0 and s.get("symbol")]
+        n_long      = sum(1 for s in active if s["direction"] == 1)
+        n_short     = sum(1 for s in active if s["direction"] == -1)
 
-        for sig in signals:
-            sym       = sig.get("symbol", "")
-            direction = sig.get("direction", 0)
-            if direction == 0 or not sym:
-                continue
+        # Upsert session row
+        self._db.upsert_session(
+            session_date=session_date,
+            n_scored=len(signals),
+            n_long=n_long,
+            n_short=n_short,
+            nifty_ltp=nifty_ltp,
+        )
 
-            pos_key = f"{sym}:{session_date}"
-            if pos_key in self._positions:
-                continue  # idempotent
+        sig_rows: list[dict] = []
+        pos_rows: list[dict] = []
+
+        for sig in active:
+            sym   = sig["symbol"]
+            sid   = str(uuid.uuid4())[:16]
 
             # Entry price from live quote
             entry_price: float | None = None
@@ -122,57 +107,69 @@ class SignalLedger:
                 if ltp and float(ltp) > 0:
                     entry_price = float(ltp)
 
-            record: dict[str, Any] = {
-                "signal_id":       str(uuid.uuid4())[:16],
-                "pos_key":         pos_key,
+            sig_row: dict[str, Any] = {
+                "signal_id":      sid,
+                "session_date":   session_date,
+                "symbol":         sym,
+                "generated_at":   generated_at,
+                "data_date":      sig.get("data_date", ""),
+                "direction":      sig["direction"],
+                "score":          round(sig.get("score", 0.5), 4),
+                "conviction":     sig.get("conviction", ""),
+                "rank":           sig.get("rank"),
+                "cost_bps":       self._cost_frac * 10_000,
+                "nifty_at_signal": nifty_ltp,
+                "model_version":  None,
+            }
+            pos_row: dict[str, Any] = {
+                "signal_id":       sid,
                 "session_date":    session_date,
                 "symbol":          sym,
-                "generated_at":    generated_at,
+                "direction":       sig["direction"],
                 "entry_time":      entry_time,
-                "data_date":       sig.get("data_date", ""),
-                "direction":       direction,
-                "score":           round(sig.get("score", 0.5), 4),
-                "conviction":      sig.get("conviction", ""),
-                "rank":            sig.get("rank"),
-                "resolve_after":   session_date,   # same day — settles at post-close
                 "entry_price":     entry_price,
-                "last_price":      entry_price,
-                "last_price_time": entry_time if entry_price else None,
                 "exit_time":       None,
                 "exit_price":      None,
+                "last_price":      entry_price,
+                "last_price_time": entry_time if entry_price else None,
                 "unrealized_pct":  0.0 if entry_price else None,
                 "status":          "OPEN",
                 "settled_at":      None,
                 "final_return_pct": None,
                 "outcome":         None,
-                "nifty_at_signal": nifty_ltp,
-                "cost_bps":        self._cost_frac * 10_000,
             }
+            sig_rows.append(sig_row)
+            pos_rows.append(pos_row)
 
-            self._positions[pos_key] = record
-            self._append_event({**record, "_event": "OPEN"})
-            new_count += 1
+        # Batch-insert signals (idempotent: INSERT OR IGNORE)
+        new_sigs = self._db.insert_signals_batch(sig_rows)
 
-        if new_count > 0:
-            self._save_positions()
-        return new_count
+        # Insert positions only for newly inserted signals
+        inserted = 0
+        for sig_row, pos_row in zip(sig_rows, pos_rows):
+            if self._db.signal_exists(sig_row["signal_id"]):
+                # signal was freshly inserted → insert position too
+                self._db.upsert_position(pos_row)
+                self._append_audit({**sig_row, **pos_row, "_event": "OPEN"})
+                inserted += 1
+
+        return new_sigs
 
     def update_mark_to_market(
         self,
         live_quotes: dict,
         today: str,
     ) -> int:
-        """
-        Update unrealized P&L for all OPEN positions of today.
-        Called every sample (~every 2 minutes).
-        Returns count of positions updated.
-        """
-        updated  = 0
-        now_str  = _now_utc()
+        """Update unrealized P&L for all OPEN positions. Called every 2 min."""
+        now_str    = _now_utc()
+        open_pos   = self._db.get_open_positions(today)
+        if not open_pos:
+            return 0
 
-        for pos_key, pos in self._positions.items():
-            if pos["status"] != "OPEN" or pos["session_date"] != today:
-                continue
+        price_updates: list[tuple] = []
+        snap_rows: list[dict]      = []
+
+        for pos in open_pos:
             sym = pos["symbol"]
             q   = live_quotes.get(sym, {})
             if not isinstance(q, dict):
@@ -182,47 +179,51 @@ class SignalLedger:
                 continue
 
             current = float(ltp)
-            pos["last_price"]      = current
-            pos["last_price_time"] = now_str
-
+            unrealized: float | None = None
             entry = pos.get("entry_price")
             if entry and entry > 0:
-                gross = pos["direction"] * (current - entry) / entry
-                net   = gross - self._cost_frac
-                pos["unrealized_pct"] = round(net * 100, 4)
-            updated += 1
+                gross    = pos["direction"] * (current - entry) / entry
+                unrealized = round((gross - self._cost_frac) * 100, 4)
 
-        if updated > 0:
-            self._save_positions()
-        return updated
+            price_updates.append((current, unrealized, now_str, sym, today))
+            snap_rows.append({
+                "session_date":   today,
+                "symbol":         sym,
+                "snapshot_time":  now_str,
+                "price":          current,
+                "unrealized_pct": unrealized,
+            })
+
+        if price_updates:
+            self._db.update_prices_batch(today, price_updates)
+        if snap_rows:
+            self._db.insert_snapshot_batch(today, snap_rows)
+
+        return len(price_updates)
 
     def settle_session(
         self,
         session_date: str,
         final_quotes: dict | None = None,
     ) -> list[dict]:
-        """
-        Settle ALL OPEN positions for today at session close (15:15-15:30 IST).
-        Uses final live price as exit price.
-        Returns list of settled records.
-        """
-        settled: list[dict] = []
+        """Settle all OPEN positions at close (15:15-15:30 IST). Returns settled rows."""
+        open_pos  = self._db.get_open_positions(session_date)
         exit_time = _now_utc()
+        settled: list[dict] = []
 
-        for pos_key, pos in self._positions.items():
-            if pos["status"] != "OPEN" or pos["session_date"] != session_date:
-                continue
+        for pos in open_pos:
+            sym = pos["symbol"]
 
             # Exit price: prefer final quote, fall back to last_price
             exit_price: float | None = pos.get("last_price")
             if final_quotes:
-                sym = pos["symbol"]
-                q   = final_quotes.get(sym, {})
+                q = final_quotes.get(sym, {})
                 if isinstance(q, dict) and q.get("ltp") and float(q.get("ltp", 0)) > 0:
                     exit_price = float(q["ltp"])
 
-            if exit_price and pos.get("entry_price") and pos["entry_price"] > 0:
-                gross     = pos["direction"] * (exit_price - pos["entry_price"]) / pos["entry_price"]
+            entry = pos.get("entry_price")
+            if exit_price and entry and entry > 0:
+                gross     = pos["direction"] * (exit_price - entry) / entry
                 net       = gross - self._cost_frac
                 final_ret = round(net * 100, 4)
                 outcome   = "SETTLED_WIN" if net > 0 else "SETTLED_LOSS"
@@ -230,115 +231,146 @@ class SignalLedger:
                 final_ret = None
                 outcome   = "EXPIRED"
 
-            pos["status"]            = outcome
-            pos["exit_time"]         = exit_time
-            pos["exit_price"]        = exit_price
-            pos["settled_at"]        = exit_time
-            pos["final_return_pct"]  = final_ret
-            pos["outcome"]           = outcome
-            pos["unrealized_pct"]    = final_ret  # realized
+            settle_data = {
+                "exit_time":       exit_time,
+                "exit_price":      exit_price,
+                "status":          outcome,
+                "settled_at":      exit_time,
+                "final_return_pct": final_ret,
+                "outcome":         outcome,
+            }
+            self._db.settle_position(pos["signal_id"], settle_data)
+            self._append_audit({**pos, **settle_data, "_event": "SETTLED"})
 
-            self._append_event({**pos, "_event": "SETTLED"})
-            settled.append(pos)
+            settled.append({**pos, **settle_data})
 
+        # Update session summary
         if settled:
-            self._save_positions()
+            wins   = sum(1 for p in settled if p["outcome"] == "SETTLED_WIN")
+            losses = sum(1 for p in settled if p["outcome"] == "SETTLED_LOSS")
+            rets   = [p["final_return_pct"] for p in settled if p.get("final_return_pct") is not None]
+            # nifty_chg comes from the session row already set
+            self._db.upsert_session(session_date=session_date, n_long=0, n_short=0)
+
         return settled
 
-    # keep settle_expired as alias for settle_session (backward-compat)
+    # backward-compat alias
     def settle_expired(self, session_date: str, live_quotes: dict | None = None) -> list[dict]:
         return self.settle_session(session_date, final_quotes=live_quotes)
 
+    # ── Reports / Queries ─────────────────────────────────────────────────────
+
     def status_report(self) -> dict:
-        open_pos  = [p for p in self._positions.values() if p["status"] == "OPEN"]
-        wins      = [p for p in self._positions.values() if p["status"] == "SETTLED_WIN"]
-        losses    = [p for p in self._positions.values() if p["status"] == "SETTLED_LOSS"]
-        expired   = [p for p in self._positions.values() if p["status"] == "EXPIRED"]
+        """Summary of all positions across all sessions."""
+        from src.data.signal_db import SignalDB, DB_PATH
+        db = self._db
+        all_hist = db.get_historical_performance(days=365)
+        wins   = sum(r["wins"] or 0 for r in all_hist)
+        losses = sum(r["losses"] or 0 for r in all_hist)
+        rets   = [r["mean_return_pct"] for r in all_hist if r.get("mean_return_pct") is not None]
 
-        open_pnl   = [p["unrealized_pct"] for p in open_pos if p.get("unrealized_pct") is not None]
-        settled_pnl= [p["final_return_pct"] for p in wins + losses if p.get("final_return_pct") is not None]
-
-        open_sorted = sorted(
-            [p for p in open_pos if p.get("unrealized_pct") is not None],
-            key=lambda p: p["unrealized_pct"], reverse=True,
-        )
+        # Today's open
+        from datetime import date
+        today = date.today().isoformat()
+        open_pos = db.get_open_positions(today)
+        open_unrealized = [p["unrealized_pct"] for p in open_pos if p.get("unrealized_pct") is not None]
 
         return {
-            "total_positions":     len(self._positions),
+            "total_sessions":      len(all_hist),
+            "total_settled":       wins + losses,
+            "settled_win":         wins,
+            "settled_loss":        losses,
+            "win_rate":            wins / (wins + losses) if (wins + losses) else None,
+            "realized_mean_pct":   round(sum(rets) / len(rets), 4) if rets else None,
             "open":                len(open_pos),
-            "settled_win":         len(wins),
-            "settled_loss":        len(losses),
-            "expired":             len(expired),
-            "win_rate":            len(wins) / (len(wins) + len(losses)) if (wins or losses) else None,
-            "unrealized_mean_pct": round(sum(open_pnl)/len(open_pnl), 4) if open_pnl else None,
-            "realized_mean_pct":   round(sum(settled_pnl)/len(settled_pnl), 4) if settled_pnl else None,
-            "top_unrealized_wins":   [_ps(p) for p in open_sorted[:5]],
-            "top_unrealized_losses": [_ps(p) for p in open_sorted[-5:][::-1]],
+            "unrealized_mean_pct": round(sum(open_unrealized) / len(open_unrealized), 4) if open_unrealized else None,
+            "db_stats":            db.db_stats(),
         }
 
     def open_positions(self) -> list[dict]:
-        return [p for p in self._positions.values() if p["status"] == "OPEN"]
+        from datetime import date
+        return self._db.get_open_positions(date.today().isoformat())
 
     def today_positions(self, session_date: str) -> list[dict]:
-        return [p for p in self._positions.values() if p["session_date"] == session_date]
+        return self._db.get_open_positions(session_date)
 
     def all_positions(self) -> list[dict]:
-        return list(self._positions.values())
+        """All positions (open + settled) for all sessions."""
+        with self._db._connect() as conn:
+            rows = conn.execute("""
+                SELECT p.*, s.score, s.conviction, s.rank, s.generated_at,
+                       s.data_date, s.nifty_at_signal
+                FROM positions p JOIN signals s USING (signal_id)
+                ORDER BY p.session_date DESC, s.score DESC
+            """).fetchall()
+        return [dict(r) for r in rows]
 
     def markdown_report(self, session_date: str) -> str:
-        rpt  = self.status_report()
-        now  = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-        today_pos = self.today_positions(session_date)
-        settled   = [p for p in today_pos if p["status"] != "OPEN"]
+        summary = self._db.get_session_summary(session_date)
+        conv    = self._db.get_conviction_stats()
+        now     = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+        wins   = summary.get("wins") or 0
+        losses = summary.get("losses") or 0
+        open_  = summary.get("open") or 0
+        total  = summary.get("total") or 0
+        win_pct = summary.get("win_pct")
+        mean_r  = summary.get("mean_return")
 
         lines = [
             f"# Signal Ledger — {session_date}",
             f"**Generated:** {now}  |  **Mode:** Intraday (09:15–15:15 IST)",
+            f"**Storage:** SQLite `data/ml_signals.db`",
             "",
-            "## Summary",
-            f"| Status | Count | Mean Return |",
-            f"|--------|-------|-------------|",
-            f"| OPEN | {rpt['open']} | {rpt['unrealized_mean_pct']:+.2f}% unrealized |"
-              if rpt['unrealized_mean_pct'] is not None else f"| OPEN | {rpt['open']} | — |",
-            f"| SETTLED_WIN | {rpt['settled_win']} | — |",
-            f"| SETTLED_LOSS | {rpt['settled_loss']} | — |",
-            f"| Win rate | {rpt['win_rate']:.0%} | Realized: {rpt['realized_mean_pct']:+.2f}% |"
-              if rpt['win_rate'] is not None and rpt['realized_mean_pct'] is not None
-              else f"| Win rate | — | — |",
+            "## Session Summary",
+            "| Metric | Value |",
+            "|--------|-------|",
+            f"| Total signals | {total} |",
+            f"| OPEN | {open_} |",
+            f"| SETTLED_WIN | {wins} |",
+            f"| SETTLED_LOSS | {losses} |",
+            f"| Win rate | {f'{win_pct:.1f}%' if win_pct else '—'} |",
+            f"| Mean net return | {f'{mean_r:+.3f}%' if mean_r is not None else '—'} |",
             "",
         ]
 
-        if settled:
+        # Settled positions
+        with self._db._connect() as conn:
+            rows = conn.execute("""
+                SELECT p.symbol, p.direction, s.score, s.conviction,
+                       p.entry_price, p.exit_price, p.final_return_pct, p.status
+                FROM positions p JOIN signals s USING (signal_id)
+                WHERE p.session_date=? AND p.status!='OPEN'
+                ORDER BY p.final_return_pct DESC
+            """, (session_date,)).fetchall()
+
+        if rows:
             lines += [
-                f"## Settled Positions ({session_date})",
-                "| Symbol | Dir | Score | Entry | Exit | Return | Outcome |",
-                "|--------|-----|-------|-------|------|--------|---------|",
+                "## Settled Positions",
+                "| Symbol | Dir | Score | Conv | Entry | Exit | Return | Outcome |",
+                "|--------|-----|-------|------|-------|------|--------|---------|",
             ]
-            for p in sorted(settled, key=lambda x: x.get("final_return_pct") or 0, reverse=True):
-                d   = "LONG" if p["direction"] == 1 else "SHORT"
-                ep  = f"₹{p['entry_price']:.2f}" if p.get("entry_price") else "—"
-                xp  = f"₹{p['exit_price']:.2f}"  if p.get("exit_price")  else "—"
-                ret = f"{p['final_return_pct']:+.2f}%" if p.get("final_return_pct") is not None else "—"
-                lines.append(f"| {p['symbol']} | {d} | {p['score']:.4f} | {ep} | {xp} | {ret} | {p['outcome']} |")
+            for r in rows:
+                d   = "LONG" if r["direction"] == 1 else "SHORT"
+                ep  = f"₹{r['entry_price']:.2f}" if r["entry_price"] else "—"
+                xp  = f"₹{r['exit_price']:.2f}"  if r["exit_price"]  else "—"
+                ret = f"{r['final_return_pct']:+.2f}%" if r["final_return_pct"] is not None else "—"
+                mk  = "✅" if r["status"] == "SETTLED_WIN" else "❌"
+                lines.append(
+                    f"| {r['symbol']} | {d} | {r['score']:.4f} | {r['conviction'] or '—'} "
+                    f"| {ep} | {xp} | {ret} | {mk} |"
+                )
             lines.append("")
 
-        if rpt["top_unrealized_wins"]:
+        if conv:
             lines += [
-                "## Top Open (by unrealized P&L)",
-                "| Symbol | Dir | Score | Entry | Last | Unrealized |",
-                "|--------|-----|-------|-------|------|-----------|",
+                "## Conviction Grade Performance (all sessions)",
+                "| Grade | Trades | Win% | Mean Return |",
+                "|-------|--------|------|-------------|",
             ]
-            for p in rpt["top_unrealized_wins"] + rpt["top_unrealized_losses"]:
-                d  = "LONG" if p["direction"] == 1 else "SHORT"
-                ep = f"₹{p['entry_price']:.2f}" if p.get("entry_price") else "—"
-                lp = f"₹{p['last_price']:.2f}"  if p.get("last_price")  else "—"
-                ur = f"{p['unrealized_pct']:+.2f}%" if p.get("unrealized_pct") is not None else "—"
-                lines.append(f"| {p['symbol']} | {d} | {p['score']:.4f} | {ep} | {lp} | {ur} |")
+            for c in conv:
+                lines.append(
+                    f"| {c['conviction']} | {c['trades']} | {c['win_pct']:.1f}% | {c['mean_return']:+.3f}% |"
+                )
 
         return "\n".join(lines)
-
-
-def _ps(pos: dict) -> dict:
-    return {k: pos.get(k) for k in
-            ["symbol", "direction", "score", "conviction", "entry_price",
-             "last_price", "unrealized_pct", "session_date"]}
