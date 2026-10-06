@@ -143,6 +143,39 @@ class ForecastLedger:
                 fh.write(json.dumps(row) + "\n")
                 written += 1
 
+        # Dual-write: also persist to PostgreSQL forecasts table
+        try:
+            from src.data.signal_db import get_db as _get_db
+            pg_rows = []
+            with open(self._path) as _fh:
+                for _line in _fh:
+                    if not _line.strip():
+                        continue
+                    try:
+                        _r = json.loads(_line)
+                        pg_rows.append({
+                            "id":            _r.get("id", ""),
+                            "ts":            _r.get("ts", ""),
+                            "session_date":  _r.get("session_date", ""),
+                            "symbol":        _r.get("symbol", ""),
+                            "score":         _r.get("score"),
+                            "direction":     _r.get("direction"),
+                            "est_prob":      _r.get("est_prob"),
+                            "market_prior":  _r.get("market_prior"),
+                            "data_date":     _r.get("data_date"),
+                            "nifty_chg":     _r.get("nifty_chg_at_record"),
+                            "model_version": _r.get("model_version"),
+                            "status":        _r.get("status", "open"),
+                            "supersedes":    _r.get("supersedes"),
+                            "superseded_at": _r.get("superseded_at"),
+                        })
+                    except Exception:
+                        pass
+            if pg_rows:
+                _get_db().upsert_forecasts_batch(pg_rows)
+        except Exception:
+            pass  # PG unavailable — JSONL is the fallback
+
         logger.info(
             "forecast_ledger_session_recorded",
             session_date=session_date, n_written=written,

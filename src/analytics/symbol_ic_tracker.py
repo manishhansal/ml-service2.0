@@ -155,6 +155,18 @@ class SymbolICTracker:
 
         self._save()
 
+        # Dual-write: also persist to PostgreSQL symbol_ic table
+        try:
+            from src.data.signal_db import get_db as _get_db
+            _get_db().upsert_symbol_ic_batch([{
+                "symbol":       symbol,
+                "n_trades":     sym["n_trades"],
+                "rolling_ic":   sym.get("rolling_ic"),
+                "last_updated": date,
+            }])
+        except Exception:
+            pass  # PG unavailable — JSONL file is the fallback
+
     def record_batch(self, outcomes: list[dict]) -> None:
         """
         Record multiple outcomes at once.

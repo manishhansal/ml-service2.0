@@ -117,6 +117,56 @@ CREATE TABLE IF NOT EXISTS price_snapshots (
     unrealized_pct   REAL
 );
 CREATE INDEX IF NOT EXISTS idx_snap_sess_sym ON price_snapshots(session_date, symbol);
+
+-- ForecastLedger entries (scored every 2 min, status: open/won/lost/superseded)
+CREATE TABLE IF NOT EXISTS forecasts (
+    id               TEXT PRIMARY KEY,
+    ts               TEXT NOT NULL,
+    session_date     TEXT NOT NULL,
+    symbol           TEXT NOT NULL,
+    score            REAL,
+    direction        INTEGER,
+    est_prob         REAL,
+    market_prior     REAL,
+    data_date        TEXT,
+    nifty_chg        REAL,
+    model_version    TEXT,
+    status           TEXT DEFAULT 'open',
+    supersedes       TEXT,
+    superseded_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_forecasts_session ON forecasts(session_date);
+CREATE INDEX IF NOT EXISTS idx_forecasts_sym     ON forecasts(symbol, session_date);
+
+-- Symbol IC tracker (rolling IC per symbol, used to suppress consistently bad signals)
+CREATE TABLE IF NOT EXISTS symbol_ic (
+    symbol       TEXT PRIMARY KEY,
+    n_trades     INTEGER DEFAULT 0,
+    rolling_ic   REAL,
+    last_updated TEXT
+);
+
+-- Historical forward paper outcomes (pre-SignalLedger resolved positions)
+CREATE TABLE IF NOT EXISTS historical_outcomes (
+    signal_id        TEXT PRIMARY KEY,
+    symbol           TEXT NOT NULL,
+    signal_ts        TEXT,
+    resolve_after    TEXT,
+    resolved_at      TEXT,
+    direction        INTEGER,
+    horizon_bars     INTEGER,
+    bars_elapsed     INTEGER,
+    partial          BOOLEAN DEFAULT FALSE,
+    entry_price      REAL,
+    exit_price       REAL,
+    gross_return     REAL,
+    net_return       REAL,
+    cost_bps         REAL,
+    outcome          TEXT,
+    regime           TEXT,
+    note             TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_hist_symbol ON historical_outcomes(symbol);
 """
 
 _lock = threading.Lock()
@@ -398,6 +448,85 @@ class SignalDB:
         """Run any read-only SQL and return rows as dicts."""
         with self._connect() as conn:
             return self._dict_rows(conn, sql, params)
+
+    # ── ForecastLedger ────────────────────────────────────────────────────────
+
+    def upsert_forecast(self, row: dict) -> None:
+        with _lock, self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO forecasts(id,ts,session_date,symbol,score,direction,
+                        est_prob,market_prior,data_date,nifty_chg,model_version,
+                        status,supersedes,superseded_at)
+                    VALUES(%(id)s,%(ts)s,%(session_date)s,%(symbol)s,%(score)s,
+                        %(direction)s,%(est_prob)s,%(market_prior)s,%(data_date)s,
+                        %(nifty_chg)s,%(model_version)s,%(status)s,
+                        %(supersedes)s,%(superseded_at)s)
+                    ON CONFLICT(id) DO UPDATE SET
+                        status=EXCLUDED.status,
+                        superseded_at=COALESCE(EXCLUDED.superseded_at, forecasts.superseded_at)
+                """, row)
+
+    def upsert_forecasts_batch(self, rows: list[dict]) -> int:
+        inserted = 0
+        with _lock, self._connect() as conn:
+            with conn.cursor() as cur:
+                psycopg2.extras.execute_batch(cur, """
+                    INSERT INTO forecasts(id,ts,session_date,symbol,score,direction,
+                        est_prob,market_prior,data_date,nifty_chg,model_version,
+                        status,supersedes,superseded_at)
+                    VALUES(%(id)s,%(ts)s,%(session_date)s,%(symbol)s,%(score)s,
+                        %(direction)s,%(est_prob)s,%(market_prior)s,%(data_date)s,
+                        %(nifty_chg)s,%(model_version)s,%(status)s,
+                        %(supersedes)s,%(superseded_at)s)
+                    ON CONFLICT(id) DO UPDATE SET
+                        status=EXCLUDED.status,
+                        superseded_at=COALESCE(EXCLUDED.superseded_at, forecasts.superseded_at)
+                """, rows)
+                inserted = len(rows)
+        return inserted
+
+    # ── Symbol IC tracker ─────────────────────────────────────────────────────
+
+    def upsert_symbol_ic_batch(self, rows: list[dict]) -> None:
+        with _lock, self._connect() as conn:
+            with conn.cursor() as cur:
+                psycopg2.extras.execute_batch(cur, """
+                    INSERT INTO symbol_ic(symbol, n_trades, rolling_ic, last_updated)
+                    VALUES(%(symbol)s, %(n_trades)s, %(rolling_ic)s, %(last_updated)s)
+                    ON CONFLICT(symbol) DO UPDATE SET
+                        n_trades=EXCLUDED.n_trades,
+                        rolling_ic=EXCLUDED.rolling_ic,
+                        last_updated=EXCLUDED.last_updated
+                """, rows)
+
+    def get_symbol_ic(self, symbol: str | None = None) -> list[dict]:
+        sql   = "SELECT * FROM symbol_ic"
+        params: tuple = ()
+        if symbol:
+            sql   += " WHERE symbol=%s"
+            params = (symbol,)
+        sql += " ORDER BY rolling_ic ASC"
+        with self._connect() as conn:
+            return self._dict_rows(conn, sql, params)
+
+    # ── Historical outcomes ───────────────────────────────────────────────────
+
+    def upsert_historical_outcomes_batch(self, rows: list[dict]) -> int:
+        with _lock, self._connect() as conn:
+            with conn.cursor() as cur:
+                psycopg2.extras.execute_batch(cur, """
+                    INSERT INTO historical_outcomes(signal_id,symbol,signal_ts,
+                        resolve_after,resolved_at,direction,horizon_bars,bars_elapsed,
+                        partial,entry_price,exit_price,gross_return,net_return,
+                        cost_bps,outcome,regime,note)
+                    VALUES(%(signal_id)s,%(symbol)s,%(signal_ts)s,%(resolve_after)s,
+                        %(resolved_at)s,%(direction)s,%(horizon_bars)s,%(bars_elapsed)s,
+                        %(partial)s,%(entry_price)s,%(exit_price)s,%(gross_return)s,
+                        %(net_return)s,%(cost_bps)s,%(outcome)s,%(regime)s,%(note)s)
+                    ON CONFLICT(signal_id) DO NOTHING
+                """, rows)
+                return len(rows)
 
 
 # ── Module-level singleton ────────────────────────────────────────────────────
