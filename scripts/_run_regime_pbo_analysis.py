@@ -3,7 +3,7 @@ Compute:
   A. True-model IC by market regime (BULL/BEAR/SIDEWAYS/HIGH_VOL)
   B. Proper PBO via combinatorial cross-validation paths
   C. Portfolio drawdown limit bug analysis
-All saved to reports/forensic_cert_2026_10_01/
+All saved to reports/forensic/
 """
 from __future__ import annotations
 import json
@@ -19,7 +19,7 @@ from scipy.stats import spearmanr
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
-OUT = ROOT / "reports" / "forensic_cert_2026_10_01"
+OUT = ROOT / "reports" / "forensic"
 OUT.mkdir(parents=True, exist_ok=True)
 
 MODEL_PATH = ROOT / "artifacts/registry/expanded_lgbm/1.0.0-20260928053134956099/model.pkl"

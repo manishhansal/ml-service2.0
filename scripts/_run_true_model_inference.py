@@ -24,7 +24,7 @@ import pandas as pd
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-OUT_DIR = ROOT / "reports" / "forensic_cert_2026_10_01"
+OUT_DIR = ROOT / "reports" / "forensic"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 MODEL_PATH = ROOT / "artifacts/registry/expanded_lgbm/1.0.0-20260928053134956099/model.pkl"
