@@ -282,16 +282,34 @@ def main() -> None:
 
     # Lock file — prevent duplicate runs
     if LOCK_FILE.exists():
-        pid = LOCK_FILE.read_text().strip()
-        log.warning(f"Lock file exists (PID={pid}). Another instance may be running.")
-        # Check if that PID is actually alive
+        pid_str = LOCK_FILE.read_text().strip()
+        log.warning(f"Lock file exists (PID={pid_str}). Another instance may be running.")
+        # Check if that PID is actually alive AND is this scheduler script
+        is_live_scheduler = False
         try:
-            os.kill(int(pid), 0)
-            log.error("Existing instance confirmed alive — exiting.")
-            sys.exit(1)
+            pid_int = int(pid_str)
+            os.kill(pid_int, 0)   # raises if dead
+            # Verify the PID belongs to THIS script, not init/PID-1
+            # In Docker containers PID=1 is always init — that's a stale lock.
+            if pid_int == 1:
+                log.info("Lock held by PID=1 (container init) — stale lock, removing.")
+            else:
+                cmdline_path = f"/proc/{pid_int}/cmdline"
+                try:
+                    import pathlib as _pl
+                    cmd = _pl.Path(cmdline_path).read_text(errors="replace")
+                    if "news_backfill_scheduler" in cmd:
+                        is_live_scheduler = True
+                except OSError:
+                    pass  # /proc not available or process gone
+                if is_live_scheduler:
+                    log.error("Existing scheduler instance confirmed alive — exiting.")
+                    sys.exit(1)
+                else:
+                    log.info("Lock PID is alive but not the scheduler — stale lock, removing.")
         except (ProcessLookupError, ValueError):
-            log.info("Stale lock file — removing.")
-            LOCK_FILE.unlink(missing_ok=True)
+            log.info("Stale lock file (process gone) — removing.")
+        LOCK_FILE.unlink(missing_ok=True)
 
     LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
     LOCK_FILE.write_text(str(os.getpid()))

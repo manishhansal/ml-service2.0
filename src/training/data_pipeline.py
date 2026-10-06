@@ -1420,11 +1420,56 @@ def generate_labels(
             ohlcv=ohlcv, config=config, symbol=symbol,
         )
         diag = label_diagnostics_fixed(events, config)
+
+    # ── Task 5 / RC-005 fix: 7-day and CS-rank label families ────────────────
+    elif reg.label_family == LabelFamily.SEVEN_DAY_BARRIER:
+        from ..labels.seven_day import (                    # noqa: PLC0415
+            generate_7d_asymmetric_barrier_label,
+        )
+        label_s = generate_7d_asymmetric_barrier_label(
+            stock_df=ohlcv,
+            cost_bps=float(config.get("cost_bps", 8.5)),
+            horizon=int(config.get("horizon", 7)),
+        )
+        # Wrap Series into a list-of-dicts compatible with downstream validators
+        events = [
+            {"ts": ts, "label": int(v), "symbol": symbol}
+            for ts, v in label_s.dropna().items()
+        ]
+        diag = {"n_labels": len(events), "label_family": "SEVEN_DAY_BARRIER"}
+
+    elif reg.label_family in (LabelFamily.SEVEN_DAY_EXCESS, LabelFamily.CS_RANK):
+        # CS_RANK is an alias for SEVEN_DAY_EXCESS in all documentation.
+        from ..labels.seven_day import generate_7d_excess_return_label  # noqa: PLC0415
+        if benchmark_close is None:
+            raise ValueError(
+                f"label_id='{label_id}' (family={reg.label_family.value}) "
+                "requires benchmark_close (pass NIFTY close Series as benchmark_close=)"
+            )
+        label_s = generate_7d_excess_return_label(
+            stock_df=ohlcv,
+            nifty_close=benchmark_close,
+            horizon=int(config.get("horizon", 7)),
+            vol_window=int(config.get("vol_window", 20)),
+            clip=float(config.get("clip", 5.0)),
+        )
+        events = [
+            {"ts": ts, "label": float(v), "symbol": symbol}
+            for ts, v in label_s.dropna().items()
+        ]
+        diag = {
+            "n_labels":    len(events),
+            "label_family": reg.label_family.value,
+            "label_mean":  round(float(label_s.dropna().mean()), 4),
+            "label_std":   round(float(label_s.dropna().std()),  4),
+        }
+
     else:
         raise NotImplementedError(
             f"label_id='{label_id}' (family={reg.label_family}) "
-            "is not yet directly callable via generate_labels(). "
-            "Use the specific module API."
+            "is registered but has no generator wired in generate_labels(). "
+            f"Add a handler for LabelFamily.{reg.label_family.name} in "
+            "src/training/data_pipeline.py."
         )
 
     return {

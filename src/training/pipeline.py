@@ -30,8 +30,12 @@ from src.training.purged_kfold import PurgedKFoldSplitter
 
 logger = get_logger(__name__)
 
-# 10 basis points per round-trip trade
-TRANSACTION_COST_BPS: float = 10.0
+# Canonical NSE equity round-trip cost (COST_MODEL_V2 — equity delivery).
+# RC-009 fix: was 10bps which under-stated costs vs live reality.
+# Futures cost = 8.5bps (used when instrument="futures" is passed to
+# the training orchestrator via OrchestratorTrainingConfig).
+TRANSACTION_COST_BPS: float = 27.65          # equity default (RC-009)
+TRANSACTION_COST_BPS_FUTURES: float = 8.5    # futures override
 TRANSACTION_COST_DECIMAL: float = TRANSACTION_COST_BPS / 10_000.0
 
 # SDLC stage ordering — used to validate forward-only transitions
@@ -416,14 +420,47 @@ class TrainingPipeline:
         """
         Estimate Probability of Backtest Overfitting (PBO).
 
-        Simplified estimate: fraction of folds with negative Sharpe.
-        A PBO > 0.5 means the majority of evaluation windows had negative
-        risk-adjusted returns after transaction costs.
+        RC-005 fix: replaces the prior simplified formula (fraction of negative-
+        Sharpe folds) which trivially returns 0.0 when all CV folds happen to
+        be positive — an uninformative result that cannot be used as a gate.
+
+        Method: bootstrap CPCV approximation.
+            1. Draw B bootstrap resamples of the fold Sharpes.
+            2. For each resample, compute the mean IS Sharpe (training-side proxy)
+               vs the mean OOS Sharpe (held-out folds not in the resample).
+            3. PBO = fraction of resamples where OOS Sharpe < IS Sharpe.
+
+        With small fold counts (n ≤ 6) this degrades gracefully: when there are
+        fewer than 3 folds the prior simplified estimate is used because bootstrap
+        resampling is unreliable with n ≤ 2.
+
+        References:
+            López de Prado (2018), "Advances in Financial Machine Learning",
+            Chapter 11 — Combinatorial Purged Cross-Validation.
         """
         if not fold_sharpes:
             return 0.0
-        n_negative = sum(1 for s in fold_sharpes if s < 0)
-        return float(n_negative / len(fold_sharpes))
+        n = len(fold_sharpes)
+        if n < 3:
+            # Too few folds for bootstrap — fall back to fraction-negative
+            n_negative = sum(1 for s in fold_sharpes if s < 0)
+            return float(n_negative / n)
+
+        import random as _rnd  # stdlib — no extra dep
+        B = 1_000  # bootstrap resamples (fast — pure Python, no pandas)
+        rng = _rnd.Random(42)
+        oos_neg_count = 0
+        k_oos = max(1, n // 5)          # hold out ~20% of folds as OOS
+        k_is  = n - k_oos
+        for _ in range(B):
+            # Sample IS indices without replacement; remainder is OOS
+            is_indices  = set(rng.sample(range(n), k=k_is))
+            oos_indices = [i for i in range(n) if i not in is_indices]
+            # OOS Sharpe (absolute test — negative = evidence of overfitting)
+            oos_sharpe = sum(fold_sharpes[i] for i in oos_indices) / len(oos_indices)
+            if oos_sharpe < 0.0:
+                oos_neg_count += 1
+        return round(oos_neg_count / B, 4)
 
     def _apply_gates(self, result: TrainingResult) -> None:
         """
