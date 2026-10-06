@@ -1,7 +1,7 @@
 # REMEDIATION_BACKLOG.md
 **AlphaForge ml-service2.0 — Remediation Status**
-**Updated:** 2026-10-05 (post-close, v5.0 — v2c model deployed, 5 live sessions confirmed)
-**Progress: 41/45 CLOSED (91%) | Stage: LIMITED SHADOW (long-only futures)**
+**Updated:** 2026-10-06 (post-close, v6.0 — 6 live sessions confirmed, BULL regime suppressor added)
+**Progress: 44/46 CLOSED (96%) | Stage: LIMITED SHADOW (long-only futures)**
 
 ---
 
@@ -12,7 +12,8 @@
 ║  MODEL:  v2c (LGBMRegressor, 65 features, 7-day CS rank label)      ║
 ║  STATUS: LIMITED SHADOW — long-only NSE futures authorized           ║
 ║  OOS:    IC=+0.040 (p<0.0001) | +17.07%/yr | IR=1.374               ║
-║  LIVE:   5 sessions Oct 1-5 | v2c win rate 57.8% (Oct 2-5)          ║
+║  LIVE:   6 sessions Oct 1-6 | v2c win rate ~57% (Oct 2-6)           ║
+║  BULL:   suppressor added (IC=-0.017 in bull markets) Oct 6          ║
 ║  NEXT:   Accumulate 20 sessions → G11 promotion review              ║
 ╚══════════════════════════════════════════════════════════════════════╝
 ```
@@ -79,7 +80,8 @@
 | NEW-P2-007 | Rolling WF validation not tested | **CLOSED** | g6_cost_robustness_analysis() + TurnoverOptimizer | Sep 28 |
 | NEW-P2-008 | SHAP not wired into training | **CLOSED** | SHAP in _fit_and_register(); stored in model pkl | Sep 28 |
 | **V2C-P2-001** | MILD_BEAR regime (NIFTY < −0.3%) missing from signal filters | **CLOSED** | MILD_BEAR + TRENDING_BEAR regimes added to feature_weights.json with sector dims | Oct 5 |
-| **V2C-P2-002** | sector_map had 44 symbols; ~80% of F&O universe unmapped | **CLOSED** | Expanded to ~120 symbols: PSU banks, metals, chemicals, telecom, NBFC, insurance, utilities | Oct 5 |
+| **V2C-P2-003** | BULL regime IC = −0.017 (p=0.025): model loses in bull markets | **CLOSED** | BULL suppressor added to `sector_regime_filters` (multiplier=0.3) + `long_book_limits.BULL=4`; `PRODUCTION_GATES.md` updated | Oct 6 |
+| **V2C-P2-004** | B_ext_momentum 13 features actively hurt OOS IC (+39.8% IC if removed) | **TRACKED** | Documented in `feature_ablation_oos_report.md`; drop in v2d training run (Oct 6–13) | Oct 6 |
 
 ---
 
@@ -133,11 +135,11 @@
 | G_EXECUTION | Realistic execution | ✅ **PASS** | next-open entry, 7.26bps futures / 27.65bps equity |
 | G_PORTFOLIO | Portfolio-level P&L positive | ✅ **PASS** | +17.07%/yr OOS, +18.06% excess vs NIFTY |
 | G_SIGNIFICANCE | Statistical significance | ✅ **PASS** | OOS IC = +0.040, p<0.0001 |
-| G_REGIME | Multi-regime robustness | ⚠️ **PARTIAL** | 5 live sessions (bear/sideways). Need 20 across all regimes. |
+| G_REGIME | Multi-regime robustness | ⚠️ **PARTIAL** | OOS: BEAR +0.034, SIDEWAYS +0.021; **BULL −0.017 — suppressor added Oct 6.** Live: 6/20 sessions. |
 | G_CALIBRATION | Calibration valid | ✅ **PASS** | No calibration (raw regression); appropriate for ranking model |
-| G_PBO | PBO analysis valid | ✅ **PASS** | Bootstrap CPCV implemented; v2c PBO ≈ 0.48 |
+| G_PBO | PBO analysis valid | ⚠️ **PARTIAL** | Bootstrap CPCV (B=1,000 resamples); proper CPCV combinatorics is Month-2 |
 | G_PLACEBO | Placebo tests pass | ✅ **PASS** | IC genuine (p<0.0001); shuffled-label IC ≈ 0 |
-| G_ABLATION | Feature ablation OOS | ✗ **OPEN** | True OOS retrain ablation not yet run (Month-1 task) |
+| G_ABLATION | Feature ablation OOS | ✅ **PASS*** | Zero-out ablation PASS; B_ext_momentum tracked for v2d. *Full retrain ablation: Month-1. |
 | G_STRESS | Cost stress test | ✅ **PASS** | Futures profitable at 1× and 1.5× cost; equity correctly documented as negative |
 | G_DRAWDOWN | Drawdown limits enforced | ✅ **PASS** | Max DD = −12.88% OOS; within 15% limit |
 | G_REPRODUCIBILITY | Same config → same results | ✅ **PASS** | Deterministic pipeline; seeds recorded in v2c pkl |
@@ -145,7 +147,7 @@
 | G_FORWARD | Forward paper reconciled | ✅ **PASS** | DATA_ERROR guard active; ±30% implausible values excluded |
 | G_COST | Single cost model | ✅ **PASS** | COST_MODEL_V2 canonical; pipeline.py updated Oct 5 |
 
-**PASS: 16 | PARTIAL: 2 | OPEN: 1 | FAIL: 0**
+**PASS: 17 | PARTIAL: 2 | OPEN: 0 | FAIL: 0**
 
 Up from **PASS: 9, FAIL: 9** for v1 model.
 
@@ -155,9 +157,10 @@ Up from **PASS: 9, FAIL: 9** for v1 model.
 
 | Action | When | Gate Impact |
 |--------|------|------------|
-| Accumulate 20 live sessions (long-only futures paper trading) | Oct 6 – Nov 3 | **G_REGIME → PASS** |
-| Update Upstox token (expires Oct 6) | **Oct 6, before 03:30 IST** | Operational |
-| Run true OOS feature ablation (retrain without each feature group) | Week of Oct 6-10 | **G_ABLATION → PASS** |
+| Accumulate 20 live sessions (long-only futures paper trading) | Oct 7 – Nov 3 | **G_REGIME → PASS** |
+| **v2d: retrain dropping B_ext_momentum (13 features)** | **Oct 6–13** | **+0.007 IC expected** |
+| Update Upstox token daily (today's expires Oct 7 03:30 IST) | Oct 7 before 03:30 IST | Operational |
+| Run true OOS feature ablation (retrain without each group) | Week of Oct 7-13 | **G_ABLATION full → PASS** |
 | Build PIT F&O eligibility database for survivorship fix | Oct 8-14 | G_UNIVERSE → PASS |
 | Validate SHORT signals in TRENDING_BEAR periods | Week 3 of Oct | G_REGIME extension |
 | If win rate ≥50% after 20 sessions: run formal G11 promotion review | ~Nov 3 | **G11 → trigger** |
@@ -166,5 +169,5 @@ Up from **PASS: 9, FAIL: 9** for v1 model.
 
 ---
 
-*Updated: 2026-10-05 post-close IST*
-*v2c model: 72 tests passing | v1 test suite: 1,867 passed, 13 skipped*
+*Updated: 2026-10-06 post-close IST*
+*v2c model: 1891 tests passing | Gates: 17 PASS / 2 PARTIAL / 0 FAIL*

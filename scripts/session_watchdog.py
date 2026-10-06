@@ -22,12 +22,15 @@ from pathlib import Path
 
 BASE        = Path(__file__).parent.parent
 SCORES_PATH = BASE / "artifacts" / "live_session" / "latest_scores.json"
-REPORTS_DIR = BASE / "reports"
+REPORTS_DIR = BASE / "reports" / "live"   # score_threshold_sweep + gap analysis land here
 TRACKER_DIR = BASE / "artifacts" / "signal_tracker"
-AUTORUN_CMD = [str(BASE / ".venv/bin/python"), "-W", "ignore",
-               str(BASE / "scripts/autorun_till_close.py")]
+AUTORUN_CMD  = [str(BASE / ".venv/bin/python"), "-W", "ignore",
+                str(BASE / "scripts/autorun_till_close.py")]
+TRACKER_CMD  = [str(BASE / ".venv/bin/python"), "-W", "ignore",
+                str(BASE / "scripts/signal_tracker.py")]
 
-_autorun_proc: subprocess.Popen | None = None
+_autorun_proc:  subprocess.Popen | None = None
+_tracker_proc:  subprocess.Popen | None = None
 
 
 def ist_now() -> datetime:
@@ -80,6 +83,26 @@ def start_autorun() -> None:
     print(f"[watchdog] PID={_autorun_proc.pid}")
 
 
+def start_tracker() -> None:
+    """Launch signal_tracker.py so tracker data is available for the EOD gap report."""
+    global _tracker_proc
+    if _tracker_proc is not None and _tracker_proc.poll() is None:
+        return  # already running
+    tracker_script = BASE / "scripts" / "signal_tracker.py"
+    if not tracker_script.exists():
+        print("[watchdog] signal_tracker.py not found — skipping tracker launch")
+        return
+    env = {**os.environ, "PYTHONPATH": str(BASE)}
+    _tracker_proc = subprocess.Popen(
+        TRACKER_CMD,
+        cwd=str(BASE),
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    print(f"[watchdog] signal_tracker.py started (PID={_tracker_proc.pid})")
+
+
 def generate_final_report() -> None:
     """Trigger the signal tracker to generate the final report."""
     session_date = ist_now().strftime("%Y-%m-%d")
@@ -121,6 +144,7 @@ def main():
     print("=" * 70)
 
     start_autorun()
+    start_tracker()   # launch signal_tracker.py so EOD gap report has data
     close_reported = False
 
     while True:
