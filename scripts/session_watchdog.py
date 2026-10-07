@@ -136,6 +136,38 @@ print('Lines:', len(report.split('\\n')))
         print(f"[watchdog] Report error: {result.stderr[:200]}")
 
 
+def _run_signal_ledger_safety(session_date: str) -> None:
+    """ISSUE-15 safety net: run signal_ledger_daily.py at watchdog close.
+
+    This ensures signal lifecycle data is persisted even if autorun_till_close.py
+    crashed before reaching its post_close_signal_ledger() call.
+    Idempotent: safe to run twice (will just find 0 positions to settle).
+    """
+    ledger_script = BASE / "scripts" / "signal_ledger_daily.py"
+    if not ledger_script.exists():
+        return
+    print(f"[watchdog] Running signal ledger (safety net) for {session_date} ...")
+    python_bin = str(BASE / ".venv/bin/python")
+    if not os.path.exists(python_bin):
+        python_bin = sys.executable
+    env = {**os.environ, "PYTHONPATH": str(BASE)}
+    result = subprocess.run(
+        [python_bin, "-W", "ignore", str(ledger_script), "--date", session_date],
+        cwd=str(BASE),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.stdout:
+        # Print last 10 lines only
+        lines = result.stdout.strip().splitlines()
+        for line in lines[-10:]:
+            print(f"[watchdog/ledger] {line}")
+    if result.returncode != 0 and result.stderr:
+        print(f"[watchdog] Signal ledger error: {result.stderr[:300]}")
+
+
 def main():
     ist = ist_now()
     print("=" * 70)
@@ -146,6 +178,7 @@ def main():
     start_autorun()
     start_tracker()   # launch signal_tracker.py so EOD gap report has data
     close_reported = False
+    session_date = ist_now().strftime("%Y-%m-%d")
 
     while True:
         now = ist_now()
@@ -160,11 +193,14 @@ def main():
                     print("[watchdog] Waiting 3 min for autorun to finish EOD tasks...")
                     time.sleep(180)
                 generate_final_report()
+                # ISSUE-15 safety net: run signal_ledger_daily as watchdog-level fallback
+                # in case autorun_till_close.py crashed before reaching post_close_signal_ledger()
+                _run_signal_ledger_safety(session_date)
                 close_reported = True
             break
 
-        # Check if autorun needs restart (stale > 12 min or dead)
-        if not autorun_alive() or age > 12:
+        # Check if autorun needs restart — ISSUE-17: tightened from 12min/120s to 8min/60s
+        if not autorun_alive() or age > 8:
             if not autorun_alive():
                 print(f"[{now.strftime('%H:%M')}] Autorun died — restarting (snapshot age={age:.0f}min)")
             else:
@@ -175,7 +211,7 @@ def main():
             start_autorun()
 
         print(f"[{now.strftime('%H:%M')}] OK | snap_age={age:.0f}min | autorun={'alive' if autorun_alive() else 'dead'} | {mins_left:.0f}min left")
-        time.sleep(120)  # Check every 2 min
+        time.sleep(60)   # ISSUE-17: check every 60s (was 120s)
 
 
 if __name__ == "__main__":

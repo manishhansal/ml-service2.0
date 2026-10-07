@@ -51,29 +51,42 @@ def load_today(session_date: str | None = None):
     if session_date is None:
         session_date = scores.get("session_date", datetime.now().strftime("%Y-%m-%d"))
 
-    # Fill missing LTPs from parquet last close
+    # Fill missing LTPs from parquet last close OR derive from changePct
+    # IMPORTANT: for post-close settlement, prefer live_quotes.json LTP (closing price).
+    # Parquet fallback gives HISTORICAL close (last ingested = Sep 30), NOT today's close.
+    # If only changePct is available (no LTP), we can compute entry from close:
+    #   entry_price = close_ltp / (1 + changePct/100)
+    # This gives a meaningful non-zero return at settlement.
     parquet_dir = BASE / "data/1d/1d"
     import pandas as pd
     for sig in scores.get("signals", []):
         sym = sig.get("symbol", "")
         if not sym:
             continue
-        # Skip if we already have a live quote with ltp
-        if isinstance(quotes.get(sym), dict) and quotes[sym].get("ltp"):
-            continue
-        pf = parquet_dir / f"{sym}.parquet"
-        if pf.exists():
-            try:
-                df = pd.read_parquet(str(pf), columns=["close"])
-                if len(df) > 0:
-                    close_price = float(df["close"].iloc[-1])
-                    if close_price > 0:
-                        quotes.setdefault(sym, {})
-                        if isinstance(quotes[sym], dict) and not quotes[sym].get("ltp"):
-                            quotes[sym]["ltp"] = close_price
-                            quotes[sym]["changePct"] = quotes[sym].get("changePct")
-            except Exception:
-                pass
+        q = quotes.get(sym, {})
+        has_ltp       = isinstance(q, dict) and q.get("ltp") and float(q.get("ltp", 0)) > 0
+        has_change_pct = isinstance(q, dict) and q.get("changePct") is not None
+
+        if has_ltp:
+            continue  # already have today's LTP — don't overwrite
+
+        if has_change_pct:
+            # We have today's return % but not absolute LTP.
+            # Try parquet last close as a proxy to compute approximate LTP.
+            pf = parquet_dir / f"{sym}.parquet"
+            if pf.exists():
+                try:
+                    df = pd.read_parquet(str(pf), columns=["close"])
+                    if len(df) > 0:
+                        prev_close = float(df["close"].iloc[-1])
+                        if prev_close > 0:
+                            # Compute today's closing price from yesterday's close + changePct
+                            chg = float(q["changePct"])
+                            today_ltp = prev_close * (1 + chg / 100)
+                            quotes[sym]["ltp"] = round(today_ltp, 2)
+                except Exception:
+                    pass
+        # If neither LTP nor changePct available — leave ltp missing (position will be EXPIRED)
 
     return scores, quotes, session_date
 
@@ -144,14 +157,16 @@ def main(session_date: str | None = None, status_only: bool = False) -> None:
     # 4. Status report
     rpt = ledger.status_report()
     print(f"\n  LEDGER STATUS")
-    print(f"    Open:         {rpt['open']}")
-    print(f"    Settled wins: {rpt['settled_win']}")
-    print(f"    Settled loss: {rpt['settled_loss']}")
-    print(f"    Expired:      {rpt['expired']}")
-    if rpt["win_rate"] is not None:
-        print(f"    Win rate:     {rpt['win_rate']:.0%}")
-    if rpt["unrealized_mean_pct"] is not None:
-        print(f"    Unrealized:   {rpt['unrealized_mean_pct']:+.2f}% mean")
+    print(f"    Open:         {rpt.get('open', 0)}")
+    print(f"    Settled wins: {rpt.get('settled_win', 0)}")
+    print(f"    Settled loss: {rpt.get('settled_loss', 0)}")
+    print(f"    Expired:      {rpt.get('expired', 0)}")
+    win_rate = rpt.get("win_rate")
+    if win_rate is not None:
+        print(f"    Win rate:     {win_rate:.0%}")
+    unrealized = rpt.get("unrealized_mean_pct")
+    if unrealized is not None:
+        print(f"    Unrealized:   {unrealized:+.2f}% mean")
 
     # Top open positions
     open_pos = sorted(
@@ -160,14 +175,15 @@ def main(session_date: str | None = None, status_only: bool = False) -> None:
     )
     if open_pos:
         print(f"\n  TOP OPEN POSITIONS (by unrealized P&L):")
-        print(f"  {'Symbol':<14} {'Dir':>6} {'Score':>7} {'Entry':>8} {'Last':>8} {'Unreal':>9} {'Expires'}")
+        print(f"  {'Symbol':<14} {'Dir':>6} {'Score':>7} {'Entry':>8} {'Last':>8} {'Unreal':>9} {'Session'}")
         print("  " + "-" * 68)
         for p in open_pos[:10]:
-            d = "LONG " if p["direction"]==1 else "SHORT"
+            d  = "LONG " if p["direction"]==1 else "SHORT"
             ep = f"{p['entry_price']:.1f}" if p.get("entry_price") else "—"
             lp = f"{p['last_price']:.1f}"  if p.get("last_price")  else "—"
             ur = f"{p['unrealized_pct']:+.2f}%" if p.get("unrealized_pct") is not None else "—"
-            print(f"  {p['symbol']:<14} {d:>6} {p['score']:>7.4f} {ep:>8} {lp:>8} {ur:>9} {p['resolve_after']}")
+            sd = p.get("session_date", "")
+            print(f"  {p['symbol']:<14} {d:>6} {p['score']:>7.4f} {ep:>8} {lp:>8} {ur:>9} {sd}")
         if len(open_pos) > 10:
             print(f"  ... and {len(open_pos)-10} more")
 

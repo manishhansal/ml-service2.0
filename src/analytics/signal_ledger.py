@@ -96,8 +96,19 @@ class SignalLedger:
         sig_rows: list[dict] = []
         pos_rows: list[dict] = []
 
+        # Pre-check: get existing (symbol, session_date) pairs to skip them (true idempotency)
+        existing = set(
+            r["symbol"]
+            for r in self._db.execute_query(
+                "SELECT symbol FROM signals WHERE session_date=%s", (session_date,)
+            )
+        )
+
         for sig in active:
             sym   = sig["symbol"]
+            if sym in existing:
+                continue  # already recorded for this session — skip (true idempotent)
+
             sid   = str(uuid.uuid4())[:16]
 
             # Entry price from live quote
@@ -280,6 +291,7 @@ class SignalLedger:
             "total_settled":       wins + losses,
             "settled_win":         wins,
             "settled_loss":        losses,
+            "expired":             0,   # not tracked at session level; always 0
             "win_rate":            wins / (wins + losses) if (wins + losses) else None,
             "realized_mean_pct":   round(sum(rets) / len(rets), 4) if rets else None,
             "open":                len(open_pos),
@@ -335,14 +347,13 @@ class SignalLedger:
         ]
 
         # Settled positions
-        with self._db._connect() as conn:
-            rows = conn.execute("""
-                SELECT p.symbol, p.direction, s.score, s.conviction,
-                       p.entry_price, p.exit_price, p.final_return_pct, p.status
-                FROM positions p JOIN signals s USING (signal_id)
-                WHERE p.session_date=? AND p.status!='OPEN'
-                ORDER BY p.final_return_pct DESC
-            """, (session_date,)).fetchall()
+        rows = self._db.execute_query("""
+            SELECT p.symbol, p.direction, s.score, s.conviction,
+                   p.entry_price, p.exit_price, p.final_return_pct, p.status
+            FROM positions p JOIN signals s USING (signal_id)
+            WHERE p.session_date=%s AND p.status!='OPEN'
+            ORDER BY p.final_return_pct DESC
+        """, (session_date,))
 
         if rows:
             lines += [

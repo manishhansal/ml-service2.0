@@ -1,98 +1,162 @@
 # Signal Ledger — 2026-10-06
-**Generated:** 2026-10-06 17:27 UTC  |  **Mode:** Intraday (09:15–15:15 IST)
+**Generated:** 2026-10-07 16:49 UTC  |  **Mode:** Intraday (09:15–15:15 IST)
+**Storage:** SQLite `data/ml_signals.db`
 
-## Summary
-| Status | Count | Mean Return |
-|--------|-------|-------------|
-| OPEN | 0 | — |
-| SETTLED_WIN | 0 | — |
-| SETTLED_LOSS | 84 | — |
-| Win rate | 0% | Realized: -0.07% |
+## Session Summary
+| Metric | Value |
+|--------|-------|
+| Total signals | 139 |
+| OPEN | 0 |
+| SETTLED_WIN | 8 |
+| SETTLED_LOSS | 11 |
+| Win rate | 42.1% |
+| Mean net return | +0.038% |
 
-## Settled Positions (2026-10-06)
-| Symbol | Dir | Score | Entry | Exit | Return | Outcome |
-|--------|-----|-------|-------|------|--------|---------|
-| POLICYBZR | LONG | 0.6586 | ₹980.00 | ₹980.00 | -0.07% | SETTLED_LOSS |
-| SWIGGY | LONG | 0.6405 | ₹238.00 | ₹238.00 | -0.07% | SETTLED_LOSS |
-| M&MFIN | LONG | 0.6383 | ₹328.05 | ₹328.05 | -0.07% | SETTLED_LOSS |
-| GVT&D | LONG | 0.6310 | ₹4130.30 | ₹4130.30 | -0.07% | SETTLED_LOSS |
-| INDIACEM | LONG | 0.6301 | ₹295.15 | ₹295.15 | -0.07% | SETTLED_LOSS |
-| KALYANKJIL | LONG | 0.6233 | ₹528.50 | ₹528.50 | -0.07% | SETTLED_LOSS |
-| M&M | LONG | 0.6226 | ₹2847.50 | ₹2847.50 | -0.07% | SETTLED_LOSS |
-| TIINDIA | LONG | 0.6149 | ₹2340.00 | ₹2340.00 | -0.07% | SETTLED_LOSS |
-| GODREJPROP | LONG | 0.6079 | ₹1595.80 | ₹1595.80 | -0.07% | SETTLED_LOSS |
-| IDEA | LONG | 0.6075 | ₹12.64 | ₹12.64 | -0.07% | SETTLED_LOSS |
-| TATACHEM | LONG | 0.6042 | ₹607.80 | ₹607.80 | -0.07% | SETTLED_LOSS |
-| SJVN | LONG | 0.6034 | ₹57.91 | ₹57.91 | -0.07% | SETTLED_LOSS |
-| SBICARD | LONG | 0.6031 | ₹563.20 | ₹563.20 | -0.07% | SETTLED_LOSS |
-| CROMPTON | LONG | 0.6015 | ₹202.70 | ₹202.70 | -0.07% | SETTLED_LOSS |
-| PFC | LONG | 0.6009 | ₹318.00 | ₹318.00 | -0.07% | SETTLED_LOSS |
-| ABFRL | LONG | 0.5996 | ₹44.53 | ₹44.53 | -0.07% | SETTLED_LOSS |
-| TMPV | LONG | 0.5988 | ₹288.65 | ₹288.65 | -0.07% | SETTLED_LOSS |
-| CANFINHOME | LONG | 0.5968 | ₹711.00 | ₹711.00 | -0.07% | SETTLED_LOSS |
-| CESC | LONG | 0.5963 | ₹131.62 | ₹131.62 | -0.07% | SETTLED_LOSS |
-| JIOFIN | LONG | 0.5958 | ₹212.50 | ₹212.50 | -0.07% | SETTLED_LOSS |
-| OIL | LONG | 0.5949 | ₹444.00 | ₹444.00 | -0.07% | SETTLED_LOSS |
-| HINDUNILVR | LONG | 0.5932 | ₹1890.50 | ₹1890.50 | -0.07% | SETTLED_LOSS |
-| LTM | LONG | 0.5926 | ₹4010.00 | ₹4010.00 | -0.07% | SETTLED_LOSS |
-| TATAMOTORS | LONG | 0.5925 | ₹973.95 | ₹973.95 | -0.07% | SETTLED_LOSS |
-| ATHERENERG | LONG | 0.5923 | ₹1406.10 | ₹1406.10 | -0.07% | SETTLED_LOSS |
-| INOXWIND | LONG | 0.5913 | ₹68.75 | ₹68.75 | -0.07% | SETTLED_LOSS |
-| ZEEL | LONG | 0.5909 | ₹71.92 | ₹71.92 | -0.07% | SETTLED_LOSS |
-| CHAMBLFERT | LONG | 0.5877 | ₹399.30 | ₹399.30 | -0.07% | SETTLED_LOSS |
-| NHPC | LONG | 0.5870 | ₹71.75 | ₹71.75 | -0.07% | SETTLED_LOSS |
-| NMDC | LONG | 0.5868 | ₹74.64 | ₹74.64 | -0.07% | SETTLED_LOSS |
-| PAYTM | LONG | 0.5858 | ₹1656.00 | ₹1656.00 | -0.07% | SETTLED_LOSS |
-| EICHERMOT | LONG | 0.5848 | ₹7030.00 | ₹7030.00 | -0.07% | SETTLED_LOSS |
-| BALRAMCHIN | LONG | 0.5844 | ₹649.05 | ₹649.05 | -0.07% | SETTLED_LOSS |
-| BANDHANBNK | LONG | 0.5841 | ₹176.00 | ₹176.00 | -0.07% | SETTLED_LOSS |
-| HFCL | LONG | 0.5840 | ₹250.27 | ₹250.27 | -0.07% | SETTLED_LOSS |
-| TITAGARH | LONG | 0.5822 | ₹805.10 | ₹805.10 | -0.07% | SETTLED_LOSS |
-| NIFTY | LONG | 0.5807 | ₹22717.70 | ₹22717.70 | -0.07% | SETTLED_LOSS |
-| RAMCOCEM | LONG | 0.5806 | ₹830.85 | ₹830.85 | -0.07% | SETTLED_LOSS |
-| METROPOLIS | LONG | 0.5804 | ₹537.90 | ₹537.90 | -0.07% | SETTLED_LOSS |
-| PNB | LONG | 0.5803 | ₹109.57 | ₹109.57 | -0.07% | SETTLED_LOSS |
-| CHOLAFIN | LONG | 0.5802 | ₹1580.00 | ₹1580.00 | -0.07% | SETTLED_LOSS |
-| TRENT | LONG | 0.5801 | ₹2580.00 | ₹2580.00 | -0.07% | SETTLED_LOSS |
-| HDFCBANK | SHORT | 0.4351 | ₹709.10 | ₹709.10 | -0.07% | SETTLED_LOSS |
-| APOLLOHOSP | SHORT | 0.4495 | ₹7885.00 | ₹7885.00 | -0.07% | SETTLED_LOSS |
-| ALKEM | SHORT | 0.4530 | ₹5220.00 | ₹5220.00 | -0.07% | SETTLED_LOSS |
-| SIEMENS | SHORT | 0.4577 | ₹3804.00 | ₹3804.00 | -0.07% | SETTLED_LOSS |
-| NYKAA | SHORT | 0.4653 | ₹324.95 | ₹324.95 | -0.07% | SETTLED_LOSS |
-| CUMMINSIND | SHORT | 0.4674 | ₹4860.00 | ₹4860.00 | -0.07% | SETTLED_LOSS |
-| BAJFINANCE | SHORT | 0.4705 | ₹960.00 | ₹960.00 | -0.07% | SETTLED_LOSS |
-| ADANIENSOL | SHORT | 0.5220 | ₹1326.40 | ₹1326.40 | -0.07% | SETTLED_LOSS |
-| HONAUT | SHORT | 0.5218 | ₹33470.00 | ₹33470.00 | -0.07% | SETTLED_LOSS |
-| TATACONSUM | SHORT | 0.5213 | ₹957.00 | ₹957.00 | -0.07% | SETTLED_LOSS |
-| INFY | SHORT | 0.4789 | ₹1009.10 | ₹1009.10 | -0.07% | SETTLED_LOSS |
-| SBIN | SHORT | 0.5209 | ₹956.40 | ₹956.40 | -0.07% | SETTLED_LOSS |
-| PIDILITIND | SHORT | 0.5199 | ₹1464.00 | ₹1464.00 | -0.07% | SETTLED_LOSS |
-| MANKIND | SHORT | 0.4803 | ₹2535.00 | ₹2535.00 | -0.07% | SETTLED_LOSS |
-| POONAWALLA | SHORT | 0.5193 | ₹433.40 | ₹433.40 | -0.07% | SETTLED_LOSS |
-| POWERINDIA | SHORT | 0.5189 | ₹31290.00 | ₹31290.00 | -0.07% | SETTLED_LOSS |
-| IPCALAB | SHORT | 0.5187 | ₹1943.20 | ₹1943.20 | -0.07% | SETTLED_LOSS |
-| PREMIERENE | SHORT | 0.5172 | ₹878.05 | ₹878.05 | -0.07% | SETTLED_LOSS |
-| HDFCAMC | SHORT | 0.5166 | ₹2308.10 | ₹2308.10 | -0.07% | SETTLED_LOSS |
-| IRCTC | SHORT | 0.5164 | ₹454.10 | ₹454.10 | -0.07% | SETTLED_LOSS |
-| MPHASIS | SHORT | 0.5157 | ₹2250.20 | ₹2250.20 | -0.07% | SETTLED_LOSS |
-| PERSISTENT | SHORT | 0.5135 | ₹5367.00 | ₹5367.00 | -0.07% | SETTLED_LOSS |
-| TECHM | SHORT | 0.5133 | ₹1499.40 | ₹1499.40 | -0.07% | SETTLED_LOSS |
-| LUPIN | SHORT | 0.5128 | ₹2031.20 | ₹2031.20 | -0.07% | SETTLED_LOSS |
-| RBLBANK | SHORT | 0.5123 | ₹411.40 | ₹411.40 | -0.07% | SETTLED_LOSS |
-| UBL | SHORT | 0.5119 | ₹1188.80 | ₹1188.80 | -0.07% | SETTLED_LOSS |
-| BAJAJFINSV | SHORT | 0.5114 | ₹1749.90 | ₹1749.90 | -0.07% | SETTLED_LOSS |
-| ICICIPRULI | SHORT | 0.5090 | ₹448.05 | ₹448.05 | -0.07% | SETTLED_LOSS |
-| WIPRO | SHORT | 0.5089 | ₹161.08 | ₹161.08 | -0.07% | SETTLED_LOSS |
-| LTTS | SHORT | 0.5069 | ₹3267.80 | ₹3267.80 | -0.07% | SETTLED_LOSS |
-| HCLTECH | SHORT | 0.4935 | ₹1194.90 | ₹1194.90 | -0.07% | SETTLED_LOSS |
-| MFSL | SHORT | 0.5063 | ₹1392.00 | ₹1392.00 | -0.07% | SETTLED_LOSS |
-| BANKBARODA | SHORT | 0.5055 | ₹230.82 | ₹230.82 | -0.07% | SETTLED_LOSS |
-| ATGL | SHORT | 0.5051 | ₹583.05 | ₹583.05 | -0.07% | SETTLED_LOSS |
-| LALPATHLAB | SHORT | 0.4952 | ₹2005.10 | ₹2005.10 | -0.07% | SETTLED_LOSS |
-| ABB | SHORT | 0.4963 | ₹6900.00 | ₹6900.00 | -0.07% | SETTLED_LOSS |
-| SAGILITY | SHORT | 0.5036 | ₹43.17 | ₹43.17 | -0.07% | SETTLED_LOSS |
-| HAVELLS | SHORT | 0.4970 | ₹1040.00 | ₹1040.00 | -0.07% | SETTLED_LOSS |
-| FORTIS | SHORT | 0.5029 | ₹785.00 | ₹785.00 | -0.07% | SETTLED_LOSS |
-| COFORGE | SHORT | 0.4975 | ₹1826.00 | ₹1826.00 | -0.07% | SETTLED_LOSS |
-| KEI | SHORT | 0.5009 | ₹4502.00 | ₹4502.00 | -0.07% | SETTLED_LOSS |
-| TCS | SHORT | 0.5003 | ₹2094.00 | ₹2094.00 | -0.07% | SETTLED_LOSS |
+## Settled Positions
+| Symbol | Dir | Score | Conv | Entry | Exit | Return | Outcome |
+|--------|-----|-------|------|-------|------|--------|---------|
+| NBCC | LONG | 0.4995 | D | — | — | — | ❌ |
+| SWIGGY | LONG | 0.6405 | C | ₹238.00 | — | — | ❌ |
+| M&MFIN | LONG | 0.6383 | C | ₹328.05 | — | — | ❌ |
+| GVT&D | LONG | 0.6310 | C | ₹4130.30 | — | — | ❌ |
+| KALYANKJIL | LONG | 0.6233 | C | ₹528.50 | — | — | ❌ |
+| ETERNAL | LONG | 0.4762 | D | — | — | — | ❌ |
+| BSE | LONG | 0.5210 | D | — | — | — | ❌ |
+| PVRINOX | LONG | 0.4790 | D | — | — | — | ❌ |
+| BLUESTARCO | LONG | 0.4796 | D | — | — | — | ❌ |
+| LALPATHLAB | LONG | 0.5190 | D | — | — | — | ❌ |
+| WHIRLPOOL | LONG | 0.4828 | D | — | — | — | ❌ |
+| TRENT | LONG | 0.4848 | D | — | — | — | ❌ |
+| RECLTD | LONG | 0.4855 | D | — | — | — | ❌ |
+| DELTACORP | LONG | 0.5137 | D | — | — | — | ❌ |
+| PGEL | LONG | 0.4889 | D | — | — | — | ❌ |
+| PPLPHARMA | LONG | 0.5101 | D | — | — | — | ❌ |
+| KPITTECH | LONG | 0.4904 | D | — | — | — | ❌ |
+| SJVN | LONG | 0.4906 | D | — | — | — | ❌ |
+| MCX | LONG | 0.4909 | D | — | — | — | ❌ |
+| DEEPAKNTR | LONG | 0.4946 | D | — | — | — | ❌ |
+| ADANIENSOL | LONG | 0.5042 | D | — | — | — | ❌ |
+| LICHSGFIN | LONG | 0.4983 | D | — | — | — | ❌ |
+| GODREJCP | LONG | 0.4987 | D | — | — | — | ❌ |
+| POLICYBZR | LONG | 0.6586 | C | ₹980.00 | — | — | ❌ |
+| TIINDIA | LONG | 0.6149 | C | ₹2340.00 | — | — | ❌ |
+| SBICARD | LONG | 0.6031 | C | ₹563.20 | — | — | ❌ |
+| CROMPTON | LONG | 0.6015 | C | ₹202.70 | — | — | ❌ |
+| PFC | LONG | 0.6009 | C | ₹318.00 | — | — | ❌ |
+| TMPV | LONG | 0.5988 | D | ₹288.65 | — | — | ❌ |
+| CANFINHOME | LONG | 0.5968 | D | ₹711.00 | — | — | ❌ |
+| CESC | LONG | 0.5963 | D | ₹131.62 | — | — | ❌ |
+| JIOFIN | LONG | 0.5958 | D | ₹212.50 | — | — | ❌ |
+| OIL | LONG | 0.5949 | D | ₹444.00 | — | — | ❌ |
+| LTM | LONG | 0.5926 | D | ₹4010.00 | — | — | ❌ |
+| TATAMOTORS | LONG | 0.5925 | D | ₹973.95 | — | — | ❌ |
+| ATHERENERG | LONG | 0.5923 | D | ₹1406.10 | — | — | ❌ |
+| ZEEL | LONG | 0.5909 | D | ₹71.92 | — | — | ❌ |
+| CHAMBLFERT | LONG | 0.5877 | D | ₹399.30 | — | — | ❌ |
+| NHPC | LONG | 0.5870 | D | ₹71.75 | — | — | ❌ |
+| NMDC | LONG | 0.5868 | D | ₹74.64 | — | — | ❌ |
+| BALRAMCHIN | LONG | 0.5844 | D | ₹649.05 | — | — | ❌ |
+| BANDHANBNK | LONG | 0.5841 | D | ₹176.00 | — | — | ❌ |
+| HFCL | LONG | 0.5840 | D | ₹250.27 | — | — | ❌ |
+| TITAGARH | LONG | 0.5822 | D | ₹805.10 | — | — | ❌ |
+| RAMCOCEM | LONG | 0.5806 | D | ₹830.85 | — | — | ❌ |
+| METROPOLIS | LONG | 0.5804 | D | ₹537.90 | — | — | ❌ |
+| CHOLAFIN | LONG | 0.5802 | D | ₹1580.00 | — | — | ❌ |
+| ALKEM | SHORT | 0.4530 | D | ₹5220.00 | — | — | ❌ |
+| SIEMENS | SHORT | 0.4577 | D | ₹3804.00 | — | — | ❌ |
+| NYKAA | SHORT | 0.4653 | D | ₹324.95 | — | — | ❌ |
+| CUMMINSIND | SHORT | 0.4674 | D | ₹4860.00 | — | — | ❌ |
+| HONAUT | SHORT | 0.5218 | D | ₹33470.00 | — | — | ❌ |
+| TATACONSUM | SHORT | 0.5213 | D | ₹957.00 | — | — | ❌ |
+| PIDILITIND | SHORT | 0.5199 | D | ₹1464.00 | — | — | ❌ |
+| MANKIND | SHORT | 0.4803 | D | ₹2535.00 | — | — | ❌ |
+| POONAWALLA | SHORT | 0.5193 | D | ₹433.40 | — | — | ❌ |
+| POWERINDIA | SHORT | 0.5189 | D | ₹31290.00 | — | — | ❌ |
+| IPCALAB | SHORT | 0.5187 | D | ₹1943.20 | — | — | ❌ |
+| PREMIERENE | SHORT | 0.5172 | D | ₹878.05 | — | — | ❌ |
+| HDFCAMC | SHORT | 0.5166 | D | ₹2308.10 | — | — | ❌ |
+| IRCTC | SHORT | 0.5164 | D | ₹454.10 | — | — | ❌ |
+| MPHASIS | SHORT | 0.5157 | D | ₹2250.20 | — | — | ❌ |
+| PERSISTENT | SHORT | 0.5135 | D | ₹5367.00 | — | — | ❌ |
+| TECHM | SHORT | 0.5133 | D | ₹1499.40 | — | — | ❌ |
+| LUPIN | SHORT | 0.5128 | D | ₹2031.20 | — | — | ❌ |
+| RBLBANK | SHORT | 0.5123 | D | ₹411.40 | — | — | ❌ |
+| UBL | SHORT | 0.5119 | D | ₹1188.80 | — | — | ❌ |
+| ICICIPRULI | SHORT | 0.5090 | D | ₹448.05 | — | — | ❌ |
+| LTTS | SHORT | 0.5069 | D | ₹3267.80 | — | — | ❌ |
+| MFSL | SHORT | 0.5063 | D | ₹1392.00 | — | — | ❌ |
+| BANKBARODA | SHORT | 0.5055 | D | ₹230.82 | — | — | ❌ |
+| ATGL | SHORT | 0.5051 | D | ₹583.05 | — | — | ❌ |
+| ABB | SHORT | 0.4963 | D | ₹6900.00 | — | — | ❌ |
+| SAGILITY | SHORT | 0.5036 | D | ₹43.17 | — | — | ❌ |
+| HAVELLS | SHORT | 0.4970 | D | ₹1040.00 | — | — | ❌ |
+| FORTIS | SHORT | 0.5029 | D | ₹785.00 | — | — | ❌ |
+| COFORGE | SHORT | 0.4975 | D | ₹1826.00 | — | — | ❌ |
+| KEI | SHORT | 0.5009 | D | ₹4502.00 | — | — | ❌ |
+| DMART | SHORT | 0.3288 | C | — | — | — | ❌ |
+| LTF | SHORT | 0.3326 | C | — | — | — | ❌ |
+| IOC | SHORT | 0.3392 | C | — | — | — | ❌ |
+| FINNIFTY | SHORT | 0.3419 | C | — | — | — | ❌ |
+| BAJAJHLDNG | SHORT | 0.3421 | C | — | — | — | ❌ |
+| CGPOWER | SHORT | 0.3474 | C | — | — | — | ❌ |
+| SRF | SHORT | 0.3478 | C | — | — | — | ❌ |
+| BEL | SHORT | 0.3480 | C | — | — | — | ❌ |
+| MARICO | SHORT | 0.3484 | C | — | — | — | ❌ |
+| BANKINDIA | SHORT | 0.3543 | C | — | — | — | ❌ |
+| IDFCFIRSTB | SHORT | 0.3557 | C | — | — | — | ❌ |
+| UNITDSPR | SHORT | 0.3557 | C | — | — | — | ❌ |
+| INDUSTOWER | SHORT | 0.3587 | C | — | — | — | ❌ |
+| CANBK | SHORT | 0.3598 | C | — | — | — | ❌ |
+| GRASIM | SHORT | 0.3598 | C | — | — | — | ❌ |
+| OBEROIRLTY | SHORT | 0.3616 | C | — | — | — | ❌ |
+| LICI | SHORT | 0.3624 | C | — | — | — | ❌ |
+| CDSL | SHORT | 0.3626 | C | — | — | — | ❌ |
+| ITC | SHORT | 0.3670 | C | — | — | — | ❌ |
+| SUNPHARMA | SHORT | 0.3678 | C | — | — | — | ❌ |
+| TORNTPHARM | SHORT | 0.3682 | C | — | — | — | ❌ |
+| TATAPOWER | SHORT | 0.3684 | C | — | — | — | ❌ |
+| HEROMOTOCO | SHORT | 0.3686 | C | — | — | — | ❌ |
+| PAGEIND | SHORT | 0.3688 | C | — | — | — | ❌ |
+| MIDCPNIFTY | SHORT | 0.3694 | C | — | — | — | ❌ |
+| PETRONET | SHORT | 0.3695 | C | — | — | — | ❌ |
+| HINDCOPPER | SHORT | 0.3708 | C | — | — | — | ❌ |
+| PNB | SHORT | 0.3712 | C | — | — | — | ❌ |
+| OFSS | SHORT | 0.3714 | C | — | — | — | ❌ |
+| HDFCLIFE | SHORT | 0.3715 | C | — | — | — | ❌ |
+| APOLLOTYRE | SHORT | 0.3717 | C | — | — | — | ❌ |
+| PAYTM | LONG | 0.5752 | D | — | — | — | ❌ |
+| ABFRL | LONG | 0.5750 | D | — | — | — | ❌ |
+| STAR | LONG | 0.5492 | D | — | — | — | ❌ |
+| INOXWIND | LONG | 0.5374 | D | — | — | — | ❌ |
+| INDIACEM | LONG | 0.5373 | D | — | — | — | ❌ |
+| SUZLON | LONG | 0.5343 | D | — | — | — | ❌ |
+| GODREJPROP | LONG | 0.5308 | D | — | — | — | ❌ |
+| IDEA | LONG | 0.4736 | D | — | — | — | ❌ |
+| CYIENT | LONG | 0.5262 | D | — | — | — | ❌ |
+| TATACHEM | LONG | 0.4752 | D | — | — | — | ❌ |
+| BDL | LONG | 0.4754 | D | — | — | — | ❌ |
+| EICHERMOT | LONG | 0.5848 | D | ₹7030.00 | ₹7030.00 | +3.95% | ✅ |
+| M&M | LONG | 0.6226 | C | ₹2847.50 | ₹2847.50 | +3.69% | ✅ |
+| SBIN | SHORT | 0.5209 | D | ₹956.40 | ₹956.40 | +3.52% | ✅ |
+| BAJFINANCE | SHORT | 0.4705 | D | ₹960.00 | ₹960.00 | +3.42% | ✅ |
+| HINDUNILVR | LONG | 0.5932 | D | ₹1890.50 | ₹1890.50 | +1.95% | ✅ |
+| NIFTY | LONG | 0.5807 | D | ₹22717.70 | ₹22717.70 | +1.22% | ✅ |
+| BAJAJFINSV | SHORT | 0.5114 | D | ₹1749.90 | ₹1749.90 | +0.43% | ✅ |
+| INFY | SHORT | 0.4789 | D | ₹1009.10 | ₹1009.10 | +0.26% | ✅ |
+| BHARTIARTL | SHORT | 0.3726 | C | ₹1832.90 | ₹1832.90 | -0.07% | ❌ |
+| HINDALCO | SHORT | 0.3675 | C | ₹916.95 | ₹916.95 | -0.07% | ❌ |
+| BRITANNIA | LONG | 0.4918 | D | ₹4803.00 | ₹4803.00 | -0.07% | ❌ |
+| BANKNIFTY | SHORT | 0.3260 | C | ₹55136.95 | ₹55136.95 | -0.07% | ❌ |
+| AXISBANK | SHORT | 0.3713 | C | ₹1243.90 | ₹1243.90 | -0.07% | ❌ |
+| HCLTECH | SHORT | 0.3594 | C | ₹1173.90 | ₹1173.90 | -0.07% | ❌ |
+| COALINDIA | SHORT | 0.3717 | C | ₹414.65 | ₹414.65 | -0.07% | ❌ |
+| TCS | SHORT | 0.5003 | D | ₹2094.00 | ₹2094.00 | -0.49% | ❌ |
+| WIPRO | SHORT | 0.5089 | D | ₹161.08 | ₹161.08 | -2.15% | ❌ |
+| HDFCBANK | SHORT | 0.4351 | D | ₹709.10 | ₹709.10 | -2.99% | ❌ |
+| APOLLOHOSP | SHORT | 0.4495 | D | ₹7885.00 | ₹7885.00 | -11.57% | ❌ |
+
+## Conviction Grade Performance (all sessions)
+| Grade | Trades | Win% | Mean Return |
+|-------|--------|------|-------------|
+| D | 16 | 62.5% | +0.278% |
+| C | 29 | 48.3% | -0.077% |

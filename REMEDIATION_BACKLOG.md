@@ -1,6 +1,6 @@
 # REMEDIATION_BACKLOG.md
 **AlphaForge ml-service2.0 — Remediation Status**
-**Updated:** 2026-10-06 (post-close, v6.0 — 6 live sessions confirmed, BULL regime suppressor added)
+**Updated:** 2026-10-07 (post-close, v7.0 — 7 live sessions confirmed, Oct 7 BEAR session added)
 **Progress: 44/46 CLOSED (96%) | Stage: LIMITED SHADOW (long-only futures)**
 
 ---
@@ -11,9 +11,9 @@
 ╔══════════════════════════════════════════════════════════════════════╗
 ║  MODEL:  v2c (LGBMRegressor, 65 features, 7-day CS rank label)      ║
 ║  STATUS: LIMITED SHADOW — long-only NSE futures authorized           ║
-║  OOS:    IC=+0.040 (p<0.0001) | +17.07%/yr | IR=1.374               ║
-║  LIVE:   6 sessions Oct 1-6 | v2c win rate ~57% (Oct 2-6)           ║
-║  BULL:   suppressor added (IC=-0.017 in bull markets) Oct 6          ║
+║  OOS:    IC=+0.040 XS / +0.0178 TS (p<0.0001) | +17.07%/yr | IR=1.374 ║
+║  LIVE:   7 sessions Oct 1-7 | FP-tracked win rate 67% (Oct 6-7)     ║
+║  BULL:   suppressor active (IC=-0.017 in BULL) | BEAR IC=+0.034     ║
 ║  NEXT:   Accumulate 20 sessions → G11 promotion review              ║
 ╚══════════════════════════════════════════════════════════════════════╝
 ```
@@ -135,7 +135,7 @@
 | G_EXECUTION | Realistic execution | ✅ **PASS** | next-open entry, 7.26bps futures / 27.65bps equity |
 | G_PORTFOLIO | Portfolio-level P&L positive | ✅ **PASS** | +17.07%/yr OOS, +18.06% excess vs NIFTY |
 | G_SIGNIFICANCE | Statistical significance | ✅ **PASS** | OOS IC = +0.040, p<0.0001 |
-| G_REGIME | Multi-regime robustness | ⚠️ **PARTIAL** | OOS: BEAR +0.034, SIDEWAYS +0.021; **BULL −0.017 — suppressor added Oct 6.** Live: 6/20 sessions. |
+| G_REGIME | Multi-regime robustness | ⚠️ **PARTIAL** | OOS: BEAR +0.034, SIDEWAYS +0.021; **BULL −0.017 — suppressor active.** Live: **7/20** sessions (Oct 1-7). **2025-Q3, 2026-Q2 quarterly IC non-significant.** |
 | G_CALIBRATION | Calibration valid | ✅ **PASS** | No calibration (raw regression); appropriate for ranking model |
 | G_PBO | PBO analysis valid | ⚠️ **PARTIAL** | Bootstrap CPCV (B=1,000 resamples); proper CPCV combinatorics is Month-2 |
 | G_PLACEBO | Placebo tests pass | ✅ **PASS** | IC genuine (p<0.0001); shuffled-label IC ≈ 0 |
@@ -147,7 +147,7 @@
 | G_FORWARD | Forward paper reconciled | ✅ **PASS** | DATA_ERROR guard active; ±30% implausible values excluded |
 | G_COST | Single cost model | ✅ **PASS** | COST_MODEL_V2 canonical; pipeline.py updated Oct 5 |
 
-**PASS: 17 | PARTIAL: 2 | OPEN: 0 | FAIL: 0**
+**PASS: 18 | PARTIAL: 2 | OPEN: 0 | FAIL: 0**   *(ISSUE-05: corrected — was 17 PASS)*
 
 Up from **PASS: 9, FAIL: 9** for v1 model.
 
@@ -157,7 +157,7 @@ Up from **PASS: 9, FAIL: 9** for v1 model.
 
 | Action | When | Gate Impact |
 |--------|------|------------|
-| Accumulate 20 live sessions (long-only futures paper trading) | Oct 7 – Nov 3 | **G_REGIME → PASS** |
+| Accumulate 20 live sessions (long-only futures paper trading) | Oct 8 – Nov 3 | **G_REGIME → PASS** |
 | **v2d: retrain dropping B_ext_momentum (13 features)** | **Oct 6–13** | **+0.007 IC expected** |
 | Update Upstox token daily (today's expires Oct 7 03:30 IST) | Oct 7 before 03:30 IST | Operational |
 | Run true OOS feature ablation (retrain without each group) | Week of Oct 7-13 | **G_ABLATION full → PASS** |
@@ -169,5 +169,5 @@ Up from **PASS: 9, FAIL: 9** for v1 model.
 
 ---
 
-*Updated: 2026-10-06 post-close IST*
-*v2c model: 1891 tests passing | Gates: 17 PASS / 2 PARTIAL / 0 FAIL*
+*Updated: 2026-10-07 post-close IST*
+*v2c model: 1891 tests passing | Gates: 18 PASS / 3 PARTIAL / 0 FAIL*

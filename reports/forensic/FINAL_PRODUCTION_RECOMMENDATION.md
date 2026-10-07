@@ -1,7 +1,13 @@
 # FINAL PRODUCTION RECOMMENDATION
-**Repository:** ml-service2.0 | **Date:** 2026-10-01  
-**Model:** v2c (LGBMRegressor, fs-2.0.0 + CS/regime, 65 features)  
+**Repository:** ml-service2.0 | **Date:** 2026-10-01 | **⚠️ Partially superseded — see update below**
+**Model:** v2c (LGBMRegressor, fs-2.0.0 + CS/regime, 65 features)
 **Basis:** True OOS evaluation, 2025-01-01 → 2026-09-28, 278 NSE F&O symbols
+
+> **UPDATE 2026-10-07:** Gate counts and statuses have been updated since the Oct 1 original.
+> Current authoritative state: **PASS:18 | PARTIAL:3 | FAIL:0** (see `reports/forensic/PRODUCTION_GATES.md`).
+> Key changes: G_ABLATION now PASS* (zero-out method); G_SIGNIFICANCE now PASS;
+> BULL suppressor added Oct 6; G_REGIME remains PARTIAL (7/20 live sessions, BULL IC negative).
+> Production gates document supersedes this file for current gate status.
 
 ---
 

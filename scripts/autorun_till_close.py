@@ -997,11 +997,15 @@ def main():
             print("\n[close] Final quote snapshot...")
             final_quotes = get_all_quotes_fast(key_syms + list(fp_signals.keys())[:50])
 
-            # Post-close actions
+            # Post-close actions — order matters:
+            # 1. ingest: refresh parquets with today's bars
+            # 2. signal_ledger: settle today's positions FIRST (needs final prices)
+            # 3. resolve: forward paper resolution
+            # 4. promotion: evaluate signals (uses settled data from step 2)
             ingest_out  = post_close_ingest()
+            ledger_out  = post_close_signal_ledger(session_date)   # BEFORE promotion
             resolve_out = post_close_resolve()
             promo_out   = post_close_promotion()
-            ledger_out  = post_close_signal_ledger(session_date)
 
             # Final P&L with fresh quotes
             final_scores = score_all(estimator, feat_names, normalizer)

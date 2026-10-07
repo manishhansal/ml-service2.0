@@ -19,7 +19,7 @@
 | **G_EXECUTION** | Realistic execution model | ✅ PASS | next-open entry; 7.26bps futures / 27.65bps equity (COST_MODEL_V2) |
 | **G_PORTFOLIO** | Portfolio-level P&L positive | ✅ PASS | OOS 2025-2026: +17.07%/yr abs, +18.06% excess vs NIFTY, IR=1.374 |
 | **G_SIGNIFICANCE** | Statistical significance | ✅ PASS | OOS IC = +0.040 (p<0.0001, n=116k); permutation test p<0.001 |
-| **G_REGIME** | Multi-regime robustness | ⚠️ PARTIAL | OOS BEAR IC=+0.034, SIDEWAYS IC=+0.021; **BULL IC=−0.017 (negative, p=0.025)**. BULL suppressor added 2026-10-06. Live: 6/20 sessions accumulated (Oct 1-6). |
+| **G_REGIME** | Multi-regime robustness | ⚠️ PARTIAL | OOS BEAR IC=+0.034, SIDEWAYS IC=+0.021; **BULL IC=−0.017 (negative, p=0.025)**. BULL suppressor added 2026-10-06. **Quarterly: 2 of 7 quarters non-significant (2025-Q3, 2026-Q2).** Live: 7/20 sessions (Oct 1-7). |
 | **G_CALIBRATION** | Calibration valid | ✅ PASS | No calibration applied (raw regression scores); isotonic calibration removed in v2c |
 | **G_PBO** | PBO analysis valid | ⚠️ PARTIAL | Bootstrap CPCV (B=1000, hold-out absolute test); proper CPCV combinatorics is Month-2 |
 | **G_PLACEBO** | Placebo tests pass | ✅ PASS | IC=+0.040 genuine (p<0.0001); shuffled-label IC ≈ 0; direction correct |
@@ -31,7 +31,7 @@
 | **G_FORWARD** | Forward paper reconciled | ✅ PASS | DATA_ERROR guard (±30%) active; implausible returns excluded from promotion stats |
 | **G_COST** | Single cost model | ✅ PASS | COST_MODEL_V2 canonical; `TRANSACTION_COST_BPS=27.65` (equity), `8.5` (futures) in pipeline.py |
 
-**PASS: 16 | PARTIAL: 3 | FAIL: 0**
+**PASS: 18 | PARTIAL: 3 | FAIL: 0**   *(ISSUE-05: corrected from 16 PASS — G_ABLATION* and G_FORWARD were miscounted)*
 
 ---
 
@@ -75,4 +75,4 @@ Full PIT F&O eligibility database is a Month-2 task.
 ---
 
 *Supersedes PRODUCTION_GATES.md dated 2026-10-01 (v1 model, 9 FAIL — no longer applicable)*
-*Updated: 2026-10-06 post-close IST*
+*Updated: 2026-10-07 post-close IST*

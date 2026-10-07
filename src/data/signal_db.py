@@ -55,15 +55,20 @@ DATABASE_URL: str = os.getenv("ML_DATABASE_URL", _DEFAULT_URL)
 _SCHEMA_SQL = """
 -- Sessions
 CREATE TABLE IF NOT EXISTS sessions (
-    session_date     TEXT PRIMARY KEY,
-    nifty_open       REAL,
-    nifty_close      REAL,
-    nifty_chg_pct    REAL,
-    n_scored         INTEGER DEFAULT 0,
-    n_long           INTEGER DEFAULT 0,
-    n_short          INTEGER DEFAULT 0,
-    model_version    TEXT,
-    created_at       TEXT NOT NULL
+    session_date             TEXT PRIMARY KEY,
+    nifty_open               REAL,
+    nifty_close              REAL,
+    nifty_chg_pct            REAL,
+    n_scored                 INTEGER DEFAULT 0,
+    n_long                   INTEGER DEFAULT 0,
+    n_short                  INTEGER DEFAULT 0,
+    model_version            TEXT,
+    created_at               TEXT NOT NULL,
+    -- Analytics (ISSUE-21)
+    regime                   TEXT,           -- BULL/BEAR/SIDEWAYS/MILD_BEAR
+    win_rate                 REAL,           -- session-level directional win rate
+    mean_return_pct          REAL,           -- session mean net return %
+    bull_suppressor_active   BOOLEAN DEFAULT FALSE
 );
 
 -- Signals (immutable)
@@ -79,29 +84,34 @@ CREATE TABLE IF NOT EXISTS signals (
     rank             INTEGER,
     cost_bps         REAL DEFAULT 7.26,
     nifty_at_signal  REAL,
-    model_version    TEXT
+    model_version    TEXT,
+    regime           TEXT            -- market regime at signal time (ISSUE-18)
 );
 CREATE INDEX IF NOT EXISTS idx_signals_session   ON signals(session_date);
 CREATE INDEX IF NOT EXISTS idx_signals_sym_sess  ON signals(symbol, session_date);
 
 -- Positions (mutable)
 CREATE TABLE IF NOT EXISTS positions (
-    signal_id        TEXT PRIMARY KEY REFERENCES signals(signal_id),
-    session_date     TEXT NOT NULL,
-    symbol           TEXT NOT NULL,
-    direction        INTEGER NOT NULL,
-    entry_time       TEXT,
-    entry_price      REAL,
-    exit_time        TEXT,
-    exit_price       REAL,
-    last_price       REAL,
-    last_price_time  TEXT,
-    unrealized_pct   REAL,
-    status           TEXT NOT NULL DEFAULT 'OPEN'
-                         CHECK (status IN ('OPEN','SETTLED_WIN','SETTLED_LOSS','EXPIRED')),
-    settled_at       TEXT,
-    final_return_pct REAL,
-    outcome          TEXT
+    signal_id           TEXT PRIMARY KEY REFERENCES signals(signal_id),
+    session_date        TEXT NOT NULL,
+    symbol              TEXT NOT NULL,
+    direction           INTEGER NOT NULL,
+    entry_time          TEXT,
+    entry_price         REAL,
+    exit_time           TEXT,
+    exit_price          REAL,
+    last_price          REAL,
+    last_price_time     TEXT,
+    unrealized_pct      REAL,
+    status              TEXT NOT NULL DEFAULT 'OPEN'
+                            CHECK (status IN ('OPEN','SETTLED_WIN','SETTLED_LOSS','EXPIRED','DATA_ERROR')),
+    settled_at          TEXT,
+    final_return_pct    REAL,
+    outcome             TEXT,
+    -- Analytics (ISSUE-19)
+    cost_bps            REAL DEFAULT 7.26,
+    gross_return_pct    REAL,
+    model_version       TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_pos_session        ON positions(session_date);
 CREATE INDEX IF NOT EXISTS idx_pos_sess_status    ON positions(session_date, status);
@@ -133,17 +143,26 @@ CREATE TABLE IF NOT EXISTS forecasts (
     model_version    TEXT,
     status           TEXT DEFAULT 'open',
     supersedes       TEXT,
-    superseded_at    TEXT
+    superseded_at    TEXT,
+    -- Resolution fields (ISSUE-22)
+    resolved_at      TEXT,
+    final_return_pct REAL,
+    direction_correct BOOLEAN
 );
 CREATE INDEX IF NOT EXISTS idx_forecasts_session ON forecasts(session_date);
 CREATE INDEX IF NOT EXISTS idx_forecasts_sym     ON forecasts(symbol, session_date);
 
 -- Symbol IC tracker (rolling IC per symbol, used to suppress consistently bad signals)
 CREATE TABLE IF NOT EXISTS symbol_ic (
-    symbol       TEXT PRIMARY KEY,
-    n_trades     INTEGER DEFAULT 0,
-    rolling_ic   REAL,
-    last_updated TEXT
+    symbol                  TEXT PRIMARY KEY,
+    n_trades                INTEGER DEFAULT 0,
+    rolling_ic              REAL,
+    last_updated            TEXT,
+    -- Analytics (ISSUE-23)
+    win_rate                REAL,
+    mean_return             REAL,
+    suppress_threshold_hit  BOOLEAN DEFAULT FALSE,
+    last_n_returns          JSONB   -- last N trade returns as JSON array
 );
 
 -- Historical forward paper outcomes (pre-SignalLedger resolved positions)
@@ -224,23 +243,33 @@ class SignalDB:
         nifty_chg_pct: float | None = None,
         nifty_ltp: float | None = None,
         model_version: str | None = None,
+        regime: str | None = None,
+        win_rate: float | None = None,
+        mean_return_pct: float | None = None,
+        bull_suppressor_active: bool = False,
     ) -> None:
         with _lock, self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     INSERT INTO sessions(session_date, nifty_close, nifty_chg_pct,
-                        n_scored, n_long, n_short, model_version, created_at)
-                    VALUES(%s,%s,%s,%s,%s,%s,%s,%s)
+                        n_scored, n_long, n_short, model_version, created_at,
+                        regime, win_rate, mean_return_pct, bull_suppressor_active)
+                    VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     ON CONFLICT(session_date) DO UPDATE SET
                         nifty_close    = COALESCE(EXCLUDED.nifty_close, sessions.nifty_close),
                         nifty_chg_pct  = COALESCE(EXCLUDED.nifty_chg_pct, sessions.nifty_chg_pct),
                         n_scored       = EXCLUDED.n_scored,
                         n_long         = EXCLUDED.n_long,
                         n_short        = EXCLUDED.n_short,
-                        model_version  = COALESCE(EXCLUDED.model_version, sessions.model_version)
+                        model_version  = COALESCE(EXCLUDED.model_version, sessions.model_version),
+                        regime         = COALESCE(EXCLUDED.regime, sessions.regime),
+                        win_rate       = COALESCE(EXCLUDED.win_rate, sessions.win_rate),
+                        mean_return_pct= COALESCE(EXCLUDED.mean_return_pct, sessions.mean_return_pct),
+                        bull_suppressor_active = EXCLUDED.bull_suppressor_active
                 """, (session_date, nifty_ltp, nifty_chg_pct,
                       n_scored, n_long, n_short, model_version,
-                      datetime.now(tz=timezone.utc).isoformat()))
+                      datetime.now(tz=timezone.utc).isoformat(),
+                      regime, win_rate, mean_return_pct, bull_suppressor_active))
 
     # ── Signals ───────────────────────────────────────────────────────────────
 
@@ -322,16 +351,23 @@ class SignalDB:
                 return cur.rowcount
 
     def settle_position(self, signal_id: str, pos: dict) -> None:
+        # Compute gross_return_pct from final_return_pct + cost_bps if not provided
+        gross = pos.get("gross_return_pct")
+        if gross is None and pos.get("final_return_pct") is not None:
+            cost_frac = pos.get("cost_bps", 7.26) / 10_000.0
+            gross = round(pos["final_return_pct"] + cost_frac * 100, 4)
         with _lock, self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE positions SET
                         exit_time=%s, exit_price=%s, status=%s, settled_at=%s,
-                        final_return_pct=%s, outcome=%s, unrealized_pct=%s
+                        final_return_pct=%s, outcome=%s, unrealized_pct=%s,
+                        gross_return_pct=%s, model_version=COALESCE(%s, model_version)
                     WHERE signal_id=%s
                 """, (pos.get("exit_time"), pos.get("exit_price"), pos.get("status"),
                       pos.get("settled_at"), pos.get("final_return_pct"),
-                      pos.get("outcome"), pos.get("final_return_pct"), signal_id))
+                      pos.get("outcome"), pos.get("final_return_pct"),
+                      gross, pos.get("model_version"), signal_id))
 
     # ── Price Snapshots ───────────────────────────────────────────────────────
 
