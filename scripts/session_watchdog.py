@@ -73,14 +73,20 @@ def start_autorun() -> None:
     global _autorun_proc
     print(f"[watchdog] Starting autorun_till_close.py at {ist_now().strftime('%H:%M IST')}")
     env = {**os.environ, "PYTHONPATH": str(BASE)}
+    # Route autorun stdout/stderr to a rotating log file so:
+    #   (a) the OS pipe buffer never fills (which would block autorun on print()),
+    #   (b) startup errors are captured for debugging.
+    autorun_stdout_log = BASE / "artifacts" / "live_session" / "autorun_stdout.log"
+    autorun_stdout_log.parent.mkdir(parents=True, exist_ok=True)
+    _autorun_log_fh = open(autorun_stdout_log, "a")  # noqa: WPS515 — intentional long-lived FH
     _autorun_proc = subprocess.Popen(
         AUTORUN_CMD,
         cwd=str(BASE),
         env=env,
-        stdout=subprocess.PIPE,
+        stdout=_autorun_log_fh,
         stderr=subprocess.STDOUT,
     )
-    print(f"[watchdog] PID={_autorun_proc.pid}")
+    print(f"[watchdog] PID={_autorun_proc.pid} | stdout → {autorun_stdout_log}")
 
 
 def start_tracker() -> None:
@@ -176,6 +182,8 @@ def main():
     print("=" * 70)
 
     start_autorun()
+    _last_start_time = time.monotonic()   # track when autorun was last (re)started
+    GRACE_SECS = 300  # give autorun 5 minutes to complete its first scoring cycle
     start_tracker()   # launch signal_tracker.py so EOD gap report has data
     close_reported = False
     session_date = ist_now().strftime("%Y-%m-%d")
@@ -184,6 +192,7 @@ def main():
         now = ist_now()
         mins_left = mins_to_close()
         age = snapshot_age_mins()
+        secs_since_start = time.monotonic() - _last_start_time
 
         # Market closed
         if not market_open():
@@ -199,8 +208,15 @@ def main():
                 close_reported = True
             break
 
+        # Grace period: after a (re)start, allow GRACE_SECS for the first scoring
+        # cycle to complete before treating a stale snapshot as an error.
+        # Without this, every 60s the watchdog sees stale > 8min and kills the
+        # autorun before it can write its first scores — an infinite restart loop.
+        in_grace = secs_since_start < GRACE_SECS
+
         # Check if autorun needs restart — ISSUE-17: tightened from 12min/120s to 8min/60s
-        if not autorun_alive() or age > 8:
+        needs_restart = (not autorun_alive()) or (not in_grace and age > 8)
+        if needs_restart:
             if not autorun_alive():
                 print(f"[{now.strftime('%H:%M')}] Autorun died — restarting (snapshot age={age:.0f}min)")
             else:
@@ -209,8 +225,10 @@ def main():
                 _autorun_proc.terminate()
                 time.sleep(3)
             start_autorun()
+            _last_start_time = time.monotonic()
 
-        print(f"[{now.strftime('%H:%M')}] OK | snap_age={age:.0f}min | autorun={'alive' if autorun_alive() else 'dead'} | {mins_left:.0f}min left")
+        grace_note = f" [grace {int(GRACE_SECS-secs_since_start)}s]" if in_grace else ""
+        print(f"[{now.strftime('%H:%M')}] OK | snap_age={age:.0f}min | autorun={'alive' if autorun_alive() else 'dead'} | {mins_left:.0f}min left{grace_note}")
         time.sleep(60)   # ISSUE-17: check every 60s (was 120s)
 
 
