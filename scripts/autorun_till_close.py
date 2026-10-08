@@ -822,27 +822,43 @@ def calc_pnl(fp_signals: dict, live_quotes: dict, excluded: set) -> dict:
 
 # ── Post-close actions ────────────────────────────────────────────────────────
 def post_close_ingest():
-    print("\n[close] Ingesting Sep 28 closing bars...")
-    result = subprocess.run(
-        ["python3", "-W", "ignore", str(BASE/"scripts/ingest_all_outdated.py")],
-        capture_output=True, text=True, cwd=str(BASE),
-        env={**os.environ, "PYTHONPATH": str(BASE)}, timeout=300,
-    )
-    out = result.stdout.strip()
-    if out:
-        print(out[-400:])
-    return out
+    # Run ingest in background with a generous timeout. Never let a timeout
+    # crash the entire post-close pipeline — log the failure and continue.
+    print("\n[close] Ingesting today's closing bars (timeout=900s)...")
+    try:
+        result = subprocess.run(
+            ["python3", "-W", "ignore", str(BASE/"scripts/ingest_all_outdated.py")],
+            capture_output=True, text=True, cwd=str(BASE),
+            env={**os.environ, "PYTHONPATH": str(BASE)}, timeout=900,
+        )
+        out = result.stdout.strip()
+        if out:
+            print(out[-400:])
+        if result.returncode != 0 and result.stderr:
+            print(f"[close] ingest warning: {result.stderr[:200]}")
+        return out
+    except subprocess.TimeoutExpired:
+        print("[close] ingest timed out after 900s — parquets may be stale for today.")
+        print("[close] Settlement will use live_quotes.json prices (covers key symbols).")
+        return "TIMEOUT"
 
 def post_close_resolve():
     print("\n[close] Resolving forward paper signals...")
-    result = subprocess.run(
-        ["python3", "-W", "ignore", str(BASE/"scripts/resolve_forward_paper.py")],
-        capture_output=True, text=True, cwd=str(BASE),
-        env={**os.environ, "PYTHONPATH": str(BASE)}, timeout=120,
-    )
-    out = result.stdout.strip()
-    if out:
-        print(out[-600:])
+    try:
+        result = subprocess.run(
+            ["python3", "-W", "ignore", str(BASE/"scripts/resolve_forward_paper.py")],
+            capture_output=True, text=True, cwd=str(BASE),
+            env={**os.environ, "PYTHONPATH": str(BASE)}, timeout=180,
+        )
+        out = result.stdout.strip()
+        if out:
+            print(out[-600:])
+        if result.returncode != 0 and result.stderr:
+            print(f"[close] resolve warning: {result.stderr[:200]}")
+        return out
+    except subprocess.TimeoutExpired:
+        print("[close] resolve_forward_paper timed out — FP signals not resolved today.")
+        return "TIMEOUT"
     return out
 
 
@@ -864,15 +880,21 @@ def post_close_signal_ledger(session_date: str) -> str:
 
 def post_close_promotion():
     print("\n[close] Running SignalPromotionEngine...")
-    result = subprocess.run(
-        ["python3", "-W", "ignore", str(BASE/"scripts/run_signal_promotion.py")],
-        capture_output=True, text=True, cwd=str(BASE),
-        env={**os.environ, "PYTHONPATH": str(BASE)}, timeout=60,
-    )
-    out = result.stdout.strip()
-    if out:
-        print(out[-400:])
-    return out
+    try:
+        result = subprocess.run(
+            ["python3", "-W", "ignore", str(BASE/"scripts/run_signal_promotion.py")],
+            capture_output=True, text=True, cwd=str(BASE),
+            env={**os.environ, "PYTHONPATH": str(BASE)}, timeout=120,
+        )
+        out = result.stdout.strip()
+        if out:
+            print(out[-400:])
+        if result.returncode != 0 and result.stderr:
+            print(f"[close] promotion warning: {result.stderr[:200]}")
+        return out
+    except subprocess.TimeoutExpired:
+        print("[close] promotion engine timed out.")
+        return "TIMEOUT"
 
 # ── Dashboard printing ────────────────────────────────────────────────────────
 def print_dashboard(sample_n: int, now: datetime, nifty: dict | None, scores: list,

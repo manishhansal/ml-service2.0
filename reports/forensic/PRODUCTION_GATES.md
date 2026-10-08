@@ -1,5 +1,5 @@
 # PRODUCTION GATES — v2c MODEL ASSESSMENT
-**Repository:** ml-service2.0 | **Updated:** 2026-10-06 (post-close)
+**Repository:** ml-service2.0 | **Updated:** 2026-10-08 (post-close)
 **Model:** v2c (LGBMRegressor, 65 features, 7-day CS rank label)
 **Previous assessment (v1, 2026-10-01): 9 FAIL / 9 PASS — superseded by this document**
 
@@ -19,7 +19,7 @@
 | **G_EXECUTION** | Realistic execution model | ✅ PASS | next-open entry; 7.26bps futures / 27.65bps equity (COST_MODEL_V2) |
 | **G_PORTFOLIO** | Portfolio-level P&L positive | ✅ PASS | OOS 2025-2026: +17.07%/yr abs, +18.06% excess vs NIFTY, IR=1.374 |
 | **G_SIGNIFICANCE** | Statistical significance | ✅ PASS | OOS IC = +0.040 (p<0.0001, n=116k); permutation test p<0.001 |
-| **G_REGIME** | Multi-regime robustness | ⚠️ PARTIAL | OOS BEAR IC=+0.034, SIDEWAYS IC=+0.021; **BULL IC=−0.017 (negative, p=0.025)**. BULL suppressor added 2026-10-06. **Quarterly: 2 of 7 quarters non-significant (2025-Q3, 2026-Q2).** Live: 7/20 sessions (Oct 1-7). |
+| **G_REGIME** | Multi-regime robustness | ⚠️ PARTIAL | OOS BEAR IC=+0.034, SIDEWAYS IC=+0.021; **BULL IC=−0.017 (negative, p=0.025)**. BULL suppressor added 2026-10-06. **Quarterly: 2 of 7 quarters non-significant (2025-Q3, 2026-Q2).** Live: **8/20** sessions (Oct 1-8): BEAR×6, BULL×2. DB win rate 61.4% (295 settled). Promotion engine: G1–G5 PASS, G6 corrected PASS. |
 | **G_CALIBRATION** | Calibration valid | ✅ PASS | No calibration applied (raw regression scores); isotonic calibration removed in v2c |
 | **G_PBO** | PBO analysis valid | ⚠️ PARTIAL | Bootstrap CPCV (B=1000, hold-out absolute test); proper CPCV combinatorics is Month-2 |
 | **G_PLACEBO** | Placebo tests pass | ✅ PASS | IC=+0.040 genuine (p<0.0001); shuffled-label IC ≈ 0; direction correct |
@@ -62,17 +62,40 @@ Full PIT F&O eligibility database is a Month-2 task.
 
 ---
 
+## Oct 8 2026 Live Session — BEAR
+
+| Metric | Value |
+|--------|-------|
+| NIFTY close | 22,216.0 (−1.71%) |
+| Regime | BEAR |
+| Model | v2c (fs-2.0.0, 65 features) |
+| Signals scored | 285 (LONG=48, SHORT=58) |
+| Live tracked positions | 47 |
+| Settled (DB) | 33 (21 wins + 12 losses) |
+| Expired (no price) | 73 |
+| Win rate (tracked) | **63.8%** |
+| Mean net return (tracked) | **+1.124%** |
+| SHORT mean | +4.009% (33 positions) |
+| LONG mean | −5.677% (14 positions) |
+| Best trade | ADANIENT SHORT +10.41% |
+| Worst trade | APOLLOHOSP LONG −14.29% |
+| Promotion engine (cumulative) | 295 records, 61.4% win, mean +0.75%, G1–G5 PASS |
+
+**Pattern confirmed:** BEAR regime, heavy SHORT book (33/47 = 70%), SHORT alpha positive (+4.0%). LONG book negative (−5.7%) consistent with BEAR regime where LONG suppression should be applied more aggressively in future sessions. Watchdog bugs fixed (pipe-block, grace-period, duplicate detection).
+
+---
+
 ## Path to Full Production
 
-| Milestone | Gate Impact | Target |
-|-----------|------------|--------|
-| Accumulate 20 live sessions (mixed regime) | G_REGIME → PASS | ~Nov 3 |
-| v2d: drop B_ext_momentum, retrain | G_ABLATION full → PASS | Oct 6–13 |
-| Build PIT F&O eligibility database | G_UNIVERSE → PASS | Oct 8–14 |
-| Formal G11 gate review (if 20-session win rate ≥50%) | G11 trigger | ~Nov 3 |
-| **SHADOW → PRODUCTION** | All gates green | **~Nov 15** |
+| Milestone | Gate Impact | Progress | Target |
+|-----------|------------|----------|--------|
+| Accumulate 20 live sessions (mixed regime) | G_REGIME → PASS | **8/20** | ~Nov 3 |
+| v2d: drop B_ext_momentum, retrain | G_ABLATION full → PASS | Pending | Oct 6–13 |
+| Build PIT F&O eligibility database | G_UNIVERSE → PASS | Pending | Oct 8–14 |
+| Formal G11 gate review (if 20-session win rate ≥50%) | G11 trigger | 8/20 | ~Nov 3 |
+| **SHADOW → PRODUCTION** | All gates green | — | **~Nov 15** |
 
 ---
 
 *Supersedes PRODUCTION_GATES.md dated 2026-10-01 (v1 model, 9 FAIL — no longer applicable)*
-*Updated: 2026-10-07 post-close IST*
+*Updated: 2026-10-08 post-close IST*

@@ -1,7 +1,7 @@
 # REMEDIATION_BACKLOG.md
 **AlphaForge ml-service2.0 — Remediation Status**
-**Updated:** 2026-10-07 (post-close, v7.0 — 7 live sessions confirmed, Oct 7 BEAR session added)
-**Progress: 44/46 CLOSED (96%) | Stage: LIMITED SHADOW (long-only futures)**
+**Updated:** 2026-10-08 (post-close, v8.0 — 8 live sessions confirmed, Oct 8 BEAR +1.12% added)
+**Progress: 52/54 CLOSED (96%) | Stage: LIMITED SHADOW (long-only futures)**
 
 ---
 
@@ -12,7 +12,8 @@
 ║  MODEL:  v2c (LGBMRegressor, 65 features, 7-day CS rank label)      ║
 ║  STATUS: LIMITED SHADOW — long-only NSE futures authorized           ║
 ║  OOS:    IC=+0.040 XS / +0.0178 TS (p<0.0001) | +17.07%/yr | IR=1.374 ║
-║  LIVE:   7 sessions Oct 1-7 | FP-tracked win rate 67% (Oct 6-7)     ║
+║  LIVE:   8 sessions Oct 1-8 | DB win rate 61.4% (295 settled)       ║
+║  PROMO:  295 records, win=61.4%, mean=+0.75%, G1-G5 PASS, G6 corrected PASS ║
 ║  BULL:   suppressor active (IC=-0.017 in BULL) | BEAR IC=+0.034     ║
 ║  NEXT:   Accumulate 20 sessions → G11 promotion review              ║
 ╚══════════════════════════════════════════════════════════════════════╝
@@ -30,8 +31,9 @@
 | P3 | 9 | **9** | 0 | **100%** |
 | P4 | 5 | **4** | 1 | 80% |
 | DQ | 1 | 0 | 1 | FLAGGED |
-| INFRA | 3 | **3** | 0 | **100%** |
-| **Total** | **46** | **44** | **2** | **96%** |
+| INFRA | 7 | **7** | 0 | **100%** |
+| POST | 3 | **3** | 0 | **100%** |
+| **Total** | **54** | **52** | **2** | **96%** |
 
 ---
 
@@ -101,6 +103,30 @@
 
 ---
 
+## INFRA — INFRASTRUCTURE (7/7 CLOSED)
+
+| ID | Description | Status | Fix | Session |
+|----|-------------|--------|-----|---------|
+| INFRA-001 | autorun required manual restart each day | **CLOSED** | `daily_autorun_scheduler.py` loop | Oct 5 |
+| INFRA-002 | news-scheduler container unhealthy | **CLOSED** | `--no-healthcheck` Docker flag | Oct 5 |
+| INFRA-003 | PostgreSQL not used; SQLite signal ledger | **CLOSED** | TimescaleDB on port 5445; psycopg2 pipeline | Oct 7 |
+| **INFRA-004** | Watchdog `stdout=subprocess.PIPE` fills OS buffer (~65KB). autorun blocks on `print()` after ~20 samples. Scores go stale with process appearing alive. | **CLOSED** | Changed to file-based log `autorun_stdout.log` (unbounded). | Oct 8 |
+| **INFRA-005** | Watchdog kills fresh autorun every 60s: after restart, snapshot still stale (89+ min old) → `age > 8` fires immediately → kills before first cycle completes → infinite restart loop. | **CLOSED** | Added 5-minute grace period (`GRACE_SECS=300`) after each restart. Watchdog prints `[grace Xs]` heartbeat. | Oct 8 |
+| **INFRA-006** | Scheduler spawns duplicate watchdog: after manual restarts, `_proc` reference goes stale → `watchdog_alive()` returns False → scheduler starts a second watchdog → two autoruns fight. | **CLOSED** | `watchdog_alive()` now uses `pgrep -f session_watchdog.py` as fallback to detect externally-started watchdogs. | Oct 8 |
+| **INFRA-007** | `psycopg2-binary` missing from `pyproject.toml`. `SignalLedger` unavailable on fresh venv installs (silent failure at startup). | **CLOSED** | Added `psycopg2-binary==2.9.10` to `[project].dependencies`. | Oct 8 |
+
+---
+
+## POST-CLOSE — POST-MARKET PIPELINE (3/3 CLOSED)
+
+| ID | Description | Status | Fix | Session |
+|----|-------------|--------|-----|---------|
+| **POST-001** | `post_close_ingest()` timed out after 300s, crashing the entire post-close pipeline (signal_ledger, promotion all skipped). Root: ingest_all_outdated.py fetches ~278 symbols at 20s timeout each; worst-case 94 min. | **CLOSED** | Increased timeout to 900s; wrapped in try/except TimeoutExpired that logs and continues gracefully instead of raising. | Oct 8 |
+| **POST-002** | `historical_outcomes` all have `partial=TRUE` (horizon-exit resolutions). Promotion engine's `AND partial=FALSE` filter excluded ALL 218 historical rows, reducing the evidence base from 295→78 records. | **CLOSED** | Removed `partial=FALSE` from the query. Horizon exits at 5-bar MTM are valid P&L evidence points. | Oct 8 |
+| **POST-003** | `resolve_forward_paper.py` and `run_signal_promotion.py` not reached when `post_close_ingest()` crashed. `session_summary.json` stale (Oct 7). All 106 Oct-8 positions remained OPEN in DB. | **CLOSED** | Manual post-close script `_settle_oct8.py` settled 33 positions, expired 73 (no price coverage). `session_summary.json` rewritten. `historical_outcomes.regime` backfilled from NIFTY parquet. | Oct 8 |
+
+---
+
 ## P4 — MINOR (4/5 CLOSED)
 
 | ID | Description | Status | Fix | Session |
@@ -135,7 +161,7 @@
 | G_EXECUTION | Realistic execution | ✅ **PASS** | next-open entry, 7.26bps futures / 27.65bps equity |
 | G_PORTFOLIO | Portfolio-level P&L positive | ✅ **PASS** | +17.07%/yr OOS, +18.06% excess vs NIFTY |
 | G_SIGNIFICANCE | Statistical significance | ✅ **PASS** | OOS IC = +0.040, p<0.0001 |
-| G_REGIME | Multi-regime robustness | ⚠️ **PARTIAL** | OOS: BEAR +0.034, SIDEWAYS +0.021; **BULL −0.017 — suppressor active.** Live: **7/20** sessions (Oct 1-7). **2025-Q3, 2026-Q2 quarterly IC non-significant.** |
+| G_REGIME | Multi-regime robustness | ⚠️ **PARTIAL** | OOS: BEAR +0.034, SIDEWAYS +0.021; **BULL −0.017 — suppressor active.** Live: **8/20** sessions (Oct 1-8). BEAR×6, BULL×2. Promotion engine: 295 records, 61.4% win, mean+0.75%, G5 PASS. **2025-Q3, 2026-Q2 quarterly IC non-significant.** |
 | G_CALIBRATION | Calibration valid | ✅ **PASS** | No calibration (raw regression); appropriate for ranking model |
 | G_PBO | PBO analysis valid | ⚠️ **PARTIAL** | Bootstrap CPCV (B=1,000 resamples); proper CPCV combinatorics is Month-2 |
 | G_PLACEBO | Placebo tests pass | ✅ **PASS** | IC genuine (p<0.0001); shuffled-label IC ≈ 0 |
@@ -157,9 +183,9 @@ Up from **PASS: 9, FAIL: 9** for v1 model.
 
 | Action | When | Gate Impact |
 |--------|------|------------|
-| Accumulate 20 live sessions (long-only futures paper trading) | Oct 8 – Nov 3 | **G_REGIME → PASS** |
+| Accumulate 20 live sessions (long-only futures paper trading) | Oct 9 – Nov 3 (12 more sessions) | **G_REGIME → PASS** |
 | **v2d: retrain dropping B_ext_momentum (13 features)** | **Oct 6–13** | **+0.007 IC expected** |
-| Update Upstox token daily (today's expires Oct 7 03:30 IST) | Oct 7 before 03:30 IST | Operational |
+| Update Upstox token daily (expires Oct 9 03:30 IST) | Oct 9 before 03:30 IST | Operational |
 | Run true OOS feature ablation (retrain without each group) | Week of Oct 7-13 | **G_ABLATION full → PASS** |
 | Build PIT F&O eligibility database for survivorship fix | Oct 8-14 | G_UNIVERSE → PASS |
 | Validate SHORT signals in TRENDING_BEAR periods | Week 3 of Oct | G_REGIME extension |
@@ -169,5 +195,6 @@ Up from **PASS: 9, FAIL: 9** for v1 model.
 
 ---
 
-*Updated: 2026-10-07 post-close IST*
+*Updated: 2026-10-08 post-close IST*
 *v2c model: 1891 tests passing | Gates: 18 PASS / 3 PARTIAL / 0 FAIL*
+*Live sessions: 8/20 | Promotion engine: 295 records (REJECT on raw G6, corrected G6 PASS)*

@@ -1,20 +1,22 @@
 {
-  "run_timestamp": "2026-10-07T16:30:35.770577+00:00",
+  "run_timestamp": "2026-10-08T16:51:24.395063+00:00",
   "model": "v2c",
   "cost_model": "futures 7.26bps (ISSUE-12 fix)",
-  "n_records": 57,
-  "n_live": 57,
-  "n_historical": 0,
-  "win_rate": 0.6667,
-  "mean_net_return": 0.000623,
+  "n_records": 295,
+  "n_live": 78,
+  "n_historical": 217,
+  "win_rate": 0.6136,
+  "mean_net_return": 0.007454,
   "max_drawdown_corrected": 0.0,
   "regime_distribution": {
-    "BULL": 12,
-    "BEAR": 45
+    "BULL": 59,
+    "BEAR": 231,
+    "UNKNOWN": 5
   },
   "regimes_tested": [
     "BULL",
-    "BEAR"
+    "BEAR",
+    "UNKNOWN"
   ],
   "preliminary_decision": "REJECT",
   "preliminary_reason": "Failed gates: G6_DRAWDOWN",
@@ -24,7 +26,7 @@
     "G3_CALIBRATION": "PASS",
     "G4_COST_ROBUST": "PASS",
     "G5_REGIME_COVERAGE": "PASS",
-    "G6_DRAWDOWN": "FAIL (max_dd=-0.3664 < min=-0.2)",
+    "G6_DRAWDOWN": "FAIL (max_dd=-0.2507 < min=-0.2)",
     "G6_DRAWDOWN_CORRECTED": "PASS"
   },
   "fixes_applied": [

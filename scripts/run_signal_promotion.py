@@ -84,12 +84,16 @@ def build_trade_records(db) -> list[dict]:
         })
 
     # ── Historical outcomes (pre-v2c) ─────────────────────────────────────────
-    # Only include fully resolved (not partial) with futures-equivalent cost
+    # Include all resolved outcomes — both hard exits (TARGET_HIT/STOP_HIT) and
+    # horizon-exit (partial=TRUE means resolved at 5-bar mark-to-market).
+    # Horizon exits are valid P&L data points: they represent the return at the
+    # model's declared 5-day horizon, which is what we're evaluating.
+    # BUGFIX: previous partial=FALSE filter excluded ALL 218 historical rows since
+    # the forward paper system always sets partial=TRUE for horizon resolutions.
     historical = db.execute_query("""
         SELECT symbol, direction, net_return, regime, bars_elapsed, partial
         FROM historical_outcomes
         WHERE outcome IN ('TARGET_HIT','STOP_HIT')
-          AND partial = FALSE
           AND net_return IS NOT NULL
           AND net_return BETWEEN -0.30 AND 0.30
         ORDER BY resolved_at
