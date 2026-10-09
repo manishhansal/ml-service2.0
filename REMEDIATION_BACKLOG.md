@@ -205,9 +205,9 @@ Up from **PASS: 9, FAIL: 9** for v1 model.
 
 | Action | When | Gate Impact |
 |--------|------|------------|
-| Accumulate 20 live sessions (long-only futures paper trading) | Oct 9 – Nov 3 (12 more sessions) | **G_REGIME → PASS** |
-| **v2d: retrain dropping B_ext_momentum (13 features)** | **Oct 6–13** | **+0.007 IC expected** |
-| Update Upstox token daily (expires Oct 9 03:30 IST) | Oct 9 before 03:30 IST | Operational |
+| Accumulate 20 live sessions (long-only futures paper trading) | Oct 10 – Nov 3 (11 more sessions) | **G_REGIME → PASS** |
+| **v2d: retrain dropping B_ext_momentum (13 features)** | **Oct 6–13 (overdue — initiate)** | **+0.007 IC expected** |
+| Update Upstox token daily (expires Oct 10 03:30 IST) | Oct 10 before 03:30 IST | Operational |
 | Run true OOS feature ablation (retrain without each group) | Week of Oct 7-13 | **G_ABLATION full → PASS** |
 | Build PIT F&O eligibility database for survivorship fix | Oct 8-14 | G_UNIVERSE → PASS |
 | Validate SHORT signals in TRENDING_BEAR periods | Week 3 of Oct | G_REGIME extension |
