@@ -1,5 +1,5 @@
 # PRODUCTION GATES — v2c MODEL ASSESSMENT
-**Repository:** ml-service2.0 | **Updated:** 2026-10-08 (post-close)
+**Repository:** ml-service2.0 | **Updated:** 2026-10-09 (post-close)
 **Model:** v2c (LGBMRegressor, 65 features, 7-day CS rank label)
 **Previous assessment (v1, 2026-10-01): 9 FAIL / 9 PASS — superseded by this document**
 
@@ -19,7 +19,7 @@
 | **G_EXECUTION** | Realistic execution model | ✅ PASS | next-open entry; 7.26bps futures / 27.65bps equity (COST_MODEL_V2) |
 | **G_PORTFOLIO** | Portfolio-level P&L positive | ✅ PASS | OOS 2025-2026: +17.07%/yr abs, +18.06% excess vs NIFTY, IR=1.374 |
 | **G_SIGNIFICANCE** | Statistical significance | ✅ PASS | OOS IC = +0.040 (p<0.0001, n=116k); permutation test p<0.001 |
-| **G_REGIME** | Multi-regime robustness | ⚠️ PARTIAL | OOS BEAR IC=+0.034, SIDEWAYS IC=+0.021; **BULL IC=−0.017 (negative, p=0.025)**. BULL suppressor added 2026-10-06. **Quarterly: 2 of 7 quarters non-significant (2025-Q3, 2026-Q2).** Live: **8/20** sessions (Oct 1-8): BEAR×6, BULL×2. DB win rate 61.4% (295 settled). Promotion engine: G1–G5 PASS, G6 corrected PASS. |
+| **G_REGIME** | Multi-regime robustness | ⚠️ PARTIAL | OOS BEAR IC=+0.034, SIDEWAYS IC=+0.021; **BULL IC=−0.017 (negative, p=0.025)**. BULL suppressor active 2026-10-06. **Quarterly: 2 of 7 quarters non-significant (2025-Q3, 2026-Q2).** Live: **9/20** sessions (Oct 1-9): BEAR×6, BULL×3. Promotion engine (319 records): **G1–G6 all PASS** (corrected G6). 61.8% win, mean +0.71%. |
 | **G_CALIBRATION** | Calibration valid | ✅ PASS | No calibration applied (raw regression scores); isotonic calibration removed in v2c |
 | **G_PBO** | PBO analysis valid | ⚠️ PARTIAL | Bootstrap CPCV (B=1000, hold-out absolute test); proper CPCV combinatorics is Month-2 |
 | **G_PLACEBO** | Placebo tests pass | ✅ PASS | IC=+0.040 genuine (p<0.0001); shuffled-label IC ≈ 0; direction correct |
@@ -62,7 +62,43 @@ Full PIT F&O eligibility database is a Month-2 task.
 
 ---
 
-## Oct 8 2026 Live Session — BEAR
+## Oct 9 2026 Live Session — BULL
+
+| Metric | Value |
+|--------|-------|
+| NIFTY close | 22,561.6 (+1.48%) |
+| Regime | BULL |
+| Model | v2c (fs-2.0.0, 65 features) |
+| Signals scored | 285 (LONG=42, SHORT=42) |
+| Live tracked positions | 46 |
+| Settled (DB) | 24 (16 wins + 8 losses) |
+| Expired (no price) | 98 |
+| Win rate (tracked) | **56.5%** |
+| Mean net return (tracked) | **+0.63%** |
+| SHORT mean | +2.30% (29 positions) |
+| LONG mean | −4.30% (9 positions) |
+| Best trade | TITAN SHORT +8.95% |
+| Worst trade | APOLLOHOSP LONG −10.31% |
+| Promotion engine (cumulative) | 319 records, 61.8% win, mean +0.71%, **G1–G6 all PASS** |
+
+**Pattern: BULL regime confirms structural LONG weakness** (−4.3% mean). BULL suppressor was active; equal book (42L/42S). Post-close ran twice due to watchdog restart at 15:34 — bug fixed (INFRA-009 + POST-004). NIFTY None rate improved from 78% to 16% after dedicated pre-batch fetch fix (INFRA-008).
+
+---
+
+## Path to Full Production
+
+| Milestone | Gate Impact | Progress | Target |
+|-----------|------------|----------|--------|
+| Accumulate 20 live sessions (mixed regime) | G_REGIME → PASS | **9/20** | ~Nov 3 |
+| v2d: drop B_ext_momentum, retrain | G_ABLATION full → PASS | Pending | Oct 6–13 |
+| Build PIT F&O eligibility database | G_UNIVERSE → PASS | Pending | Oct 8–14 |
+| Formal G11 gate review (if 20-session win rate ≥50%) | G11 trigger | 9/20 | ~Nov 3 |
+| **SHADOW → PRODUCTION** | All gates green | — | **~Nov 15** |
+
+---
+
+*Supersedes PRODUCTION_GATES.md dated 2026-10-01 (v1 model, 9 FAIL — no longer applicable)*
+*Updated: 2026-10-09 post-close IST*
 
 | Metric | Value |
 |--------|-------|

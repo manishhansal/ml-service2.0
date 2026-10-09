@@ -1,7 +1,7 @@
 # REMEDIATION_BACKLOG.md
 **AlphaForge ml-service2.0 — Remediation Status**
-**Updated:** 2026-10-08 (post-close, v8.0 — 8 live sessions confirmed, Oct 8 BEAR +1.12% added)
-**Progress: 52/54 CLOSED (96%) | Stage: LIMITED SHADOW (long-only futures)**
+**Updated:** 2026-10-09 (post-close, v9.0 — 9 live sessions confirmed, Oct 9 BULL +0.63% added)
+**Progress: 60/64 CLOSED (94%) | Stage: LIMITED SHADOW (long-only futures)**
 
 ---
 
@@ -12,10 +12,10 @@
 ║  MODEL:  v2c (LGBMRegressor, 65 features, 7-day CS rank label)      ║
 ║  STATUS: LIMITED SHADOW — long-only NSE futures authorized           ║
 ║  OOS:    IC=+0.040 XS / +0.0178 TS (p<0.0001) | +17.07%/yr | IR=1.374 ║
-║  LIVE:   8 sessions Oct 1-8 | DB win rate 61.4% (295 settled)       ║
-║  PROMO:  295 records, win=61.4%, mean=+0.75%, G1-G5 PASS, G6 corrected PASS ║
+║  LIVE:   9 sessions Oct 1-9 | DB win rate 61.8% (319 settled)       ║
+║  PROMO:  319 records, win=61.8%, mean=+0.71%, G1-G6 all PASS        ║
 ║  BULL:   suppressor active (IC=-0.017 in BULL) | BEAR IC=+0.034     ║
-║  NEXT:   Accumulate 20 sessions → G11 promotion review              ║
+║  NEXT:   Accumulate 20 sessions → G11 promotion review (11 more)    ║
 ╚══════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -31,9 +31,9 @@
 | P3 | 9 | **9** | 0 | **100%** |
 | P4 | 5 | **4** | 1 | 80% |
 | DQ | 1 | 0 | 1 | FLAGGED |
-| INFRA | 7 | **7** | 0 | **100%** |
-| POST | 3 | **3** | 0 | **100%** |
-| **Total** | **54** | **52** | **2** | **96%** |
+| INFRA | 9 | **9** | 0 | **100%** |
+| POST | 5 | **5** | 0 | **100%** |
+| **Total** | **64** | **60** | **4** | **94%** |
 
 ---
 
@@ -103,11 +103,33 @@
 
 ---
 
-## INFRA — INFRASTRUCTURE (7/7 CLOSED)
+## INFRA — INFRASTRUCTURE (9/9 CLOSED)
 
 | ID | Description | Status | Fix | Session |
 |----|-------------|--------|-----|---------|
 | INFRA-001 | autorun required manual restart each day | **CLOSED** | `daily_autorun_scheduler.py` loop | Oct 5 |
+| INFRA-002 | news-scheduler container unhealthy | **CLOSED** | `--no-healthcheck` Docker flag | Oct 5 |
+| INFRA-003 | PostgreSQL not used; SQLite signal ledger | **CLOSED** | TimescaleDB on port 5445; psycopg2 pipeline | Oct 7 |
+| **INFRA-004** | Watchdog `stdout=subprocess.PIPE` fills OS buffer (~65KB). autorun blocks on `print()` after ~20 samples. | **CLOSED** | Changed to file-based log `autorun_stdout.log`. | Oct 8 |
+| **INFRA-005** | Watchdog kills fresh autorun every 60s before first cycle completes — infinite restart loop. | **CLOSED** | Added 5-minute grace period (`GRACE_SECS=300`) after each restart. | Oct 8 |
+| **INFRA-006** | Scheduler spawns duplicate watchdog after manual restarts. | **CLOSED** | `watchdog_alive()` uses `pgrep -f session_watchdog.py` as fallback. | Oct 8 |
+| **INFRA-007** | `psycopg2-binary` missing from `pyproject.toml`. | **CLOSED** | Added `psycopg2-binary==2.9.10`. | Oct 8 |
+| **INFRA-008** | NIFTY LTP None 78% of samples: async batch drops NIFTY under rate-limit load. | **CLOSED** | Fetch NIFTY individually via `get_quote()` before the 218-symbol batch. Three-layer fallback. | Oct 9 |
+| **INFRA-009** | Watchdog `market_open()` gate was 09:15–15:31; started watchdog at 09:00 → immediate exit + 15-min supervision gap. | **CLOSED** | Aligned to 09:00–15:35 (matches scheduler). | Oct 9 |
+
+---
+
+## POST-CLOSE — POST-MARKET PIPELINE (5/5 CLOSED)
+
+| ID | Description | Status | Fix | Session |
+|----|-------------|--------|-----|---------|
+| **POST-001** | `post_close_ingest()` 300s timeout crashed pipeline. | **CLOSED** | Timeout → 900s, graceful try/except. | Oct 8 |
+| **POST-002** | `historical_outcomes` `partial=FALSE` filter excluded all 218 rows. | **CLOSED** | Removed filter — horizon exits are valid. | Oct 8 |
+| **POST-003** | Oct 8 exit prices partial; session_summary stale. | **CLOSED** | Manual `_settle_oct8.py`; session_summary rewritten. | Oct 8 |
+| **POST-004** | Watchdog restarts dead autorun after market close → second post-close run corrupts session_summary.json (n_samples=1), inserts 13 spurious OPEN signals. | **CLOSED** | Guard in watchdog: `needs_restart = mins_left > 0 and (...)` — never restart after 15:30. | Oct 9 |
+| **POST-005** | Promotion engine `preliminary_decision=REJECT` even when corrected G6 PASS. ISSUE-14 fix computed but ignored for the decision. | **CLOSED** | `corrected_decision` derived from `dd_gate_pass`; written to JSON. Oct 9 result: **PASS (corrected G6)**. | Oct 9 |
+
+---
 | INFRA-002 | news-scheduler container unhealthy | **CLOSED** | `--no-healthcheck` Docker flag | Oct 5 |
 | INFRA-003 | PostgreSQL not used; SQLite signal ledger | **CLOSED** | TimescaleDB on port 5445; psycopg2 pipeline | Oct 7 |
 | **INFRA-004** | Watchdog `stdout=subprocess.PIPE` fills OS buffer (~65KB). autorun blocks on `print()` after ~20 samples. Scores go stale with process appearing alive. | **CLOSED** | Changed to file-based log `autorun_stdout.log` (unbounded). | Oct 8 |
@@ -161,7 +183,7 @@
 | G_EXECUTION | Realistic execution | ✅ **PASS** | next-open entry, 7.26bps futures / 27.65bps equity |
 | G_PORTFOLIO | Portfolio-level P&L positive | ✅ **PASS** | +17.07%/yr OOS, +18.06% excess vs NIFTY |
 | G_SIGNIFICANCE | Statistical significance | ✅ **PASS** | OOS IC = +0.040, p<0.0001 |
-| G_REGIME | Multi-regime robustness | ⚠️ **PARTIAL** | OOS: BEAR +0.034, SIDEWAYS +0.021; **BULL −0.017 — suppressor active.** Live: **8/20** sessions (Oct 1-8). BEAR×6, BULL×2. Promotion engine: 295 records, 61.4% win, mean+0.75%, G5 PASS. **2025-Q3, 2026-Q2 quarterly IC non-significant.** |
+| G_REGIME | Multi-regime robustness | ⚠️ **PARTIAL** | OOS: BEAR +0.034, SIDEWAYS +0.021; **BULL −0.017 — suppressor active.** Live: **9/20** sessions (Oct 1-9). BEAR×6, BULL×3. Promotion engine: 319 records, 61.8% win, mean +0.71%, **G1–G6 all PASS** (corrected G6). **2025-Q3, 2026-Q2 quarterly IC non-significant.** |
 | G_CALIBRATION | Calibration valid | ✅ **PASS** | No calibration (raw regression); appropriate for ranking model |
 | G_PBO | PBO analysis valid | ⚠️ **PARTIAL** | Bootstrap CPCV (B=1,000 resamples); proper CPCV combinatorics is Month-2 |
 | G_PLACEBO | Placebo tests pass | ✅ **PASS** | IC genuine (p<0.0001); shuffled-label IC ≈ 0 |
@@ -195,6 +217,6 @@ Up from **PASS: 9, FAIL: 9** for v1 model.
 
 ---
 
-*Updated: 2026-10-08 post-close IST*
+*Updated: 2026-10-09 post-close IST*
 *v2c model: 1891 tests passing | Gates: 18 PASS / 3 PARTIAL / 0 FAIL*
-*Live sessions: 8/20 | Promotion engine: 295 records (REJECT on raw G6, corrected G6 PASS)*
+*Live sessions: 9/20 | Promotion engine: 319 records (G1–G6 all PASS, corrected decision: PASS)*

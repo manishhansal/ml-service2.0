@@ -217,7 +217,13 @@ def main():
         in_grace = secs_since_start < GRACE_SECS
 
         # Check if autorun needs restart — ISSUE-17: tightened from 12min/120s to 8min/60s
-        needs_restart = (not autorun_alive()) or (not in_grace and age > 8)
+        # CRIT-1 guard: never restart after market close (mins_left<=0). The first
+        # autorun handles post-close; restarting it produces a second post-close run
+        # that corrupts session_summary.json (n_samples=1) and inserts spurious signals.
+        needs_restart = (
+            mins_left > 0 and                          # guard: market still open
+            ((not autorun_alive()) or (not in_grace and age > 8))
+        )
         if needs_restart:
             if not autorun_alive():
                 print(f"[{now.strftime('%H:%M')}] Autorun died — restarting (snapshot age={age:.0f}min)")

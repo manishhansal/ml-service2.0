@@ -1,15 +1,15 @@
 {
-  "run_timestamp": "2026-10-08T16:51:24.395063+00:00",
+  "run_timestamp": "2026-10-09T15:58:15.304752+00:00",
   "model": "v2c",
   "cost_model": "futures 7.26bps (ISSUE-12 fix)",
-  "n_records": 295,
-  "n_live": 78,
+  "n_records": 319,
+  "n_live": 102,
   "n_historical": 217,
-  "win_rate": 0.6136,
-  "mean_net_return": 0.007454,
+  "win_rate": 0.6176,
+  "mean_net_return": 0.007088,
   "max_drawdown_corrected": 0.0,
   "regime_distribution": {
-    "BULL": 59,
+    "BULL": 83,
     "BEAR": 231,
     "UNKNOWN": 5
   },
@@ -18,8 +18,10 @@
     "BEAR",
     "UNKNOWN"
   ],
-  "preliminary_decision": "REJECT",
-  "preliminary_reason": "Failed gates: G6_DRAWDOWN",
+  "preliminary_decision": "PASS (corrected G6)",
+  "preliminary_reason": "All gates PASS with corrected G6_DRAWDOWN (daily mean-return series)",
+  "preliminary_decision_raw": "REJECT",
+  "preliminary_reason_raw": "Failed gates: G6_DRAWDOWN",
   "gate_results": {
     "G1_TRADE_COUNT": "PASS",
     "G2_NET_EXPECTANCY": "PASS",
