@@ -1245,9 +1245,23 @@ def main():
         # ── MARKET OPEN — regular sample ──────────────────────────────────
         sample_n += 1
 
+        # ── Fetch NIFTY individually first (dedicated call, bypasses batch rate-limit) ──
+        # Root cause of 78% None: async 218-symbol batch saturates the rate limit
+        # and NIFTY's slot gets dropped. Fetching it solo before the batch guarantees
+        # a valid LTP every sample. Falls back to cache if the call fails.
+        _nifty_direct = get_quote("NIFTY")
+        if _nifty_direct and _nifty_direct.get("ltp"):
+            _last_nifty_quote = _nifty_direct   # update cache
+
         # Fetch quotes — key symbols first (fast, for NIFTY display)
         print(f"[{now.strftime('%H:%M')}] Sample #{sample_n} | {mins:.0f}min left | Fetching {len(key_syms)} quotes...", end="", flush=True)
         live_quotes = get_all_quotes_fast(key_syms)
+        # Ensure NIFTY is in live_quotes (use direct fetch or cache if batch missed it)
+        if "NIFTY" not in live_quotes or not live_quotes.get("NIFTY", {}).get("ltp"):
+            if _nifty_direct and _nifty_direct.get("ltp"):
+                live_quotes["NIFTY"] = _nifty_direct
+            elif _last_nifty_quote:
+                live_quotes["NIFTY"] = _last_nifty_quote
         nifty_q = live_quotes.get("NIFTY", {})
         print(f" NIFTY={nifty_q.get('ltp','?')} ({nifty_q.get('changePct',0):+.2f}%)")
 

@@ -42,7 +42,9 @@ def market_open() -> bool:
     if now.weekday() >= 5:
         return False
     t = (now.hour, now.minute)
-    return (9, 15) <= t <= (15, 31)
+    # Use same window as daily_autorun_scheduler (09:00–15:35) so the watchdog
+    # doesn't exit immediately when started during pre-open (09:00–09:15).
+    return (9, 0) <= t <= (15, 35)
 
 
 def mins_to_close() -> float:
