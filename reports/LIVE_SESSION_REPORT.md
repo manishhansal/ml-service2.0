@@ -121,7 +121,11 @@
 
 ## CLOSE-OF-DAY UPDATE — 15:34 IST
 
-### Market Close Summary
+> **⚠️ DUPLICATE RUN — POST-004 BUG (fixed Oct 9)**
+> This entry was produced by a watchdog-restarted second autorun after 15:30 IST.
+> Session_samples=1 confirms this is a spurious run. Canonical Oct 9 numbers are in the 15:31 IST entry above.
+
+### Market Close Summary (DUPLICATE — not canonical)
 
 | Metric | Value |
 |--------|-------|

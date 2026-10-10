@@ -1,7 +1,7 @@
 # REMEDIATION_BACKLOG.md
 **AlphaForge ml-service2.0 — Remediation Status**
 **Updated:** 2026-10-09 (post-close, v9.0 — 9 live sessions confirmed, Oct 9 BULL +0.63% added)
-**Progress: 60/64 CLOSED (94%) | Stage: LIMITED SHADOW (long-only futures)**
+**Progress: 61/64 CLOSED (95%) | Stage: LIMITED SHADOW (long-only futures)**
 
 ---
 
@@ -15,6 +15,7 @@
 ║  LIVE:   9 sessions Oct 1-9 | DB win rate 61.8% (319 settled)       ║
 ║  PROMO:  319 records, win=61.8%, mean=+0.71%, G1-G6 all PASS        ║
 ║  BULL:   suppressor active (IC=-0.017 in BULL) | BEAR IC=+0.034     ║
+║  DQ-001: TATAMOTORS token collision FIXED (data-service2.0 Oct 5)   ║
 ║  NEXT:   Accumulate 20 sessions → G11 promotion review (11 more)    ║
 ╚══════════════════════════════════════════════════════════════════════╝
 ```
@@ -30,10 +31,10 @@
 | P2 | 10 | **10** | 0 | **100%** |
 | P3 | 9 | **9** | 0 | **100%** |
 | P4 | 5 | **4** | 1 | 80% |
-| DQ | 1 | 0 | 1 | FLAGGED |
+| DQ | 1 | **1** | 0 | **100%** |
 | INFRA | 9 | **9** | 0 | **100%** |
 | POST | 5 | **5** | 0 | **100%** |
-| **Total** | **64** | **60** | **4** | **94%** |
+| **Total** | **64** | **61** | **3** | **95%** |
 
 ---
 
@@ -165,7 +166,7 @@
 
 | ID | Description | Status | Action | Priority |
 |----|-------------|--------|--------|---------|
-| DQ-001 | TATAMOTORS DVR vs regular price mismatch (295 vs 961, 226% gap) | **FLAGGED** | Symbol disabled in feature_weights.json (`symbol_overrides.TATAMOTORS.enabled=false`). Forward paper DATA_ERROR guard now catches any remaining implausible values. Root fix: correct Upstox instrument token mapping in data-service2.0. | P2 |
+| DQ-001 | TATAMOTORS DVR vs regular price mismatch (295 vs 961, 226% gap) | **CLOSED** | Root fix applied 2026-10-05: corrected Upstox instrument token mapping in data-service2.0 (`historical_engine.py`; token 3432→3456). Symbol **re-enabled** in `feature_weights.json` (`symbol_overrides.TATAMOTORS.enabled=true`). Forward paper DATA_ERROR guard still active as belt-and-suspenders. | P2 |
 
 ---
 
@@ -195,7 +196,7 @@
 | G_FORWARD | Forward paper reconciled | ✅ **PASS** | DATA_ERROR guard active; ±30% implausible values excluded |
 | G_COST | Single cost model | ✅ **PASS** | COST_MODEL_V2 canonical; pipeline.py updated Oct 5 |
 
-**PASS: 18 | PARTIAL: 2 | OPEN: 0 | FAIL: 0**   *(ISSUE-05: corrected — was 17 PASS)*
+**PASS: 18 | PARTIAL: 3 | OPEN: 0 | FAIL: 0**   *(ISSUE-05: corrected — was 17 PASS)*
 
 Up from **PASS: 9, FAIL: 9** for v1 model.
 
@@ -220,3 +221,4 @@ Up from **PASS: 9, FAIL: 9** for v1 model.
 *Updated: 2026-10-09 post-close IST*
 *v2c model: 1891 tests passing | Gates: 18 PASS / 3 PARTIAL / 0 FAIL*
 *Live sessions: 9/20 | Promotion engine: 319 records (G1–G6 all PASS, corrected decision: PASS)*
+*DQ-001 TATAMOTORS token collision: FIXED (data-service2.0) — symbol re-enabled*

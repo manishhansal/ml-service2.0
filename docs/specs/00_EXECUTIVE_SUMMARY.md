@@ -1,21 +1,22 @@
 # Executive Summary
 **AlphaForge ml-service2.0 — NSE F&O Cross-Sectional Alpha Engine**
-**Last updated: 2026-09-28 (post-close)**
-**Status: SHADOW PRODUCTION — G12 Approved**
+**Last updated: 2026-10-09 (post-close)**
+**Status: LIMITED SHADOW — long-only NSE futures authorized (v2c model)**
 
 ---
 
 ## Current State
 
-The system has completed research validation and 2 days of live shadow production. Two consecutive live sessions have confirmed genuine, statistically significant SHORT alpha.
+The system has completed the v2c model transition and 9 live trading sessions. The original v1 model was retired Oct 1 (OOS IC = −0.001, zero predictive power). The v2c model demonstrates consistent cross-sectional alpha in BEAR/SIDEWAYS regimes.
 
 | Dimension | Status |
 |-----------|--------|
-| Model stage | **SHADOW** (promoted Sep 28 14:35 UTC) |
-| Live signal scoring | **ACTIVE** — 218 NSE F&O symbols, every 5 min |
-| Live capital | **NOT YET** — paper P&L only until Oct 15 |
-| Production target | **Oct 15, 2026** |
-| Forward paper | **218 signals resolving Sep 30** |
+| Model stage | **LIMITED SHADOW** (long-only futures since Oct 1) |
+| Active model | **v2c — LGBMRegressor, 65 features, 7-day CS rank label** |
+| Live signal scoring | **ACTIVE** — 285 NSE F&O symbols, every 5 min |
+| Live capital | **NOT YET** — paper P&L only |
+| Production target | **~Nov 15, 2026** (after 20 sessions + G11 review) |
+| Signal storage | **PostgreSQL (TimescaleDB)** at port 5445 |
 
 ---
 
@@ -23,15 +24,14 @@ The system has completed research validation and 2 days of live shadow productio
 
 | Metric | Value |
 |--------|-------|
-| IC_continuous (OOS) | **0.3757** |
-| CPCV PBO | **0.000** |
-| G6 net Sharpe @ 12.75bps | **+3.04** (panel); **+1.06** (OOS est.) |
-| Live SHORT P&L (Sep 28) | **+0.655% net** after 27.65bps |
-| Live SHORT P&L (Sep 29) | **+0.945% net** (stronger despite smaller market move) |
-| **2-day SHORT avg** | **+0.800% net** (32/40 wins, p < 0.001) |
-| Production gates | **10/12 PASS** (G10-G11 pending Sep 30) |
-| Issues closed | **34/36 (94%)** |
-| Test suite | **1,867 pass / 0 fail** |
+| IC (OOS, XS-Spearman) | **+0.040** (p<0.0001, n=116k) |
+| Bootstrap CPCV PBO | **≈0.48** (B=1,000 resamples — healthy) |
+| Annualized P&L (OOS) | **+17.07%/yr** absolute; +18.06% excess vs NIFTY; IR=1.374 |
+| Live sessions | **9/20** (Oct 1–9) |
+| Promotion engine | **319 records, 61.8% win, mean +0.71%** |
+| Gates | **18 PASS / 3 PARTIAL / 0 FAIL** (21-gate v2c framework) |
+| Issues closed | **60/64 (94%)** |
+| Test suite | **1,891 pass / 0 fail** |
 
 ---
 
@@ -42,78 +42,67 @@ The system has completed research validation and 2 days of live shadow productio
 | Sep 22 | Forensic audit | 32 findings; P0-P3 remediation backlog created |
 | Sep 23 | Sprint 1: core fixes | Leakage, Sharpe horizon, normalization order, DriftDetector |
 | Sep 23 | Sprint 2: expansion | ExpandedFeatureFactory (55 features, fs-3.0.0), regime features |
-| Sep 24 | Sprint 3: LightGBM | IC=0.376 continuous; all WF gates pass; concentrated backtest viable |
-| Sep 25 | Universe fix | Forward paper expanded 65 → 218 symbols; rate limit 100→500/60s |
-| Sep 27 | Infrastructure | Ingestion URL fixed; data-service auth restored; 36 symbols refreshed |
-| Sep 28 | Live session 1 | NIFTY −1.52%; **SHORT +0.655% net, 80% win rate** |
-| Sep 29 | Live session 2 | NIFTY −0.42%; **SHORT +0.945% net, 80% win rate** |
-| Sep 29 | **2-day confirmation** | **32/40 SHORT wins, p < 0.001 — alpha confirmed** |
-| Sep 29 | Phil integrations | 5 components active: ForecastLedger (218 logged), FeatureWeightManager (54 filtered) |
+| Sep 24 | Sprint 3: LightGBM v1 | IC=0.376 (continuous) — later found to be OOS IC = −0.001 |
+| Sep 28 | Live session 1 (v1) | G12 approved; SHORT book running |
+| Sep 29 | Live session 2 (v1) | SHORT +0.945% net |
+| Oct 1 | **v1 model retired** | OOS IC = −0.001; zero predictive power confirmed |
+| Oct 1 | **v2c model promoted** | LGBMRegressor, 65 features, 7-day CS rank label; LIMITED SHADOW |
+| Oct 1 | PostgreSQL migration | Signal storage moved from flat files → TimescaleDB (port 5445) |
+| Oct 1 | Persistent scheduler | `daily_autorun_scheduler.py` + `session_watchdog.py` wired |
+| Oct 1–3 | Live sessions 1–3 (v2c) | BEAR regime — BEAR IC=+0.034 confirmed |
+| Oct 5 | DQ-001 resolved | TATAMOTORS token collision fixed; symbol re-enabled |
+| Oct 5 | Multiple gates closed | V2C-P1-001, V2C-P1-002, V2C-P2-001, 3 P0 issues closed |
+| Oct 6 | **BULL suppressor** | BULL IC=−0.017 (p=0.025) → multiplier=0.3 added to feature_weights.json |
+| Oct 6–9 | Live sessions 4–9 (v2c) | Mixed BEAR/BULL; promotion engine 319 records, 61.8% win |
+| Oct 9 | INFRA bugs fixed | POST-004 (watchdog over-restart), INFRA-008 (NIFTY None 78% → 16%) |
 
 ---
 
 ## Decision Framework
 
 ```
-Is there a genuine, profitable, production-ready signal?
+Is the v2c model production-ready?
 
 1. Is there genuine alpha (IC > 0)?
-   YES → IC_continuous = 0.3757, PBO = 0.000
+   YES → IC = +0.040 XS-Spearman (p<0.0001, n=116k) — genuine cross-sectional alpha
 
-2. Does it survive realistic costs (G6)?
-   YES → Net Sharpe +1.06 at 12.75bps stress (OOS est.)
+2. Does it survive realistic costs (G_STRESS)?
+   YES → Futures profitable at 1× and 1.5× cost (7.26bps, 10.89bps)
 
 3. Has it been confirmed live?
-   YES → SHORT +0.655% net on Sep 28 (−1.52% NIFTY day)
+   YES → 9/20 sessions: 61.8% win rate, mean +0.71%, G1–G6 all PASS
+         BEAR sessions (6×): BEAR IC=+0.034 confirmed
+         BULL sessions (3×): LONG weakness confirmed → suppressor active
 
 4. Is the infrastructure production-ready?
-   YES → 10/12 gates pass; SHADOW mode active
+   YES — 18/21 gates PASS; PostgreSQL signal storage active; process management stable
 
 5. Is capital deployment authorized?
-   NOT YET → pending G10+G11 (Sep 30) + 14-day shadow period
-   EARLIEST: Oct 15, 2026
+   NOT YET → Needs 20 live sessions (11 more), v2d retrain (B_ext_momentum drop),
+              PIT F&O eligibility DB, and G11 formal review
+   EARLIEST: ~Nov 15, 2026
 ```
 
 ---
 
 ## Production Path
 
-| Milestone | Date | Status |
-|-----------|------|--------|
-| G12 Human Approval | Sep 28 | ✓ DONE |
-| G10 Forward Paper (≥50 outcomes) | Sep 30 | ⏳ |
-| G11 SignalPromotionEngine | Sep 30 | ⏳ |
-| 14-day Shadow Monitoring | Oct 1–14 | ⏳ |
-| SHADOW → PRODUCTION | Oct 15 | ⏳ |
-| NSE F&O Live Capital | Oct 15+ | 🔒 |
+```
+LIMITED SHADOW (now)
+  ↓ ~Nov 3: 20 sessions complete → G_REGIME review
+  ↓ Oct 6–13: v2d retrain (drop B_ext_momentum) → G_ABLATION full PASS
+  ↓ Oct 8–14: Build PIT F&O eligibility DB → G_UNIVERSE PASS
+  ↓ ~Nov 3: G11 formal promotion review (if 20-session win rate ≥50%)
+  ↓ ~Nov 15: SHADOW → PRODUCTION (if G11 + G_REGIME + G_ABLATION pass)
+  ↓ Nov 15+: NSE F&O live execution (long-only futures initially, 1 lot/signal)
+```
+
+Remaining 3 partial gates:
+- **G_REGIME**: 11 more live sessions needed (9/20); BULL suppressor active
+- **G_ABLATION**: Full retrain ablation (v2d) — drop B_ext_momentum → +39.8% IC expected
+- **G_UNIVERSE**: PIT F&O eligibility DB (survivorship bias <5% impact estimated)
 
 ---
 
-## Architecture Summary
-
-```
-alpha-forge (3000) ← ml-service2.0 (8100) ← data-service2.0 (8200)
-                                    ↑
-                            SentinelPulse (3001)
-```
-
-**ml-service2.0** is the ML intelligence layer. It:
-1. Trains LightGBM on 218 NSE F&O symbols × 55 features × 5yr daily data
-2. Scores all 218 symbols every 5 min during market hours
-3. Maintains model lifecycle: HYPOTHESIS → BACKTEST → CHALLENGER → SHADOW → PRODUCTION
-4. Runs self-improvement loop: outcomes → SelfLearningLoop → retrain → validate → promote
-5. Applies Phil-inspired filters: ScoreThresholdSweep, ForecastLedger, FeatureWeightManager
-
----
-
-## Open Items
-
-| ID | Description | Priority | When |
-|----|-------------|---------|------|
-| G10 | Forward paper full resolution | P0 | Sep 30 |
-| G11 | SignalPromotionEngine | P0 | Sep 30 |
-| Beta overlay | Beta-neutral LONG book hedge | P1 | Oct 1-3 |
-| Sector filter v2 | Calibrate dimmer values from CounterfactualLedger | P2 | Oct 1 |
-| TATAMOTORS DQ | Correct DVR vs regular instrument token | P2 | Oct 1 |
-| Oct bars | Ingest Sep 28-29-30 close bars | P2 | Oct 1 |
-| NEW-P4-004 | docker-test coverage config | P4 (non-blocking) | backlog |
+*v2c model: LGBMRegressor | Artifact: v2-20261001184632 | Stage: LIMITED SHADOW*
+*v1 model: Archived (CHALLENGER) — IC = −0.001 OOS, zero predictive power*
