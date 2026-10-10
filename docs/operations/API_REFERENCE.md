@@ -46,7 +46,13 @@
     - [GET /v2/features/quality](#get-v2featuresquality)
 12. [Health Endpoint](#health-endpoint)
     - [GET /health](#get-health)
-13. [WebSocket](#websocket)
+13. [Signals Endpoints](#signals-endpoints)
+    - [GET /v2/signals/latest](#get-v2signalslatest)
+    - [GET /v2/signals/history](#get-v2signalshistory)
+    - [GET /v2/signals/autorun-log](#get-v2signalsautorun-log)
+14. [Health Endpoint](#health-endpoint)
+    - [GET /health](#get-health)
+15. [WebSocket](#websocket)
     - [WS /v2/stream/signals](#ws-v2streamsignals)
 14. [Enumerations Reference](#enumerations-reference)
 
@@ -1419,6 +1425,110 @@ Liveness probe. No authentication required.
 ```
 
 Returns `200 OK` when the service is running. Does not check Redis, MLflow, or upstream services — use `/v2/models/status` for dependency health.
+
+---
+
+## Signals Endpoints
+
+These endpoints serve the live LightGBM scoring snapshot produced by `scripts/autorun_till_close.py`. The snapshot is updated every ~5 minutes during market hours and stored at `artifacts/live_session/latest_scores.json`. Results are also pushed in real-time via the WebSocket endpoint below.
+
+### GET /v2/signals/latest
+
+Returns the most recent LightGBM scoring snapshot for all scored symbols.
+
+```bash
+curl -H "X-API-KEY: $ML_SERVICE_API_KEY" \
+     http://localhost:8100/v2/signals/latest
+```
+
+**Response:**
+```json
+{
+  "session_date": "2026-10-09",
+  "model_version": "v2c",
+  "n_signals": 285,
+  "generated_at": "2026-10-09T09:47:12+05:30",
+  "signals": [
+    {
+      "symbol": "RELIANCE",
+      "score": 0.73,
+      "direction": 1,
+      "conviction": "STRONG_LONG",
+      "rank": 14,
+      "sector": "ENERGY"
+    }
+  ]
+}
+```
+
+| Field | Description |
+|---|---|
+| `score` | Raw LGBMRegressor output (0–1; >0.5 = LONG tendency) |
+| `direction` | `1` = LONG, `-1` = SHORT, `0` = HOLD |
+| `conviction` | `STRONG_LONG` / `LONG` / `HOLD` / `SHORT` / `STRONG_SHORT` |
+| `rank` | Cross-sectional rank (1 = highest conviction LONG) |
+
+Returns `503` when no snapshot exists (outside market hours before first session run).
+
+---
+
+### GET /v2/signals/history
+
+Returns `ForecastLedger` records for a specific session date with resolved outcomes.
+
+```bash
+curl -H "X-API-KEY: $ML_SERVICE_API_KEY" \
+     "http://localhost:8100/v2/signals/history?date=2026-10-09"
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `date` | `YYYY-MM-DD` | today (IST) | Session date to retrieve |
+
+**Response:**
+```json
+{
+  "session_date": "2026-10-09",
+  "records": [
+    {
+      "symbol": "RELIANCE",
+      "score": 0.73,
+      "direction": 1,
+      "resolved_return": 0.0112,
+      "direction_correct": true
+    }
+  ],
+  "stats": {
+    "n_resolved": 36,
+    "win_rate": 0.583,
+    "mean_return": 0.0071,
+    "brier_delta": 0.031
+  }
+}
+```
+
+`resolved_return` and `direction_correct` are `null` for unresolved (still-open) signals.
+
+---
+
+### GET /v2/signals/autorun-log
+
+Returns the last N autorun tick samples as a mini time-series. Useful for charts and trend displays.
+
+```bash
+curl -H "X-API-KEY: $ML_SERVICE_API_KEY" \
+     "http://localhost:8100/v2/signals/autorun-log?n=10"
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `n` | integer | `10` | Number of most recent tick samples to return (max 100) |
+
+Returns a list of snapshot objects, each identical in shape to `GET /v2/signals/latest`.
 
 ---
 

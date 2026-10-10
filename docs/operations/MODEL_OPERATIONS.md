@@ -1,5 +1,13 @@
 # Model Operations Guide — ml-service2.0
 
+> **Current active model (2026-10-09): v2c** — LGBMRegressor, 65 features (fs-2.0.0),
+> 7-day cross-sectional rank label. Stage: **LIMITED SHADOW** (long-only NSE futures).
+> OOS IC = +0.040 (p<0.0001). Artifact: `artifacts/v2_model/v2-20261001184632/model.pkl`.
+>
+> The v1 model (`expanded_lgbm`, LightGBM fs-3.0.0, 55 features) was retired 2026-10-01
+> after OOS IC = −0.001 (zero predictive power). This guide remains valid for the v2c
+> training/promotion pipeline.
+
 This guide covers the full model lifecycle: from hypothesis through shadow trading to production promotion, including online learning, drift monitoring, and the provenance system that governs which predictions are eligible for live capital deployment.
 
 ---

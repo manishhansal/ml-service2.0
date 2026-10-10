@@ -1,26 +1,33 @@
 # DEPLOYMENT RUNBOOK
-**AlphaForge ml-service2.0 — Shadow → Production Path**
-**Created:** 2026-09-28 (post G12 approval) | **Last updated:** 2026-09-30
-**Model:** `expanded_lgbm` v`1.0.0-20260928053134956099` | Stage: **SHADOW**
+**AlphaForge ml-service2.0 — Limited Shadow → Production Path**
+**Created:** 2026-09-28 (post G12 approval) | **Last updated:** 2026-10-09
+**Model:** v2c `LGBMRegressor` (`v2-20261001184632`) | Stage: **LIMITED SHADOW (long-only futures)**
+
+> **Note:** The v1 model (`expanded_lgbm 1.0.0-20260928`) was retired on 2026-10-01
+> (OOS IC = −0.001). The active model is v2c. Session records below Sep 30 reflect v1
+> shadow runs. Oct 1 onward reflects v2c limited shadow.
 
 ---
 
 ## CURRENT STATE
 
 ```
-CHALLENGER (complete) → SHADOW (active, 2026-09-28) → PRODUCTION (target: 2026-10-15)
+v1 SHADOW (Sep 28 → Oct 1, retired) → v2c CHALLENGER (Oct 1) → v2c LIMITED SHADOW (Oct 1 → now)
+  → v2c SHADOW (~Nov 3, after 20 live sessions) → PRODUCTION (~Nov 15)
 ```
 
-The model is **live in shadow mode**: it scores all 218 NSE F&O symbols every 5 minutes
-during market hours and logs paper P&L. No real capital is deployed.
+The model is **live in limited shadow mode**: scores 285 NSE F&O symbols every 5 minutes,
+long-only NSE futures paper P&L tracked. No real capital deployed.
 
-**Live session record (as of 2026-09-29 close):**
+**Live session record (v2c, Oct 1–9, 2026) — 9 sessions, 319 settled:**
 
-| Date | NIFTY | SHORT P&L | WIN RATE | Status |
-|------|-------|-----------|----------|--------|
-| Sep 28 | −1.52% | +0.655% net | 80% (16/20) | ✓ |
-| Sep 29 | −0.42% | +0.945% net | 80% (16/20) | ✓ |
-| **2-day avg** | **−0.97%** | **+0.800% net** | **80% (32/40)** | p<0.001 |
+| Period | Regime | Win Rate | Mean Return | Sessions |
+|--------|--------|----------|-------------|---------|
+| Oct 1–9 | Mixed (BEAR×6, BULL×3) | **61.8%** | **+0.71%** | 9/20 |
+| BULL sessions | BULL | ~56% | +0.63% | 3 |
+| BEAR sessions | BEAR | ~65% | +1.0% | 6 |
+
+**Promotion engine (G1–G6): all PASS. Target: SHADOW → PRODUCTION ~Nov 15.**
 
 ---
 
@@ -46,8 +53,8 @@ Data-service EOD catchup runs at: 19:00 IST = 13:30 UTC (within valid window ✓
 # → Log in at https://api.upstox.com/v2/login
 # → Copy the new access_token from the OAuth callback URL
 
-# Step 2: Update the .env file in data-service2.0
-nano /Users/manishkumar/Desktop/data-service2.0/.env
+# Step 2: Update the token in data-service2.0's Docker env file
+nano /Users/manishkumar/Desktop/data-service2.0/.env.docker
 # Edit line: UPSTOX_ACCESS_TOKEN=<new_token>
 
 # Step 3: CRITICAL — force-recreate containers (NOT docker restart!)
