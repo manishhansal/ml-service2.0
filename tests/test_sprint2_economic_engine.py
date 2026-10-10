@@ -2,118 +2,17 @@
 tests/test_sprint2_economic_engine.py
 ---------------------------------------
 Tests for Sprint 2 economic infrastructure:
-  - OpportunityScorer (NEW-P2-003)
   - DrawdownManager (NEW-P2-005)
   - Baseline comparison gate in TrainingOrchestrator (NEW-P2-006)
   - SelfLearningLoop champion comparison gate (NEW-P1-004)
+
+Note: TestOpportunityScorer (NEW-P2-003) removed — src/meta/opportunity_score.py
+was not wired into the v2c production pipeline and has been deleted.
 """
 from __future__ import annotations
 
 import numpy as np
 import pytest
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# OpportunityScorer (NEW-P2-003)
-# ──────────────────────────────────────────────────────────────────────────────
-
-class TestOpportunityScorer:
-    """Tests for the OpportunityScorer (mandate §15)."""
-
-    def test_positive_return_high_quality_scores_high(self):
-        """A trade with high expected return, good calibration, and high data quality
-        should score high."""
-        from src.meta.opportunity_score import OpportunityScorer
-        scorer = OpportunityScorer(min_viable_score=0.05)
-        result = scorer.score(
-            expected_net_return=0.015,
-            prob_target=0.65,
-            calibration_ece=0.03,
-            regime_fit=0.9,
-            data_quality=0.95,
-            liquidity_quality=0.9,
-            execution_quality=0.9,
-            alpha_stability=0.9,
-            uncertainty=0.2,
-            cost_bps=27.65,
-            risk_vol=0.01,
-        )
-        assert result.opportunity_score > 0.10, (
-            f"High-quality trade should score > 0.10, got {result.opportunity_score}"
-        )
-        assert result.is_viable
-
-    def test_negative_return_scores_zero(self):
-        """A trade with negative expected net return must score 0 (not trade)."""
-        from src.meta.opportunity_score import OpportunityScorer
-        scorer = OpportunityScorer()
-        result = scorer.score(expected_net_return=-0.005)
-        assert result.opportunity_score == 0.0 or result.opportunity_score < 0.01
-        assert not result.is_viable
-
-    def test_score_bounded_0_to_1(self):
-        """Score must always be in [0, 1]."""
-        from src.meta.opportunity_score import OpportunityScorer
-        scorer = OpportunityScorer()
-        import itertools
-        for ret in [0.001, 0.01, 0.10, 1.0]:
-            for unc in [0.0, 0.5, 1.0]:
-                result = scorer.score(expected_net_return=ret, uncertainty=unc)
-                assert 0.0 <= result.opportunity_score <= 1.0, (
-                    f"Score out of bounds: {result.opportunity_score} "
-                    f"(ret={ret}, unc={unc})"
-                )
-
-    def test_higher_return_higher_score(self):
-        """Higher expected return → higher score (all else equal)."""
-        from src.meta.opportunity_score import OpportunityScorer
-        scorer = OpportunityScorer()
-        r_low = scorer.score(expected_net_return=0.002, prob_target=0.55).opportunity_score
-        r_high = scorer.score(expected_net_return=0.015, prob_target=0.55).opportunity_score
-        assert r_high > r_low
-
-    def test_better_calibration_higher_score(self):
-        """Lower ECE (better calibration) → higher score (all else equal)."""
-        from src.meta.opportunity_score import OpportunityScorer
-        scorer = OpportunityScorer()
-        # Use prob_target=0.65 so prob_quality is non-zero, allowing calibration to matter
-        r_bad = scorer.score(expected_net_return=0.01, calibration_ece=0.14,
-                             prob_target=0.65).opportunity_score
-        r_good = scorer.score(expected_net_return=0.01, calibration_ece=0.02,
-                              prob_target=0.65).opportunity_score
-        assert r_good > r_bad, (
-            f"Better calibration (ECE=0.02) should score higher than poor calibration "
-            f"(ECE=0.14): got {r_good:.4f} vs {r_bad:.4f}"
-        )
-
-    def test_rank_signals_sorted_descending(self):
-        """rank_signals() must return signals sorted by score descending."""
-        from src.meta.opportunity_score import OpportunityScorer
-        scorer = OpportunityScorer()
-        signals = [
-            {"signal_id": "A", "expected_net_return": 0.001},
-            {"signal_id": "B", "expected_net_return": 0.015, "prob_target": 0.65},
-            {"signal_id": "C", "expected_net_return": 0.005},
-        ]
-        ranked = scorer.rank_signals(signals)
-        scores = [s["opportunity_score"] for s in ranked]
-        assert scores == sorted(scores, reverse=True), "Signals must be sorted desc"
-
-    def test_to_dict_has_required_keys(self):
-        from src.meta.opportunity_score import OpportunityScorer
-        scorer = OpportunityScorer()
-        result = scorer.score(expected_net_return=0.01)
-        d = result.to_dict()
-        assert "opportunity_score" in d
-        assert "is_viable" in d
-        assert "components" in d
-        assert "inputs" in d
-
-    def test_zero_return_not_viable(self):
-        from src.meta.opportunity_score import OpportunityScorer
-        scorer = OpportunityScorer(min_viable_score=0.05)
-        result = scorer.score(expected_net_return=0.0)
-        assert not result.is_viable
 
 
 # ──────────────────────────────────────────────────────────────────────────────

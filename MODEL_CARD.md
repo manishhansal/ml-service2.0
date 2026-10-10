@@ -1,7 +1,13 @@
 # MODEL CARD
-**Model:** expanded_lgbm  
+> **⚠️ ARCHIVED — FORENSIC RECORD ONLY**
+> This model card documents the **v1 model (LightGBM fs-3.0.0)**, which was retired on 2026-10-01 after live testing revealed OOS IC = −0.001 (zero predictive power). The v1 model was demoted from SHADOW to CHALLENGER.
+>
+> **The active model is v2c (LGBMRegressor, 65 features, 7-day CS rank label, OOS IC = +0.040).**
+> See `REMEDIATION_BACKLOG.md` and `reports/forensic/PRODUCTION_GATES.md` for v2c documentation.
+
+**Model:** expanded_lgbm (v1, ARCHIVED)
 **Version:** 1.0.0-20260928053134956099  
-**Stage:** SHADOW (demoted to CHALLENGER pending G10/G11 resolution)  
+**Stage:** CHALLENGER (demoted from SHADOW — Oct 1, IC = −0.001 OOS — unviable)
 **Date:** 2026-10-01  
 **Author:** AlphaForge ML Team  
 **Reviewer:** Kiro Forensic Audit System

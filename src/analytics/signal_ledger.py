@@ -2,9 +2,15 @@
 src.analytics.signal_ledger — Intraday Signal Lifecycle Tracker
 ================================================================
 
-Primary storage: SQLite via src.data.signal_db.SignalDB
-  data/ml_signals.db  — sessions, signals, positions, price_snapshots tables
-Audit trail:  artifacts/signal_ledger/signals.jsonl  (append-only backup)
+Primary storage: PostgreSQL (TimescaleDB) via src.data.signal_db.SignalDB
+  Connection: postgresql://mlservice:mlservice_dev@localhost:5445/mlservice
+  Container:  ml-service-postgres (docker-compose.full-stack.yml)
+  Tables:     sessions, signals, positions, price_snapshots, forecasts, symbol_ic
+Audit trail:  artifacts/signal_ledger/signals.jsonl  (append-only JSONL backup)
+
+NOTE: This module was migrated from SQLite (data/ml_signals.db) to PostgreSQL
+  (TimescaleDB, port 5445) on 2026-10-01. The SQLite file no longer exists.
+  All signal storage is now in PostgreSQL via SignalDB (psycopg2 ThreadedConnectionPool).
 
 Lifecycle (same-day intraday)
 ------------------------------
@@ -15,9 +21,9 @@ Lifecycle (same-day intraday)
 
 Flow (wired in autorun_till_close.py)
 --------------------------------------
-  sample_n==1  (≈09:30 IST) → record_signals()       entry prices captured
-  every sample (every 2 min) → update_mark_to_market() unrealized P&L live
-  post-close (15:30 IST)    → settle_session()        WIN / LOSS + report
+  sample_n==1  (≈09:30 IST) → record_signals()        entry prices captured
+  every sample (every 5 min) → update_mark_to_market() unrealized P&L live
+  post-close (15:30 IST)    → settle_session()         WIN / LOSS + report
 """
 from __future__ import annotations
 
@@ -42,10 +48,10 @@ def _now_utc() -> str:
 
 class SignalLedger:
     """
-    Intraday signal lifecycle tracker backed by SQLite.
+    Intraday signal lifecycle tracker backed by PostgreSQL (TimescaleDB).
 
-    All data is stored in data/ml_signals.db (via SignalDB).
-    JSONL audit trail kept in artifacts/signal_ledger/signals.jsonl.
+    All data is stored in PostgreSQL at port 5445 (via SignalDB / psycopg2).
+    JSONL audit trail kept in artifacts/signal_ledger/signals.jsonl as backup.
     """
 
     def __init__(self, cost_bps: float = COST_BPS_FUTURES) -> None:
@@ -96,8 +102,19 @@ class SignalLedger:
         sig_rows: list[dict] = []
         pos_rows: list[dict] = []
 
+        # Pre-check: get existing (symbol, session_date) pairs to skip them (true idempotency)
+        existing = set(
+            r["symbol"]
+            for r in self._db.execute_query(
+                "SELECT symbol FROM signals WHERE session_date=%s", (session_date,)
+            )
+        )
+
         for sig in active:
             sym   = sig["symbol"]
+            if sym in existing:
+                continue  # already recorded for this session — skip (true idempotent)
+
             sid   = str(uuid.uuid4())[:16]
 
             # Entry price from live quote
@@ -280,6 +297,7 @@ class SignalLedger:
             "total_settled":       wins + losses,
             "settled_win":         wins,
             "settled_loss":        losses,
+            "expired":             0,   # not tracked at session level; always 0
             "win_rate":            wins / (wins + losses) if (wins + losses) else None,
             "realized_mean_pct":   round(sum(rets) / len(rets), 4) if rets else None,
             "open":                len(open_pos),
@@ -335,14 +353,13 @@ class SignalLedger:
         ]
 
         # Settled positions
-        with self._db._connect() as conn:
-            rows = conn.execute("""
-                SELECT p.symbol, p.direction, s.score, s.conviction,
-                       p.entry_price, p.exit_price, p.final_return_pct, p.status
-                FROM positions p JOIN signals s USING (signal_id)
-                WHERE p.session_date=? AND p.status!='OPEN'
-                ORDER BY p.final_return_pct DESC
-            """, (session_date,)).fetchall()
+        rows = self._db.execute_query("""
+            SELECT p.symbol, p.direction, s.score, s.conviction,
+                   p.entry_price, p.exit_price, p.final_return_pct, p.status
+            FROM positions p JOIN signals s USING (signal_id)
+            WHERE p.session_date=%s AND p.status!='OPEN'
+            ORDER BY p.final_return_pct DESC
+        """, (session_date,))
 
         if rows:
             lines += [

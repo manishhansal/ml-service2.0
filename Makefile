@@ -28,6 +28,11 @@ IMAGE          = ml-service2:test-hardened
 CONTAINER      = ml-service2-api
 COMPOSE_FILE   = docker-compose.yml
 
+# ── Docker env file ───────────────────────────────────────────────────────────
+# .env.docker is the dedicated Docker env (container DNS, host.docker.internal).
+# Override at the command line: make up ENV_FILE=.env.local
+ENV_FILE ?= .env.docker
+
 # Test ignore flags shared between host and Docker runs
 TEST_IGNORES = \
 	--ignore=$(TEST_DIR)/test_coverage_boost.py \
@@ -118,13 +123,13 @@ rebuild:  ## Force-rebuild image (no cache) then restart the stack
 	@echo "   ⚠  This takes ~12 min due to pip installs. Use 'make build' if you only changed code."
 	docker build --no-cache -f Dockerfile.test -t $(IMAGE) .
 	@echo "▶  Restarting stack with new image ..."
-	docker compose -f $(COMPOSE_FILE) up -d --force-recreate ml-service
+	docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d --force-recreate ml-service
 	@$(MAKE) health
 
 deploy:  ## Build image + restart container (fastest code-change deploy)
 	@echo "▶  Building and deploying $(IMAGE) ..."
 	docker build -f Dockerfile.test -t $(IMAGE) .
-	docker compose -f $(COMPOSE_FILE) up -d --force-recreate ml-service
+	docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d --force-recreate ml-service
 	@sleep 20
 	@$(MAKE) health
 
@@ -133,25 +138,25 @@ deploy:  ## Build image + restart container (fastest code-change deploy)
 # ─────────────────────────────────────────────────────────────────────────────
 
 up:  ## Start full ml-service2.0 stack (ml-service + redis + mlflow)
-	docker compose -f $(COMPOSE_FILE) up -d
+	docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d
 	@sleep 20
 	@echo "✓  Stack started"
 	@$(MAKE) health
 
 down:  ## Stop and remove the ml-service2.0 stack
-	docker compose -f $(COMPOSE_FILE) down
+	docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) down
 	@echo "✓  Stack stopped."
 
 restart:  ## Restart ml-service only (redis + mlflow stay running)
-	docker compose -f $(COMPOSE_FILE) restart ml-service
+	docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) restart ml-service
 	@sleep 15
 	@$(MAKE) health
 
 reset:  ## Tear down, rebuild image, and restart everything from scratch
 	@echo "▶  Full reset: down → build → up ..."
-	docker compose -f $(COMPOSE_FILE) down
+	docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) down
 	$(MAKE) build
-	docker compose -f $(COMPOSE_FILE) up -d
+	docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d
 	@sleep 25
 	@$(MAKE) health
 
@@ -165,22 +170,22 @@ prune:  ## Remove stopped containers and dangling images (frees disk space)
 # ─────────────────────────────────────────────────────────────────────────────
 
 logs:  ## Tail ml-service logs (last 100 lines, then follow)
-	docker compose -f $(COMPOSE_FILE) logs -f --tail=100 ml-service
+	docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) logs -f --tail=100 ml-service
 
 logs-ml:  ## Tail ml-service logs only (alias for logs)
 	docker logs -f --tail=100 $(CONTAINER)
 
 logs-redis:  ## Tail Redis logs
-	docker compose -f $(COMPOSE_FILE) logs -f --tail=50 redis
+	docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) logs -f --tail=50 redis
 
 logs-mlflow:  ## Tail MLflow logs
-	docker compose -f $(COMPOSE_FILE) logs -f --tail=50 mlflow
+	docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) logs -f --tail=50 mlflow
 
 logs-all:  ## Tail ml-service logs + show data-service and sentinelpulse status
 	@echo "▶  ml-service2.0 logs (Ctrl+C to stop) ..."
 	@echo "   For data-service: cd ../data-service2.0 && docker compose logs -f"
 	@echo "   For sentinelpulse: cd ../sentinelpulse && docker compose logs -f"
-	docker compose -f $(COMPOSE_FILE) logs -f --tail=100
+	docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) logs -f --tail=100
 
 logs-errors:  ## Show only ERROR-level log lines from ml-service (last 200 lines)
 	docker logs --tail=200 $(CONTAINER) 2>&1 | grep -i "error\|exception\|traceback\|FAIL" || echo "(no errors in last 200 lines)"
@@ -218,14 +223,14 @@ status:  ## Show running Docker containers (all services)
 		| column -t
 	@echo ""
 	@echo "ml-service2 stack:"
-	@docker compose -f $(COMPOSE_FILE) ps
+	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) ps
 
 shell:  ## Open an interactive bash shell inside the ml-service container
 	docker exec -it $(CONTAINER) bash
 
 docker-shell:  ## Run a one-off container with a shell (for debugging without running stack)
 	docker run --rm -it \
-		--env-file .env \
+		--env-file $(ENV_FILE) \
 		--add-host=host.docker.internal:host-gateway \
 		-v $$(pwd)/src:/app/src \
 		-v $$(pwd)/tests:/app/tests \
@@ -241,7 +246,7 @@ docker-shell:  ## Run a one-off container with a shell (for debugging without ru
 docker-test:  ## Run full test suite inside Docker (authoritative — matches CI)
 	@echo "▶  Running tests inside Docker (Python 3.11, $(IMAGE)) ..."
 	docker run --rm \
-		--env-file .env \
+		--env-file $(ENV_FILE) \
 		-e DOCKER_IMAGE_DIGEST=$$(docker inspect $(IMAGE) --format '{{.Id}}' | cut -c1-71) \
 		-v $$(pwd)/src:/app/src \
 		-v $$(pwd)/tests:/app/tests \
@@ -257,7 +262,7 @@ docker-test:  ## Run full test suite inside Docker (authoritative — matches CI
 
 docker-test-cov:  ## Run Docker tests WITH coverage report
 	docker run --rm \
-		--env-file .env \
+		--env-file $(ENV_FILE) \
 		-v $$(pwd)/src:/app/src \
 		-v $$(pwd)/tests:/app/tests \
 		$(IMAGE) \
@@ -304,7 +309,7 @@ ingest-universe:  ## Full 218-symbol F&O universe ingestion (resumable, ~10 min)
 	@echo "▶  Running broad-universe ingestion (rate: 2 req/s, 218 symbols) ..."
 	@echo "   Checkpoint: data/1d/_checkpoint.json (already-done symbols skipped)"
 	docker run --rm \
-		--env-file .env \
+		--env-file $(ENV_FILE) \
 		--add-host=host.docker.internal:host-gateway \
 		-e DATA_SERVICE_2_URL=http://host.docker.internal:8200 \
 		-v $$(pwd)/scripts:/app/scripts \

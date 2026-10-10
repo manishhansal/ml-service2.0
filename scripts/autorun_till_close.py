@@ -822,27 +822,43 @@ def calc_pnl(fp_signals: dict, live_quotes: dict, excluded: set) -> dict:
 
 # ── Post-close actions ────────────────────────────────────────────────────────
 def post_close_ingest():
-    print("\n[close] Ingesting Sep 28 closing bars...")
-    result = subprocess.run(
-        ["python3", "-W", "ignore", str(BASE/"scripts/ingest_all_outdated.py")],
-        capture_output=True, text=True, cwd=str(BASE),
-        env={**os.environ, "PYTHONPATH": str(BASE)}, timeout=300,
-    )
-    out = result.stdout.strip()
-    if out:
-        print(out[-400:])
-    return out
+    # Run ingest in background with a generous timeout. Never let a timeout
+    # crash the entire post-close pipeline — log the failure and continue.
+    print("\n[close] Ingesting today's closing bars (timeout=900s)...")
+    try:
+        result = subprocess.run(
+            ["python3", "-W", "ignore", str(BASE/"scripts/ingest_all_outdated.py")],
+            capture_output=True, text=True, cwd=str(BASE),
+            env={**os.environ, "PYTHONPATH": str(BASE)}, timeout=900,
+        )
+        out = result.stdout.strip()
+        if out:
+            print(out[-400:])
+        if result.returncode != 0 and result.stderr:
+            print(f"[close] ingest warning: {result.stderr[:200]}")
+        return out
+    except subprocess.TimeoutExpired:
+        print("[close] ingest timed out after 900s — parquets may be stale for today.")
+        print("[close] Settlement will use live_quotes.json prices (covers key symbols).")
+        return "TIMEOUT"
 
 def post_close_resolve():
     print("\n[close] Resolving forward paper signals...")
-    result = subprocess.run(
-        ["python3", "-W", "ignore", str(BASE/"scripts/resolve_forward_paper.py")],
-        capture_output=True, text=True, cwd=str(BASE),
-        env={**os.environ, "PYTHONPATH": str(BASE)}, timeout=120,
-    )
-    out = result.stdout.strip()
-    if out:
-        print(out[-600:])
+    try:
+        result = subprocess.run(
+            ["python3", "-W", "ignore", str(BASE/"scripts/resolve_forward_paper.py")],
+            capture_output=True, text=True, cwd=str(BASE),
+            env={**os.environ, "PYTHONPATH": str(BASE)}, timeout=180,
+        )
+        out = result.stdout.strip()
+        if out:
+            print(out[-600:])
+        if result.returncode != 0 and result.stderr:
+            print(f"[close] resolve warning: {result.stderr[:200]}")
+        return out
+    except subprocess.TimeoutExpired:
+        print("[close] resolve_forward_paper timed out — FP signals not resolved today.")
+        return "TIMEOUT"
     return out
 
 
@@ -864,15 +880,21 @@ def post_close_signal_ledger(session_date: str) -> str:
 
 def post_close_promotion():
     print("\n[close] Running SignalPromotionEngine...")
-    result = subprocess.run(
-        ["python3", "-W", "ignore", str(BASE/"scripts/run_signal_promotion.py")],
-        capture_output=True, text=True, cwd=str(BASE),
-        env={**os.environ, "PYTHONPATH": str(BASE)}, timeout=60,
-    )
-    out = result.stdout.strip()
-    if out:
-        print(out[-400:])
-    return out
+    try:
+        result = subprocess.run(
+            ["python3", "-W", "ignore", str(BASE/"scripts/run_signal_promotion.py")],
+            capture_output=True, text=True, cwd=str(BASE),
+            env={**os.environ, "PYTHONPATH": str(BASE)}, timeout=120,
+        )
+        out = result.stdout.strip()
+        if out:
+            print(out[-400:])
+        if result.returncode != 0 and result.stderr:
+            print(f"[close] promotion warning: {result.stderr[:200]}")
+        return out
+    except subprocess.TimeoutExpired:
+        print("[close] promotion engine timed out.")
+        return "TIMEOUT"
 
 # ── Dashboard printing ────────────────────────────────────────────────────────
 def print_dashboard(sample_n: int, now: datetime, nifty: dict | None, scores: list,
@@ -997,11 +1019,15 @@ def main():
             print("\n[close] Final quote snapshot...")
             final_quotes = get_all_quotes_fast(key_syms + list(fp_signals.keys())[:50])
 
-            # Post-close actions
+            # Post-close actions — order matters:
+            # 1. ingest: refresh parquets with today's bars
+            # 2. signal_ledger: settle today's positions FIRST (needs final prices)
+            # 3. resolve: forward paper resolution
+            # 4. promotion: evaluate signals (uses settled data from step 2)
             ingest_out  = post_close_ingest()
+            ledger_out  = post_close_signal_ledger(session_date)   # BEFORE promotion
             resolve_out = post_close_resolve()
             promo_out   = post_close_promotion()
-            ledger_out  = post_close_signal_ledger(session_date)
 
             # Final P&L with fresh quotes
             final_scores = score_all(estimator, feat_names, normalizer)
@@ -1219,9 +1245,23 @@ def main():
         # ── MARKET OPEN — regular sample ──────────────────────────────────
         sample_n += 1
 
+        # ── Fetch NIFTY individually first (dedicated call, bypasses batch rate-limit) ──
+        # Root cause of 78% None: async 218-symbol batch saturates the rate limit
+        # and NIFTY's slot gets dropped. Fetching it solo before the batch guarantees
+        # a valid LTP every sample. Falls back to cache if the call fails.
+        _nifty_direct = get_quote("NIFTY")
+        if _nifty_direct and _nifty_direct.get("ltp"):
+            _last_nifty_quote = _nifty_direct   # update cache
+
         # Fetch quotes — key symbols first (fast, for NIFTY display)
         print(f"[{now.strftime('%H:%M')}] Sample #{sample_n} | {mins:.0f}min left | Fetching {len(key_syms)} quotes...", end="", flush=True)
         live_quotes = get_all_quotes_fast(key_syms)
+        # Ensure NIFTY is in live_quotes (use direct fetch or cache if batch missed it)
+        if "NIFTY" not in live_quotes or not live_quotes.get("NIFTY", {}).get("ltp"):
+            if _nifty_direct and _nifty_direct.get("ltp"):
+                live_quotes["NIFTY"] = _nifty_direct
+            elif _last_nifty_quote:
+                live_quotes["NIFTY"] = _last_nifty_quote
         nifty_q = live_quotes.get("NIFTY", {})
         print(f" NIFTY={nifty_q.get('ltp','?')} ({nifty_q.get('changePct',0):+.2f}%)")
 

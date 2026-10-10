@@ -112,3 +112,6 @@ reports/**/*.parquet
 reports/**/*.csv
 reports/phase2_7/*.parquet
 reports/phase2/*.parquet
+
+# Docker environment file — container URLs + dev secrets (never commit)
+.env.docker

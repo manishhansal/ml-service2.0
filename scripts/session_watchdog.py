@@ -42,7 +42,9 @@ def market_open() -> bool:
     if now.weekday() >= 5:
         return False
     t = (now.hour, now.minute)
-    return (9, 15) <= t <= (15, 31)
+    # Use same window as daily_autorun_scheduler (09:00–15:35) so the watchdog
+    # doesn't exit immediately when started during pre-open (09:00–09:15).
+    return (9, 0) <= t <= (15, 35)
 
 
 def mins_to_close() -> float:
@@ -73,14 +75,20 @@ def start_autorun() -> None:
     global _autorun_proc
     print(f"[watchdog] Starting autorun_till_close.py at {ist_now().strftime('%H:%M IST')}")
     env = {**os.environ, "PYTHONPATH": str(BASE)}
+    # Route autorun stdout/stderr to a rotating log file so:
+    #   (a) the OS pipe buffer never fills (which would block autorun on print()),
+    #   (b) startup errors are captured for debugging.
+    autorun_stdout_log = BASE / "artifacts" / "live_session" / "autorun_stdout.log"
+    autorun_stdout_log.parent.mkdir(parents=True, exist_ok=True)
+    _autorun_log_fh = open(autorun_stdout_log, "a")  # noqa: WPS515 — intentional long-lived FH
     _autorun_proc = subprocess.Popen(
         AUTORUN_CMD,
         cwd=str(BASE),
         env=env,
-        stdout=subprocess.PIPE,
+        stdout=_autorun_log_fh,
         stderr=subprocess.STDOUT,
     )
-    print(f"[watchdog] PID={_autorun_proc.pid}")
+    print(f"[watchdog] PID={_autorun_proc.pid} | stdout → {autorun_stdout_log}")
 
 
 def start_tracker() -> None:
@@ -136,6 +144,38 @@ print('Lines:', len(report.split('\\n')))
         print(f"[watchdog] Report error: {result.stderr[:200]}")
 
 
+def _run_signal_ledger_safety(session_date: str) -> None:
+    """ISSUE-15 safety net: run signal_ledger_daily.py at watchdog close.
+
+    This ensures signal lifecycle data is persisted even if autorun_till_close.py
+    crashed before reaching its post_close_signal_ledger() call.
+    Idempotent: safe to run twice (will just find 0 positions to settle).
+    """
+    ledger_script = BASE / "scripts" / "signal_ledger_daily.py"
+    if not ledger_script.exists():
+        return
+    print(f"[watchdog] Running signal ledger (safety net) for {session_date} ...")
+    python_bin = str(BASE / ".venv/bin/python")
+    if not os.path.exists(python_bin):
+        python_bin = sys.executable
+    env = {**os.environ, "PYTHONPATH": str(BASE)}
+    result = subprocess.run(
+        [python_bin, "-W", "ignore", str(ledger_script), "--date", session_date],
+        cwd=str(BASE),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.stdout:
+        # Print last 10 lines only
+        lines = result.stdout.strip().splitlines()
+        for line in lines[-10:]:
+            print(f"[watchdog/ledger] {line}")
+    if result.returncode != 0 and result.stderr:
+        print(f"[watchdog] Signal ledger error: {result.stderr[:300]}")
+
+
 def main():
     ist = ist_now()
     print("=" * 70)
@@ -144,13 +184,17 @@ def main():
     print("=" * 70)
 
     start_autorun()
+    _last_start_time = time.monotonic()   # track when autorun was last (re)started
+    GRACE_SECS = 300  # give autorun 5 minutes to complete its first scoring cycle
     start_tracker()   # launch signal_tracker.py so EOD gap report has data
     close_reported = False
+    session_date = ist_now().strftime("%Y-%m-%d")
 
     while True:
         now = ist_now()
         mins_left = mins_to_close()
         age = snapshot_age_mins()
+        secs_since_start = time.monotonic() - _last_start_time
 
         # Market closed
         if not market_open():
@@ -160,11 +204,27 @@ def main():
                     print("[watchdog] Waiting 3 min for autorun to finish EOD tasks...")
                     time.sleep(180)
                 generate_final_report()
+                # ISSUE-15 safety net: run signal_ledger_daily as watchdog-level fallback
+                # in case autorun_till_close.py crashed before reaching post_close_signal_ledger()
+                _run_signal_ledger_safety(session_date)
                 close_reported = True
             break
 
-        # Check if autorun needs restart (stale > 12 min or dead)
-        if not autorun_alive() or age > 12:
+        # Grace period: after a (re)start, allow GRACE_SECS for the first scoring
+        # cycle to complete before treating a stale snapshot as an error.
+        # Without this, every 60s the watchdog sees stale > 8min and kills the
+        # autorun before it can write its first scores — an infinite restart loop.
+        in_grace = secs_since_start < GRACE_SECS
+
+        # Check if autorun needs restart — ISSUE-17: tightened from 12min/120s to 8min/60s
+        # CRIT-1 guard: never restart after market close (mins_left<=0). The first
+        # autorun handles post-close; restarting it produces a second post-close run
+        # that corrupts session_summary.json (n_samples=1) and inserts spurious signals.
+        needs_restart = (
+            mins_left > 0 and                          # guard: market still open
+            ((not autorun_alive()) or (not in_grace and age > 8))
+        )
+        if needs_restart:
             if not autorun_alive():
                 print(f"[{now.strftime('%H:%M')}] Autorun died — restarting (snapshot age={age:.0f}min)")
             else:
@@ -173,9 +233,11 @@ def main():
                 _autorun_proc.terminate()
                 time.sleep(3)
             start_autorun()
+            _last_start_time = time.monotonic()
 
-        print(f"[{now.strftime('%H:%M')}] OK | snap_age={age:.0f}min | autorun={'alive' if autorun_alive() else 'dead'} | {mins_left:.0f}min left")
-        time.sleep(120)  # Check every 2 min
+        grace_note = f" [grace {int(GRACE_SECS-secs_since_start)}s]" if in_grace else ""
+        print(f"[{now.strftime('%H:%M')}] OK | snap_age={age:.0f}min | autorun={'alive' if autorun_alive() else 'dead'} | {mins_left:.0f}min left{grace_note}")
+        time.sleep(60)   # ISSUE-17: check every 60s (was 120s)
 
 
 if __name__ == "__main__":

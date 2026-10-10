@@ -88,6 +88,13 @@ Copy `.env.example` to `.env` and fill in the values marked **required**. All va
 |---|---|---|---|
 | `MLFLOW_TRACKING_URI` | `http://localhost:5000` | No | MLflow tracking server URI |
 
+### Storage: PostgreSQL (Signal Storage)
+
+| Variable | Default | Required | Description |
+|---|---|---|---|
+| `ML_DATABASE_URL` | `postgresql://mlservice:mlservice_dev@localhost:5445/mlservice` | No | PostgreSQL (TimescaleDB) connection URL for signal storage. Container: `ml-service-postgres` (port 5445). Use Docker service name inside the full-stack compose: `@ml-service-postgres:5445`. |
+| `ML_POSTGRES_PASSWORD` | `mlservice_dev` | No | Password for the `ml-service-postgres` container (used only by `docker-compose.full-stack.yml`) |
+
 ### Storage: Filesystem
 
 | Variable | Default | Required | Description |
@@ -216,19 +223,16 @@ mlflow server --host 0.0.0.0 --port 5000
 
 ## Generating gRPC Stubs
 
-The data-service2.0 gRPC streaming interface requires Python stubs generated from `protos/market_data.proto`.
+> **⚠️ DEPRECATED — gRPC streaming is dead code in the v2c production pipeline.**
+> The data-service2.0 market data feed now flows via REST + Redis (not gRPC).
+> `src/clients/grpc_client.py` is wrapped in `try/except ImportError` with
+> `# pragma: no cover`. You do not need to run this step for normal operation.
+>
+> Retained here for reference only, in case gRPC streaming is re-introduced.
 
 ```bash
+# Only needed if you are adding a new gRPC feature:
 bash protos/generate_stubs.sh
-```
-
-This runs `python -m grpc_tools.protoc` and writes the generated stubs to `src/clients/protos/`. Re-run whenever `market_data.proto` changes. The stubs are not committed to the repository and must be regenerated on each fresh checkout.
-
-Verify the stubs were generated:
-
-```bash
-ls src/clients/protos/
-# market_data_pb2.py  market_data_pb2_grpc.py
 ```
 
 ---

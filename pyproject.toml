@@ -47,6 +47,9 @@ dependencies = [
     # ── Cache / Messaging ──────────────────────────────────────────
     "redis[hiredis]==5.2.1",
 
+    # ── PostgreSQL (signal ledger + TimescaleDB) ───────────────────
+    "psycopg2-binary==2.9.10",
+
     # ── gRPC ──────────────────────────────────────────────────────
     "grpcio==1.69.0",
     "grpcio-tools==1.69.0",

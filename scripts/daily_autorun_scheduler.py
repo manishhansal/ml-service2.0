@@ -50,7 +50,19 @@ def secs_to_next_open() -> float:
 
 
 def watchdog_alive() -> bool:
-    return _proc is not None and _proc.poll() is None
+    # Primary check: the process we started
+    if _proc is not None and _proc.poll() is None:
+        return True
+    # Secondary: detect watchdog started by external means (manual restart, etc.)
+    # so we don't double-spawn when one already exists.
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "session_watchdog.py"],
+            capture_output=True,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
 
 
 def start_watchdog():
