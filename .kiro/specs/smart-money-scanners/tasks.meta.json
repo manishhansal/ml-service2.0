@@ -1,0 +1,628 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 Create `src/scanners/fair_value_gap/` package with config and schemas": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739076
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692750731
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791693146099
+      }
+    ],
+    "1.2 Create `src/scanners/supply_demand/` package with config and schemas": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739107
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692759337
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791693146526
+      }
+    ],
+    "1.3 Create `src/scanners/liquidity_sweep/` package with config and schemas": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739138
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692759767
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791693147042
+      }
+    ],
+    "1.4 Create `src/scanners/market_structure/` package with config and schemas": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739164
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692760248
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791693147487
+      }
+    ],
+    "2.1 Write Hypothesis strategies and test file scaffolding": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739187
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791693157335
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791693452609
+      }
+    ],
+    "2.2 Write TDD red-phase tests for FVG scanner (Req 1–7)": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739213
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791693462779
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791693688515
+      }
+    ],
+    "2.3 Write TDD red-phase tests for S&D scanner (Req 8–14)": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739236
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791693697689
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791693880997
+      }
+    ],
+    "2.4 Write TDD red-phase tests for Liquidity Sweep scanner (Req 15–21)": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739260
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791693890228
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791694053458
+      }
+    ],
+    "2.5 Write TDD red-phase tests for Market Structure scanner (Req 22–29)": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739284
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791694063112
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791694384163
+      }
+    ],
+    "2.6 Write property-based tests for correctness Properties 1–20": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739308
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791694393987
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791694888715
+      }
+    ],
+    "2.7 Write PIT (Point-In-Time) tests for all four scanners": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739333
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791694897956
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791695004750
+      }
+    ],
+    "3.1 Implement `detect_fvg_zones()` in `src/scanners/fair_value_gap/detector.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739362
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791695014939
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696033664
+      }
+    ],
+    "3.2 Implement `update_fvg_lifecycle()` in `src/scanners/fair_value_gap/zone_manager.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739399
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696052909
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696191738
+      }
+    ],
+    "3.3 Implement `rank_fvg_zones()` in `src/scanners/fair_value_gap/scorer.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739423
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696209020
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696371513
+      }
+    ],
+    "3.4 Implement `FVGScanner.scan()` in `src/scanners/fair_value_gap/scanner.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739448
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696383152
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696515627
+      }
+    ],
+    "4.1 Implement `detect_sd_zones()` in `src/scanners/supply_demand/detector.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739476
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791695015371
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696033753
+      }
+    ],
+    "4.2 Implement `update_sd_lifecycle()` in `src/scanners/supply_demand/zone_manager.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739506
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696053344
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696192153
+      }
+    ],
+    "4.3 Implement `rank_sd_zones()` in `src/scanners/supply_demand/scorer.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739542
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696209686
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696371892
+      }
+    ],
+    "4.4 Implement `SDScanner.scan()` in `src/scanners/supply_demand/scanner.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739567
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696383634
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696516077
+      }
+    ],
+    "5.1 Implement `detect_sweeps()` in `src/scanners/liquidity_sweep/detector.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739591
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791695015825
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696033985
+      }
+    ],
+    "5.2 Implement `update_sweep_lifecycle()` in `src/scanners/liquidity_sweep/signal_manager.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739615
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696053795
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696192667
+      }
+    ],
+    "5.3 Implement `rank_sweeps()` in `src/scanners/liquidity_sweep/scorer.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739639
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696210133
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696372341
+      }
+    ],
+    "5.4 Implement `SweepScanner.scan()` in `src/scanners/liquidity_sweep/scanner.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739664
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696384100
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696516538
+      }
+    ],
+    "6.1 Implement `detect_market_structure()` in `src/scanners/market_structure/detector.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739688
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791695016209
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696034291
+      }
+    ],
+    "6.2 Implement `TrendStateTracker` in `src/scanners/market_structure/state_manager.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739713
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696054254
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696192963
+      }
+    ],
+    "6.3 Implement `rank_ms_signals()` in `src/scanners/market_structure/scorer.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739738
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696210402
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696372739
+      }
+    ],
+    "6.4 Implement `MSScanner.scan()` in `src/scanners/market_structure/scanner.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739764
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696384391
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696516879
+      }
+    ],
+    "7. Checkpoint — run unit tests for all four scanners": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739793
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696527104
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696549785
+      }
+    ],
+    "8.1 Add `GET /v2/scanners/fair-value-gaps` to the existing router": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739825
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696592465
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696714271
+      }
+    ],
+    "8.2 Add `GET /v2/scanners/supply-demand` to the existing router": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739855
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696724279
+      }
+    ],
+    "8.3 Add `GET /v2/scanners/liquidity-sweeps` to the existing router": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739881
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696724718
+      }
+    ],
+    "8.4 Add `GET /v2/scanners/market-structure` to the existing router": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739908
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696725176
+      }
+    ],
+    "9. Final checkpoint — full test suite green": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791692739933
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696736065
+      },
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696797877
+      }
+    ],
+    "1. Scaffold all four scanner packages — configuration and schemas": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791693147523
+      }
+    ],
+    "2. Write full TDD red-phase test suite in `tests/test_smart_money_scanners.py`": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791695004805
+      }
+    ],
+    "3. Implement Fair Value Gap scanner": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696515670
+      }
+    ],
+    "4. Implement Supply & Demand Zone scanner": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696516109
+      }
+    ],
+    "5. Implement Liquidity Sweep scanner": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696516568
+      }
+    ],
+    "6. Implement Market Structure scanner": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696516906
+      }
+    ],
+    "3.5 Write additional edge-case unit tests for FVG scanner": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696580969
+      }
+    ],
+    "4.5 Write additional edge-case unit tests for S&D scanner": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696581113
+      }
+    ],
+    "5.5 Write additional edge-case unit tests for Liquidity Sweep scanner": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696581565
+      }
+    ],
+    "6.5 Write additional edge-case unit tests for Market Structure scanner": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696581791
+      }
+    ],
+    "8. Extend `src/api/scanners.py` with four new scanner routes": [
+      {
+        "executionId": "064eb890-3950-4810-854f-6a3b55a8df35",
+        "chatSessionId": "sess_dbee2669-1aa3-4570-ab48-6cd2b2a73073",
+        "timestamp": 1791696725201
+      }
+    ]
+  }
+}
