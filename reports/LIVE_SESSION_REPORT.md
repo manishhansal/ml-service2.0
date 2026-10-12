@@ -138,3 +138,21 @@
 | Positions tracked | 38 |
 
 *Report auto-updated at 15:34 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:31 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 40 |
+| NIFTY close | 22363.35 (-0.70%) |
+| SHORT mean P&L | +3.1677% |
+| LONG mean P&L | -5.1311% |
+| Mean net P&L | +1.0398% |
+| Win rate | 61.5% |
+| Positions tracked | 39 |
+
+*Report auto-updated at 15:31 IST by autorun_till_close.py*

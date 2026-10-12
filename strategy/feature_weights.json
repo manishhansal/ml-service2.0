@@ -1,7 +1,7 @@
 {
   "_schema_version": "1.0",
   "_description": "Agent-editable signal filters. Updated by SelfLearningLoop after each resolved batch. Commit each change \u2014 git log is the learning record.",
-  "_last_updated": "2026-10-07",
+  "_last_updated": "2026-10-12",
   "_last_updated_by": "SelfLearningLoop.update_from_sweep",
   "_evidence": "Sep 28 live session: DRREDDY +1.67% on SHORT (pharma defensive), ASIANPAINT -0.65% on SHORT (paints defensive), MARUTI -0.22% on SHORT (auto defensive). All 3 misses are defensive sectors that rotate up in HIGH_CORR_BEAR regime.",
   "score_threshold": {
@@ -10,8 +10,8 @@
     "current": 0.15,
     "optimal_from_sweep": 0.15,
     "_note": "Set to 0.15 after first threshold_sweep confirms improvement.",
-    "sweep_win_rate": 1.0,
-    "sweep_evidence": "threshold=0.15 \u2192 win_rate=100.0% | n_signals=10/285 | brier_delta=+0.2043 | sharpe_est=+0.000"
+    "sweep_win_rate": 0.6667,
+    "sweep_evidence": "threshold=0.15 \u2192 win_rate=66.7% | n_signals=14/285 | brier_delta=+0.0774 | sharpe_est=-0.744"
   },
   "reversal_detection": {
     "_description": "ReversalDetector configuration. Reversal signals OVERRIDE momentum when score >= override_threshold AND they contradict momentum direction.",
