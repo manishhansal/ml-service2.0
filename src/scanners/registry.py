@@ -348,5 +348,5 @@ async def get_last_scan_meta(cache: Any) -> dict | None:
 
 
 async def set_last_scan_meta(cache: Any, meta: dict) -> None:
-    """Persist metadata about the most recent full scan run (TTL: 1 hour)."""
-    await cache.set("smc:last_scan_meta", meta, ttl=3600)
+    """Persist metadata about the most recent full scan run (TTL: 24h)."""
+    await cache.set("smc:last_scan_meta", meta, ttl=86_400)  # 24h — survives EOD
