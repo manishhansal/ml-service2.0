@@ -239,8 +239,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     )
                 else:
                     # ── EOD close: settle all signals at market close ─────────
+                    # Window: 15:30–16:00 IST. Wider than the market close (15:30)
+                    # to account for the 5-min loop interval — the task may wake
+                    # up at 15:50:xx which would miss a 15:50:00 upper bound.
+                    # A daily flag prevents double-firing.
                     if (now_ist.weekday() < 5
-                            and _t(15, 30) <= now_ist.time() <= _t(15, 50)):
+                            and _t(15, 30) <= now_ist.time() <= _t(16, 0)):
                         _cache = app.state.cache
                         n_closed = await _registry.close_all_active(_cache, reason="eod")
                         if n_closed:
