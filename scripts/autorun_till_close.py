@@ -745,9 +745,10 @@ def load_excluded_symbols() -> set[str]:
     Combines data-quality flags with hardcoded persistent exclusions:
     - TATAMOTORS: liquidity/data issues
     - INDUSINDBK:  wrong LONG 12x on Oct-1 (IC not tracked, persistent miss)
+    - APOLLOHOSP:  persistent LONG bias, worst trade Oct 12/13/14 (avg -12.3%)
     """
     # Hardcoded exclusions: symbols with persistent prediction failure
-    _HARDCODED_EXCLUDED = {"TATAMOTORS", "INDUSINDBK"}
+    _HARDCODED_EXCLUDED = {"TATAMOTORS", "INDUSINDBK", "APOLLOHOSP"}
     flag_path = BASE / "artifacts/data_quality_flags.json"
     if not flag_path.exists():
         return _HARDCODED_EXCLUDED
