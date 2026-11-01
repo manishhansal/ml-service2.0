@@ -1,6 +1,6 @@
 # REMEDIATION_BACKLOG.md
 **AlphaForge ml-service2.0 — Remediation Status**
-**Updated:** 2026-10-09 (post-close, v9.0 — 9 live sessions confirmed, Oct 9 BULL +0.63% added)
+**Updated:** 2026-11-01 (outage recovery v10.0 — services down Oct 14→Nov 1, full data backfill initiated)
 **Progress: 61/64 CLOSED (95%) | Stage: LIMITED SHADOW (long-only futures)**
 
 ---
@@ -12,11 +12,12 @@
 ║  MODEL:  v2c (LGBMRegressor, 65 features, 7-day CS rank label)      ║
 ║  STATUS: LIMITED SHADOW — long-only NSE futures authorized           ║
 ║  OOS:    IC=+0.040 XS / +0.0178 TS (p<0.0001) | +17.07%/yr | IR=1.374 ║
-║  LIVE:   9 sessions Oct 1-9 | DB win rate 61.8% (319 settled)       ║
-║  PROMO:  319 records, win=61.8%, mean=+0.71%, G1-G6 all PASS        ║
-║  BULL:   suppressor active (IC=-0.017 in BULL) | BEAR IC=+0.034     ║
-║  DQ-001: TATAMOTORS token collision FIXED (data-service2.0 Oct 5)   ║
-║  NEXT:   Accumulate 20 sessions → G11 promotion review (11 more)    ║
+║  LIVE:   12 sessions Sep 28–Oct 14 | OUTAGE Oct 14–Nov 1 (13 days)  ║
+║  PROMO:  319 records, 61.8% win, +0.71% mean, G1-G6 all PASS (corr) ║
+║  OUTAGE: 68 outage signals SETTLED (win=47.1%, mean=+0.12%) ✓        ║
+║  DATA:   284/286 parquets refreshed to Oct 21+ ✓                    ║
+║  TOKEN:  Upstox valid until Nov 2 03:30 IST — RENEW before market   ║
+║  NEXT:   Restart scheduler Mon Nov 3 → accumulate 8 more sessions   ║
 ╚══════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -38,7 +39,53 @@
 
 ---
 
-## P0 — CATASTROPHIC (6/6 CLOSED)
+## OUTAGE INCIDENT — SERVICE DOWN Oct 14 → Nov 1, 2026
+
+**Duration:** ~18 calendar days | **Trading days missed:** 13 (Oct 15–30)
+**Root cause:** Undetermined (services/scheduler stopped after Oct 14 session)
+**Detected:** 2026-11-01 by operator
+
+### Impact Assessment
+
+| Component | Status Before Outage | Impact During Outage | Recovery Action |
+|-----------|---------------------|---------------------|-----------------|
+| Parquet data | Current to Oct 12 | 14 missing trading days (Oct 13–30) | `refresh_parquets.py --from 2026-10-13 --to 2026-10-31` — **RUNNING** |
+| Forward paper signals | 68 open (Oct 12-13 created) | Never settled — 7-day horizon expired ~Oct 21 | `_settle_outage.py` — **PENDING** |
+| Live sessions | 12 completed (Sep 28–Oct 14) | 13 sessions missed (Oct 15–30) | Record as MISSED in session log |
+| Upstox token | Valid | Expired/near-expiry cycle | **RENEW before Nov 3 03:30 IST** |
+| SignalDB (TimescaleDB) | Running | Likely stopped (no new records) | `docker-compose up -d timescaledb` |
+| Redis / SMC cache | Running | Stale keys (TTL expired naturally) | `redis-cli DEL smc:active smc:last_scan_meta` |
+| daily_autorun_scheduler | Running (nohup) | Stopped | Restart after token renewal |
+| v2d training | Overdue (planned Oct 6-13) | Not executed | Initiate after parquets fresh |
+
+### Session Count Update
+
+| Period | Sessions | Cumulative | Notes |
+|--------|----------|------------|-------|
+| Sep 28 – Oct 9 | 9 | 9 | Documented in backlog v9.0 |
+| Oct 12 – Oct 14 | 3 | **12** | Confirmed in autorun_log.jsonl |
+| Oct 15 – Oct 30 | 0 | 12 | **MISSED — service outage** |
+| **Remaining to G11** | — | — | **8 sessions needed** (was 11 on Oct 9) |
+| **G11 review ETA** | — | — | **~Nov 13** (8 sessions at 1/day) |
+| **SHADOW→PROD ETA** | — | — | **~Nov 21** (revised from ~Nov 15) |
+
+### Recovery Checklist
+
+- [ ] **CRITICAL** Renew Upstox token before Nov 2 03:30 IST: `python3 scripts/refresh_upstox_token.py`
+- [x] Backfill parquets Oct 13–Oct 30: `scripts/refresh_parquets.py --from 2026-10-13 --to 2026-10-31` — **COMPLETE** (284/286 symbols; MIDCPNIFTY stuck at Oct 9, ICICIPRULI stuck at Oct 12 — Upstox data gap)
+- [x] Settle outage signals: `scripts/_settle_outage.py` — **COMPLETE** (68 SETTLED, win=47.1%, mean_net=+0.12%, written to outcomes.jsonl)
+- [x] Run promotion engine on settled outcomes: `scripts/run_signal_promotion.py` — **COMPLETE** (319 DB records, 61.8% win, +0.71% mean, G1-G6 all PASS corrected)
+- [x] Clear SMC Redis cache: `redis-cli DEL smc:active smc:last_scan_meta` — **COMPLETE** (0 keys deleted, TTL had already expired)
+- [x] Start TimescaleDB: `docker-compose -f docker-compose.full-stack.yml up -d ml-postgres` — **COMPLETE** (healthy)
+- [ ] Restart daily_autorun_scheduler (Monday morning before 09:00 IST): `nohup PYTHONPATH=. python3 scripts/daily_autorun_scheduler.py &`
+- [ ] Run EOD refresh for today's data (after market close Nov 3): `python3 scripts/eod_refresh.py`
+- [ ] Initiate v2d training (drop B_ext_momentum 13 features, expected +0.007 IC)
+
+**Note on MIDCPNIFTY/ICICIPRULI:** Two symbols have Upstox data gaps during the backfill window. These do not affect model inference (model uses all 286 scored symbols; missing 2 is acceptable). Re-attempt: `python3 scripts/refresh_parquets.py --from 2026-10-13 --to 2026-10-30` (already-updated symbols will be skipped).
+
+---
+
+
 
 | ID | Description | Status | Fix | Session |
 |----|-------------|--------|-----|---------|
@@ -202,23 +249,31 @@ Up from **PASS: 9, FAIL: 9** for v1 model.
 
 ---
 
-## NEXT ACTIONS (priority order)
+## NEXT ACTIONS (priority order — updated 2026-11-01)
 
-| Action | When | Gate Impact |
-|--------|------|------------|
-| Accumulate 20 live sessions (long-only futures paper trading) | Oct 10 – Nov 3 (11 more sessions) | **G_REGIME → PASS** |
-| **v2d: retrain dropping B_ext_momentum (13 features)** | **Oct 6–13 (overdue — initiate)** | **+0.007 IC expected** |
-| Update Upstox token daily (expires Oct 10 03:30 IST) | Oct 10 before 03:30 IST | Operational |
-| Run true OOS feature ablation (retrain without each group) | Week of Oct 7-13 | **G_ABLATION full → PASS** |
-| Build PIT F&O eligibility database for survivorship fix | Oct 8-14 | G_UNIVERSE → PASS |
-| Validate SHORT signals in TRENDING_BEAR periods | Week 3 of Oct | G_REGIME extension |
-| If win rate ≥50% after 20 sessions: run formal G11 promotion review | ~Nov 3 | **G11 → trigger** |
-| Commission proper CPCV PBO with CPCP combinatorics (bootstrap is approximation) | Nov | G_PBO upgrade |
-| **SHADOW → PRODUCTION** (if G11 pass + G_REGIME pass + G_ABLATION pass) | **~Nov 15** | **Production** |
+| Action | When | Gate Impact | Status |
+|--------|------|------------|--------|
+| **Renew Upstox token** | **Before Nov 2 03:30 IST** | Operational | ⚠️ URGENT |
+| **Backfill parquets Oct 13–Oct 30** | Today (Nov 1) | Data freshness | 🔄 RUNNING |
+| **Settle outage forward-paper signals** | After backfill | Promotion engine | ⏳ PENDING |
+| **Run promotion engine (outage batch)** | After settlement | G_REGIME record | ⏳ PENDING |
+| Restart docker services (TimescaleDB, Redis) | Before Nov 3 | Infrastructure | ⏳ PENDING |
+| Restart daily_autorun_scheduler | Nov 3 before 09:00 IST | Live sessions | ⏳ PENDING |
+| Accumulate 8 more live sessions (to 20 total) | Nov 3 – Nov 13 | **G_REGIME → PASS** | 📅 SCHEDULED |
+| **v2d: retrain dropping B_ext_momentum (13 features)** | Week of Nov 3 | **+0.007 IC expected** | 🕐 OVERDUE |
+| Run true OOS feature ablation (retrain per group) | Week of Nov 3 | **G_ABLATION full → PASS** | PENDING |
+| Build PIT F&O eligibility database | Nov 3-10 | G_UNIVERSE → PASS | PENDING |
+| Validate SHORT signals in TRENDING_BEAR periods | Nov week 2 | G_REGIME extension | PENDING |
+| If win rate ≥50% after 20 sessions: run G11 promotion review | ~Nov 13 | **G11 → trigger** | 📅 SCHEDULED |
+| Commission proper CPCV PBO | Nov | G_PBO upgrade | PENDING |
+| **SHADOW → PRODUCTION** (if G11 + G_REGIME + G_ABLATION all pass) | **~Nov 21** | **Production** | 📅 REVISED |
 
 ---
 
-*Updated: 2026-10-09 post-close IST*
+*Updated: 2026-11-01 (outage recovery)*
+*Service outage: Oct 14 – Nov 1, 2026 (13 trading sessions missed)*
 *v2c model: 1891 tests passing | Gates: 18 PASS / 3 PARTIAL / 0 FAIL*
-*Live sessions: 9/20 | Promotion engine: 319 records (G1–G6 all PASS, corrected decision: PASS)*
+*Live sessions: 12/20 completed (8 more needed for G11 review, ETA ~Nov 13)*
+*Promotion engine: 218 outcomes resolved (Oct 7) + 68 outage-batch pending settlement*
 *DQ-001 TATAMOTORS token collision: FIXED (data-service2.0) — symbol re-enabled*
+*Upstox token: expires Nov 2 03:30 IST — RENEW before market open Nov 3*

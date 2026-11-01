@@ -117,14 +117,157 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _watcher_task = _aio.create_task(_watch_and_broadcast())
     logger.info("signal_file_watcher_started", path=str(_LATEST_PATH_WATCH))
 
+    # ── Live SMC scanner: re-run all 5 scanners every 5 minutes during market hours ──
+    # Scans are run in a thread pool so the CPU-bound scanner work doesn't
+    # block the event loop.  Results are persisted to the Redis signal registry
+    # so the /v2/scanners/registry endpoint always returns fresh data.
+
+    async def _live_smc_scanner_task() -> None:
+        import asyncio as _a
+        from datetime import datetime as _dt, timezone as _tz, timedelta as _td, time as _t
+        from src.scanners.data_loader import load_1d_data
+        from src.scanners import registry as _registry
+        from src.scanners.order_block.config import OrderBlockConfig
+        from src.scanners.order_block.scanner import ObScanner
+        from src.scanners.fair_value_gap.config import FVGConfig
+        from src.scanners.fair_value_gap.scanner import FVGScanner
+        from src.scanners.supply_demand.config import SDConfig
+        from src.scanners.supply_demand.scanner import SDScanner
+        from src.scanners.liquidity_sweep.config import SweepConfig
+        from src.scanners.liquidity_sweep.scanner import SweepScanner
+        from src.scanners.market_structure.config import MSConfig
+        from src.scanners.market_structure.scanner import MSScanner
+
+        _IST       = _tz(_td(hours=5, minutes=30))
+        _INTERVAL  = 300   # seconds between scans
+        _MS_BARS   = 250   # limit MS lookback
+
+        _ob_scanner    = ObScanner(OrderBlockConfig())
+        _fvg_scanner   = FVGScanner(FVGConfig())
+        _sd_scanner    = SDScanner(SDConfig())
+        _sweep_scanner = SweepScanner(SweepConfig())
+        _ms_scanner    = MSScanner(MSConfig())
+
+        # Track whether we've done the morning clear for today
+        _cleared_date_ref: list[str | None] = [None]   # mutable container for nonlocal
+
+        def _is_market_hours() -> bool:
+            now = _dt.now(_IST)
+            if now.weekday() >= 5:     # Sat/Sun
+                return False
+            # NSE opens 9:15 IST — scan starts 1 min after open, closes after 15:30
+            return _t(9, 15) <= now.time() <= _t(15, 45)
+
+        def _run_all_scanners(dfs: dict) -> dict:
+            """CPU-bound: run all 5 scanners and return their results."""
+            from src.scanners.quality import (   # noqa: PLC0415
+                passes_intraday_volume, passes_intraday_volatility
+            )
+            # Apply intraday pre-filter: only scan symbols with today's volume
+            # and sufficient volatility — removes illiquid/halted/flat stocks
+            dfs_filtered = {
+                sym: df
+                for sym, df in dfs.items()
+                if passes_intraday_volume(df, symbol=sym)
+                and passes_intraday_volatility(df, symbol=sym)
+            }
+            dfs_ms = {sym: df.iloc[-_MS_BARS:] if len(df) > _MS_BARS else df
+                      for sym, df in dfs_filtered.items()}
+            return {
+                "order_block":      _ob_scanner.scan(dfs_filtered, timeframe="1d"),
+                "fvg":              _fvg_scanner.scan(dfs_filtered, timeframe="1d"),
+                "supply_demand":    _sd_scanner.scan(dfs_filtered, timeframe="1d"),
+                "liquidity_sweep":  _sweep_scanner.scan(dfs_filtered, timeframe="1d"),
+                "market_structure": _ms_scanner.scan(dfs_ms,        timeframe="1d"),
+                "_n_filtered":      len(dfs_filtered),
+            }
+
+        logger.info("live_smc_scanner_task_started", interval_s=_INTERVAL)
+
+        # Initial scan 60 seconds after startup to let everything settle
+        await _a.sleep(60)
+
+        while True:
+            try:
+                now_ist = _dt.now(_IST)
+                today_str = now_ist.date().isoformat()
+
+                if _is_market_hours():
+                    _cache = app.state.cache
+
+                    # ── Morning clear: discard stale overnight signals ────────
+                    # Runs once per trading day, at the first scan after 9:15 IST.
+                    if _cleared_date_ref[0] != today_str:
+                        n_cleared = await _registry.clear_for_new_day(_cache)
+                        _cleared_date_ref[0] = today_str
+                        if n_cleared:
+                            logger.info("live_smc_morning_clear",
+                                        n_cleared=n_cleared, date=today_str)
+
+                    # Load data and run scanners in a thread (CPU-bound work)
+                    dfs     = await _a.to_thread(load_1d_data)
+                    results = await _a.to_thread(_run_all_scanners, dfs)
+
+                    n_filtered = results.pop("_n_filtered", len(dfs))
+
+                    # Update registry for each scanner type
+                    attr_map = {
+                        "order_block":      ("zones",   results["order_block"]),
+                        "fvg":              ("zones",   results["fvg"]),
+                        "supply_demand":    ("zones",   results["supply_demand"]),
+                        "liquidity_sweep":  ("signals", results["liquidity_sweep"]),
+                        "market_structure": ("signals", results["market_structure"]),
+                    }
+                    n_total = 0
+                    for stype, (attr, res) in attr_map.items():
+                        items = getattr(res, attr, [])
+                        await _registry.record_scan(stype, items, _cache)
+                        n_total += len(items)
+
+                    # Persist scan metadata
+                    scanned_at = _dt.now(_tz.utc).isoformat()
+                    await _registry.set_last_scan_meta(_cache, {
+                        "scanned_at":      scanned_at,
+                        "n_symbols":       n_filtered,
+                        "n_total_signals": n_total,
+                    })
+
+                    logger.info(
+                        "live_smc_scan_complete",
+                        n_symbols=n_filtered,
+                        n_signals=n_total,
+                    )
+                else:
+                    # ── EOD close: settle all signals at market close ─────────
+                    # Window: 15:30–16:00 IST. Wider than the market close (15:30)
+                    # to account for the 5-min loop interval — the task may wake
+                    # up at 15:50:xx which would miss a 15:50:00 upper bound.
+                    # A daily flag prevents double-firing.
+                    if (now_ist.weekday() < 5
+                            and _t(15, 30) <= now_ist.time() <= _t(16, 0)):
+                        _cache = app.state.cache
+                        n_closed = await _registry.close_all_active(_cache, reason="eod")
+                        if n_closed:
+                            logger.info("live_smc_eod_close", n_closed=n_closed)
+
+            except Exception as _exc:
+                logger.error("live_smc_scanner_error", error=str(_exc), exc_info=True)
+
+            await _a.sleep(_INTERVAL)
+
+    _smc_task = _aio.create_task(_live_smc_scanner_task())
+    logger.info("live_smc_scanner_task_created")
+
     yield  # ── application runs ──────────────────────────────────────────────
 
-    # Shutdown — cancel file-watcher cleanly
+    # Shutdown — cancel file-watcher and SMC scanner cleanly
     _watcher_task.cancel()
-    try:
-        await _watcher_task
-    except _aio.CancelledError:
-        pass
+    _smc_task.cancel()
+    for t in (_watcher_task, _smc_task):
+        try:
+            await t
+        except _aio.CancelledError:
+            pass
     await cache.disconnect()
     logger.info("ml_service_shutdown")
 
@@ -297,7 +440,7 @@ async def metrics() -> Response:
 # Routers are imported here (after `app` is created) to avoid circular imports
 # while keeping the module layout consistent with the design spec.
 
-from src.api import analytics, explain, meta, monitoring, predict, signals, training  # noqa: E402
+from src.api import analytics, explain, meta, monitoring, predict, scanners as scanners_api, signals, training  # noqa: E402
 from src.streaming.streamer import SignalStreamer  # noqa: E402
 
 app.include_router(predict.router, prefix="/v2")
@@ -307,6 +450,7 @@ app.include_router(explain.router, prefix="/v2")
 app.include_router(signals.router, prefix="/v2")
 app.include_router(training.router)
 app.include_router(monitoring.router)
+app.include_router(scanners_api.router, prefix="/v2")
 
 # ── Signal streaming ─────────────────────────────────────────────────────────
 

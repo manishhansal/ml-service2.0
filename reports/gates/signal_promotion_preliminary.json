@@ -1,5 +1,5 @@
 {
-  "run_timestamp": "2026-10-09T15:58:15.304752+00:00",
+  "run_timestamp": "2026-11-01T16:41:58.797781+00:00",
   "model": "v2c",
   "cost_model": "futures 7.26bps (ISSUE-12 fix)",
   "n_records": 319,

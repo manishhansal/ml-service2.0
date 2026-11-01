@@ -306,7 +306,9 @@ DATA_URL = env.get("DATA_SERVICE_2_URL", "http://localhost:8200")
 
 # ── Time helpers ──────────────────────────────────────────────────────────────
 def ist_now() -> datetime:
-    return datetime.now(tz=timezone.utc) + timedelta(hours=5, minutes=30)
+    """Return the current datetime with the correct IST (+05:30) timezone."""
+    _IST = timezone(timedelta(hours=5, minutes=30))
+    return datetime.now(tz=_IST)
 
 def mins_to_close() -> float:
     now = ist_now()
@@ -584,7 +586,7 @@ def score_symbol(sym: str, estimator, feat_names, normalizer=None, live_ltp: flo
         # bearish momentum.  With this: today's +2% LTP updates ret_1/momentum_5d
         # and the model correctly identifies IT stocks as LONG intraday.
         if live_ltp is not None and live_ltp > 0 and len(df) > 0:
-            ist_now = datetime.now(tz=timezone.utc) + timedelta(hours=5, minutes=30)
+            ist_now = datetime.now(tz=timezone(timedelta(hours=5, minutes=30)))
             # Today's bar timestamp = today's midnight IST = (today - 1d) 18:30 UTC
             # Strip tzinfo before pd.Timestamp to avoid ValueError in Python 3.12
             # when passing tz-aware datetime with tz= kwarg simultaneously.
@@ -743,9 +745,10 @@ def load_excluded_symbols() -> set[str]:
     Combines data-quality flags with hardcoded persistent exclusions:
     - TATAMOTORS: liquidity/data issues
     - INDUSINDBK:  wrong LONG 12x on Oct-1 (IC not tracked, persistent miss)
+    - APOLLOHOSP:  persistent LONG bias, worst trade Oct 12/13/14 (avg -12.3%)
     """
     # Hardcoded exclusions: symbols with persistent prediction failure
-    _HARDCODED_EXCLUDED = {"TATAMOTORS", "INDUSINDBK"}
+    _HARDCODED_EXCLUDED = {"TATAMOTORS", "INDUSINDBK", "APOLLOHOSP"}
     flag_path = BASE / "artifacts/data_quality_flags.json"
     if not flag_path.exists():
         return _HARDCODED_EXCLUDED
@@ -1249,6 +1252,7 @@ def main():
         # Root cause of 78% None: async 218-symbol batch saturates the rate limit
         # and NIFTY's slot gets dropped. Fetching it solo before the batch guarantees
         # a valid LTP every sample. Falls back to cache if the call fails.
+        global _last_nifty_quote  # noqa: PLW0603 — intentional module-cache update
         _nifty_direct = get_quote("NIFTY")
         if _nifty_direct and _nifty_direct.get("ltp"):
             _last_nifty_quote = _nifty_direct   # update cache
