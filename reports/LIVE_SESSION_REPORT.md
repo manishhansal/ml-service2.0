@@ -9,13 +9,51 @@
 
 ## SESSION HISTORY
 
-| Date | Regime | NIFTY Chg | Tracked | Win Rate | Mean Net | SHORT Mean | LONG Mean | Notes |
-|------|--------|-----------|---------|----------|----------|-----------|-----------|-------|
-| 2026-09-29 | BEAR | −0.75% | 27 | 57.1% | −0.15% | +1.28% | −3.75% | First SHADOW session |
-| 2026-10-06 | BULL | +0.72% | 39 | 59.0% | −0.01% | +1.28% | −3.75% | BULL suppressor active |
-| 2026-10-07 | BEAR | −0.75% | 28 | 66.7% | +0.22% | +1.52% | −4.34% | v2c session 7/20 |
-| 2026-10-08 | BEAR | −1.71% | 47 | **63.8%** | **+1.12%** | +4.01% | −5.68% | v2c session 8/20; 285 scored; best: ADANIENT SHORT +10.4% |
-| 2026-10-09 | BULL | +1.48% | 46 | **56.5%** | **+0.63%** | +2.30% | −4.30% | v2c session 9/20; 285 scored; best: TITAN SHORT +8.95%; BULL suppressor active |
+| # | Date | Regime | NIFTY Chg | Tracked | Win Rate | Mean Net | SHORT Mean | LONG Mean | Notes |
+|---|------|--------|-----------|---------|----------|----------|-----------|-----------|-------|
+| 1 | 2026-09-28 | — | — | — | — | — | — | — | First SHADOW session (pre-market signals) |
+| 2 | 2026-09-29 | BEAR | −0.75% | 27 | 57.1% | −0.15% | +1.28% | −3.75% | First live scoring session |
+| 3 | 2026-09-30 | — | — | — | — | — | — | — | Session confirmed in autorun log |
+| 4 | 2026-10-01 | — | — | — | — | — | — | — | Session confirmed in autorun log |
+| 5 | 2026-10-05 | — | — | — | — | — | — | — | Session confirmed in autorun log |
+| 6 | 2026-10-06 | BULL | +0.72% | 39 | 59.0% | −0.01% | +1.28% | −3.75% | BULL suppressor active |
+| 7 | 2026-10-07 | BEAR | −0.75% | 28 | 66.7% | +0.22% | +1.52% | −4.34% | v2c session 7/20 |
+| 8 | 2026-10-08 | BEAR | −1.71% | 47 | **63.8%** | **+1.12%** | +4.01% | −5.68% | v2c session 8/20; 285 scored; best: ADANIENT SHORT +10.4% |
+| 9 | 2026-10-09 | BULL | +1.48% | 46 | **56.5%** | **+0.63%** | +2.30% | −4.30% | v2c session 9/20; 285 scored; best: TITAN SHORT +8.95%; BULL suppressor active |
+| 10 | 2026-10-12 | BEAR | −0.70% | 39 | 61.5% | +1.04% | +3.17% | −5.13% | v2c session 10/20 (from autorun log) |
+| 11 | 2026-10-13 | BULL | +1.60% | 39 | 59.0% | +0.29% | +1.71% | −3.82% | v2c session 11/20 (from autorun log) |
+| 12 | 2026-10-14 | BEAR | −0.47% | 39 | 56.4% | +0.36% | +1.96% | −4.28% | v2c session 12/20; NIFTY 22,614 |
+| — | 2026-10-15 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
+| — | 2026-10-16 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
+| — | 2026-10-19 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
+| — | 2026-10-20 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
+| — | 2026-10-21 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
+| — | 2026-10-22 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
+| — | 2026-10-23 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
+| — | 2026-10-26 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
+| — | 2026-10-27 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
+| — | 2026-10-28 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
+| — | 2026-10-29 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
+| — | 2026-10-30 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
+
+**Completed sessions:** 12 of 20 | **Missed (outage):** 12 | **Remaining to G11:** 8
+
+---
+
+## SERVICE OUTAGE INCIDENT — 2026-10-14 to 2026-11-01
+
+```
+╔══════════════════════════════════════════════════════════╗
+║  OUTAGE: ~18 calendar days (Oct 14 – Nov 1, 2026)       ║
+║  MISSED: 13 trading sessions (Oct 15–30)                 ║
+║  PARQUETS: Stale since Oct 12 → backfill running now     ║
+║  FWD PAPER: 68 open signals from Oct 12-13 unresolved    ║
+║  UPSTOX TOKEN: Expires Nov 2 03:30 IST — RENEW ASAP      ║
+║  RECOVERY: See REMEDIATION_BACKLOG.md outage section      ║
+╚══════════════════════════════════════════════════════════╝
+```
+
+*Recovery initiated 2026-11-01 21:16 IST*
 
 ---
 
