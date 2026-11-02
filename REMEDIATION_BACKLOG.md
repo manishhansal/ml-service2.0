@@ -9,15 +9,15 @@
 
 ```
 ╔══════════════════════════════════════════════════════════════════════╗
-║  MODEL:  v2c (LGBMRegressor, 65 features, 7-day CS rank label)      ║
+║  MODEL:  v2c retrained (24 features, IC=0.0156 OOS — needs 65-feat) ║
 ║  STATUS: LIMITED SHADOW — long-only NSE futures authorized           ║
-║  OOS:    IC=+0.040 XS / +0.0178 TS (p<0.0001) | +17.07%/yr | IR=1.374 ║
-║  LIVE:   12 sessions Sep 28–Oct 14 | OUTAGE Oct 14–Nov 1 (13 days)  ║
-║  PROMO:  319 records, 61.8% win, +0.71% mean, G1-G6 all PASS (corr) ║
-║  OUTAGE: 68 outage signals SETTLED (win=47.1%, mean=+0.12%) ✓        ║
-║  DATA:   284/286 parquets refreshed to Oct 21+ ✓                    ║
-║  TOKEN:  Upstox valid until Nov 2 03:30 IST — RENEW before market   ║
-║  NEXT:   Restart scheduler Mon Nov 3 → accumulate 8 more sessions   ║
+║  OOS:    IC=0.040 original / 0.0156 retrained (short training window)║
+║  LIVE:   13/20 sessions (session 13 P&L null — data-service token)  ║
+║  PROMO:  319 records, 61.8% win, +0.71% mean, G1-G6 PASS corrected  ║
+║  SCANNERS: FIXED — OB=7, FVG=33 zones, cache added. S13-001 CLOSED  ║
+║  DATA:   346 parquets current through Oct 30 IST                    ║
+║  TOKEN:  Upstox valid until Nov 3 03:30 IST                         ║
+║  NEXT:   Retrain with 65-feat + 2022 data → resume sessions         ║
 ╚══════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -36,6 +36,22 @@
 | INFRA | 9 | **9** | 0 | **100%** |
 | POST | 5 | **5** | 0 | **100%** |
 | **Total** | **64** | **61** | **3** | **95%** |
+
+---
+
+## SESSION 13 GAPS — 2026-11-02 (Post-Outage Recovery Day)
+
+| ID | Description | Status | Fix |
+|----|-------------|--------|-----|
+| **S13-001** | All scanner endpoints returning 0 results — `_fetch_ohlcv` returned `{}` for non-`1d` timeframe while endpoints defaulted to `"1h"` | **FIXED** | Changed default to `"1d"` + removed early return + added 5-min scan result cache. Commit `c301535`. OB=7 zones, FVG=33 zones confirmed. |
+| **S13-002** | NIFTY LTP null all day — data-service-api had stale Upstox token from before renewal | **FIXED** | `docker-compose restart api` on data-service2.0. Effective next session. |
+| **S13-003** | 0 forward-paper positions tracked — consequence of null LTP | **ACCEPTED** | Session 13 P&L not recoverable. |
+| **S13-004** | Model IC=0.0156 (below 0.040 baseline) — 24 features, 9-month training window | **OPEN** | Bootstrap to 2022 + retrain with 65-feature ExpandedFeatureFactory. |
+| **S13-005** | SD/sweep/MS scanner endpoints timeout on first call (~60s) | **MITIGATED** | 5-min cache added. First call after restart is slow; subsequent calls instant. |
+
+---
+
+## P0 — CATASTROPHIC (6/6 CLOSED)
 
 ---
 
@@ -249,7 +265,19 @@ Up from **PASS: 9, FAIL: 9** for v1 model.
 
 ---
 
-## NEXT ACTIONS (priority order — updated 2026-11-01)
+## NEXT ACTIONS (priority order — updated 2026-11-02)
+
+| Action | When | Gate Impact | Status |
+|--------|------|------------|--------|
+| **Renew Upstox token before Nov 3 03:30 IST** | Tonight | Operational | ⚠️ URGENT |
+| **Retrain model: 65 features + data back to 2022** | Nov 3 pre-market | IC back to ~0.040 | 🔴 OPEN |
+| Restart daily_autorun_scheduler Nov 3 before 09:00 IST | Nov 3 | Live sessions | ⏳ PENDING |
+| Accumulate 7 more live sessions (to 20 total) | Nov 3 – Nov 11 | **G_REGIME → PASS** | 📅 SCHEDULED |
+| Bootstrap parquets to 2022: `_bootstrap_parquets.py --from 2022-01-01` | Nov 3 | Training data | PENDING |
+| Pre-warm SD/sweep/MS scanner cache on API startup | Week Nov 3 | Scanner latency | PENDING |
+| If win rate ≥50% after 20 sessions: G11 promotion review | ~Nov 11 | **G11 → trigger** | 📅 SCHEDULED |
+| Commission proper CPCV PBO | Nov | G_PBO upgrade | PENDING |
+| **SHADOW → PRODUCTION** | **~Nov 19** | **Production** | 📅 REVISED |
 
 | Action | When | Gate Impact | Status |
 |--------|------|------------|--------|
@@ -270,10 +298,10 @@ Up from **PASS: 9, FAIL: 9** for v1 model.
 
 ---
 
-*Updated: 2026-11-01 (outage recovery)*
-*Service outage: Oct 14 – Nov 1, 2026 (13 trading sessions missed)*
-*v2c model: 1891 tests passing | Gates: 18 PASS / 3 PARTIAL / 0 FAIL*
-*Live sessions: 12/20 completed (8 more needed for G11 review, ETA ~Nov 13)*
-*Promotion engine: 218 outcomes resolved (Oct 7) + 68 outage-batch pending settlement*
-*DQ-001 TATAMOTORS token collision: FIXED (data-service2.0) — symbol re-enabled*
-*Upstox token: expires Nov 2 03:30 IST — RENEW before market open Nov 3*
+*Updated: 2026-11-02 post-market*
+*Service outage: Oct 14 – Nov 1, 2026 (12 missed sessions) — recovered*
+*v2c model retrained (24 features, IC=0.0156 — full 65-feat retrain needed)*
+*Live sessions: 13/20 (7 more needed for G11 review, ETA ~Nov 11)*
+*Scanners: FIXED — OB + FVG working, SD/sweep/MS cached (5-min TTL)*
+*Promotion engine: 319 records, 61.8% win, G1-G6 PASS corrected*
+*Upstox token: expires Nov 3 03:30 IST — RENEW before market*

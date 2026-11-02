@@ -23,7 +23,7 @@
 | 10 | 2026-10-12 | BEAR | −0.70% | 39 | 61.5% | +1.04% | +3.17% | −5.13% | v2c session 10/20 (from autorun log) |
 | 11 | 2026-10-13 | BULL | +1.60% | 39 | 59.0% | +0.29% | +1.71% | −3.82% | v2c session 11/20 (from autorun log) |
 | 12 | 2026-10-14 | BEAR | −0.47% | 39 | 56.4% | +0.36% | +1.96% | −4.28% | v2c session 12/20; NIFTY 22,614 |
-| — | 2026-10-15 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
+| 13 | 2026-11-02 | — | — | — | 0.0% | 0.00% | — | — | Session ran (30 samples), NIFTY LTP null all day (data-service token stale) — no P&L tracked. Scanners fixed post-session. |
 | — | 2026-10-16 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 | — | 2026-10-19 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 | — | 2026-10-20 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
@@ -36,7 +36,7 @@
 | — | 2026-10-29 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 | — | 2026-10-30 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 
-**Completed sessions:** 12 of 20 | **Missed (outage):** 12 | **Remaining to G11:** 8
+**Completed sessions:** 13 of 20 | **Missed (outage):** 12 | **Remaining to G11:** 7
 
 ---
 
@@ -57,7 +57,29 @@
 
 ---
 
-## CLOSE-OF-DAY UPDATE — 2026-10-09 15:31 IST
+## CLOSE-OF-DAY UPDATE — 2026-11-02 15:30 IST
+
+### Market Close Summary — Session 13 (Post-Outage Recovery)
+
+| Metric | Value |
+|--------|-------|
+| Session date | 2026-11-02 |
+| Model | v2c retrained (fs-2.0.0, 24 features, IC=0.0156 OOS) |
+| Session samples | 30 |
+| Symbols scored | 346 |
+| LONG signals | 51 |
+| SHORT signals | 51 |
+| Positions tracked | 0 |
+| Win rate | — (no live LTP) |
+| Mean net P&L | — (no live LTP) |
+
+**Root cause of 0 P&L tracked:** data-service-api container had stale Upstox token from before renewal → all live LTP = null → forward paper positions could not be opened/tracked. Fixed post-session via `docker-compose restart api` on data-service2.0.
+
+**Scanner fix applied post-session:** All 5 scanner endpoints were returning 0 results due to `_fetch_ohlcv` returning empty dict for non-"1d" timeframes while endpoints defaulted to "1h". Fixed in `src/api/scanners.py` commit `c301535`. OB=7 zones, FVG=33 zones confirmed working.
+
+**Promotion engine (cumulative):** 319 records, 61.8% win, +0.71% mean, G1-G6 all PASS (corrected G6). Unchanged — session 13 P&L not tracked.
+
+---
 
 ### Market Close Summary — Oct 9 BULL Session
 
@@ -228,5 +250,23 @@
 | Mean net P&L | +0.3608% |
 | Win rate | 56.4% |
 | Positions tracked | 39 |
+
+*Report auto-updated at 15:30 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:30 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 30 |
+| NIFTY close | ? (+0.00%) |
+| SHORT mean P&L | +0.0000% |
+| LONG mean P&L | +0.0000% |
+| Mean net P&L | +0.0000% |
+| Win rate | 0.0% |
+| Positions tracked | 0 |
 
 *Report auto-updated at 15:30 IST by autorun_till_close.py*
