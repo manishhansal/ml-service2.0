@@ -24,10 +24,13 @@ BASE        = Path(__file__).parent.parent
 SCORES_PATH = BASE / "artifacts" / "live_session" / "latest_scores.json"
 REPORTS_DIR = BASE / "reports" / "live"   # score_threshold_sweep + gap analysis land here
 TRACKER_DIR = BASE / "artifacts" / "signal_tracker"
-AUTORUN_CMD  = [str(BASE / ".venv/bin/python"), "-W", "ignore",
-                str(BASE / "scripts/autorun_till_close.py")]
-TRACKER_CMD  = [str(BASE / ".venv/bin/python"), "-W", "ignore",
-                str(BASE / "scripts/signal_tracker.py")]
+
+# Resolve Python: prefer .venv if it exists, fall back to the current interpreter
+_VENV_PY = BASE / ".venv" / "bin" / "python"
+PYTHON    = str(_VENV_PY) if _VENV_PY.exists() else sys.executable
+
+AUTORUN_CMD  = [PYTHON, "-W", "ignore", str(BASE / "scripts/autorun_till_close.py")]
+TRACKER_CMD  = [PYTHON, "-W", "ignore", str(BASE / "scripts/signal_tracker.py")]
 
 _autorun_proc:  subprocess.Popen | None = None
 _tracker_proc:  subprocess.Popen | None = None
