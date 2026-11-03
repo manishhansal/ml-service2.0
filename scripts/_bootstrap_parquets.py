@@ -137,13 +137,15 @@ def main() -> None:
     for i, sym in enumerate(all_syms, 1):
         pf = DATA_DIR / f"{sym}.parquet"
 
-        # Skip if already current (unless --force)
+        # Skip if already covers the full requested range (unless --force)
         if pf.exists() and not args.force:
             df_ex = pd.read_parquet(pf)
             if df_ex.index.tz is None:
                 df_ex.index = df_ex.index.tz_localize("UTC")
-            last_ist = df_ex.index[-1].astimezone(IST).date()
-            if last_ist >= to_date:
+            last_ist  = df_ex.index[-1].astimezone(IST).date()
+            first_ist = df_ex.index[0].astimezone(IST).date()
+            from_date_d = date.fromisoformat(args.from_date)
+            if last_ist >= to_date and first_ist <= from_date_d + timedelta(days=7):
                 skipped += 1
                 continue
 

@@ -52,6 +52,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
+from src.features.expanded_factory import ExpandedFeatureFactory
 from src.features.factory import FeatureFactory
 from src.features.normalizer import FeatureNormalizer
 from src.labels.seven_day import generate_7d_excess_return_label
@@ -407,8 +408,8 @@ class V2TrainingPipeline:
         return df[keep + meta].copy()
 
     def _load_from_parquets(self, pq_dir: Path, cfg: V2TrainingConfig) -> pd.DataFrame:
-        """Load raw OHLCV parquets and compute features."""
-        factory = FeatureFactory()
+        """Load raw OHLCV parquets and compute features using ExpandedFeatureFactory (65-feat fs-2.0.0)."""
+        factory = ExpandedFeatureFactory()
         all_dfs = []
         pq_files = sorted(pq_dir.glob("*.parquet"))
         print(f"  Loading {len(pq_files)} parquet files...")
