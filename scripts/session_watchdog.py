@@ -122,9 +122,11 @@ def generate_final_report() -> None:
         print("[watchdog] No tracker data — skipping report")
         return
     print(f"[watchdog] Generating final gap analysis report...")
+    # Resolve Python the same way AUTORUN_CMD does — prefer .venv, fall back to sys.executable
+    python_bin = str(_VENV_PY) if _VENV_PY.exists() else sys.executable
     env = {**os.environ, "PYTHONPATH": str(BASE)}
     result = subprocess.run(
-        [str(BASE / ".venv/bin/python"), "-c", f"""
+        [python_bin, "-c", f"""
 import sys
 sys.path.insert(0, '{BASE}')
 from scripts.signal_tracker import generate_gap_report
@@ -158,9 +160,7 @@ def _run_signal_ledger_safety(session_date: str) -> None:
     if not ledger_script.exists():
         return
     print(f"[watchdog] Running signal ledger (safety net) for {session_date} ...")
-    python_bin = str(BASE / ".venv/bin/python")
-    if not os.path.exists(python_bin):
-        python_bin = sys.executable
+    python_bin = str(_VENV_PY) if _VENV_PY.exists() else sys.executable
     env = {**os.environ, "PYTHONPATH": str(BASE)}
     result = subprocess.run(
         [python_bin, "-W", "ignore", str(ledger_script), "--date", session_date],
