@@ -23,7 +23,7 @@
 | 10 | 2026-10-12 | BEAR | −0.70% | 39 | 61.5% | +1.04% | +3.17% | −5.13% | v2c session 10/20 (from autorun log) |
 | 11 | 2026-10-13 | BULL | +1.60% | 39 | 59.0% | +0.29% | +1.71% | −3.82% | v2c session 11/20 (from autorun log) |
 | 12 | 2026-10-14 | BEAR | −0.47% | 39 | 56.4% | +0.36% | +1.96% | −4.28% | v2c session 12/20; NIFTY 22,614 |
-| 13 | 2026-11-02 | — | — | — | 0.0% | 0.00% | — | — | Session ran (30 samples), NIFTY LTP null all day (data-service token stale) — no P&L tracked. Scanners fixed post-session. |
+| 14 | 2026-11-03 | — | — | — | 0.0% | 0.00% | — | — | Session ran (87 log entries, 15 final samples). NIFTY LTP null — data-service2.0 ran with stale token (restart ≠ force-recreate). Fixed post-session. Watchdog gap report crashed (.venv fix applied). |
 | — | 2026-10-16 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 | — | 2026-10-19 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 | — | 2026-10-20 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
@@ -36,7 +36,7 @@
 | — | 2026-10-29 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 | — | 2026-10-30 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 
-**Completed sessions:** 13 of 20 | **Missed (outage):** 12 | **Remaining to G11:** 7
+**Completed sessions:** 14 of 20 | **Missed (outage):** 12 | **Remaining to G11:** 6
 
 ---
 
@@ -57,7 +57,29 @@
 
 ---
 
-## CLOSE-OF-DAY UPDATE — 2026-11-02 15:30 IST
+## CLOSE-OF-DAY UPDATE — 2026-11-03 15:33 IST
+
+### Market Close Summary — Session 14 (60-feature model, 2022 data)
+
+| Metric | Value |
+|--------|-------|
+| Session date | 2026-11-03 |
+| Model | v2c retrained (fs-2.0.0, 60 features, IC=0.0157 OOS) |
+| Session log entries | 87 (across watchdog restarts) |
+| Final-run samples | 15 |
+| Symbols scored | 346 |
+| LONG signals | 51 |
+| SHORT signals | 51 |
+| Positions tracked | 0 |
+| Win rate | — (NIFTY LTP null) |
+
+**Root cause recap (NIFTY LTP null for day 2):** `docker-compose restart` does NOT reload env vars. The container kept the old Upstox token from the previous `up` invocation. Fixed post-session with `docker-compose up -d --force-recreate api` in data-service2.0 directory. Effective next session.
+
+**Watchdog gap report crash:** `generate_final_report()` had `.venv/bin/python` hardcoded with no fallback — caused `FileNotFoundError` at 15:36. Fixed in commit `7598528`. Gap report generated manually post-session: `reports/live/SIGNAL_GAP_ANALYSIS_2026-11-03.md`.
+
+**Promotion engine:** 319 records, 61.8% win, +0.71% mean, G1-G6 all PASS (corrected G6). Unchanged.
+
+---
 
 ### Market Close Summary — Session 13 (Post-Outage Recovery)
 
@@ -270,3 +292,21 @@
 | Positions tracked | 0 |
 
 *Report auto-updated at 15:30 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:33 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 15 |
+| NIFTY close | ? (+0.00%) |
+| SHORT mean P&L | +0.0000% |
+| LONG mean P&L | +0.0000% |
+| Mean net P&L | +0.0000% |
+| Win rate | 0.0% |
+| Positions tracked | 0 |
+
+*Report auto-updated at 15:33 IST by autorun_till_close.py*
