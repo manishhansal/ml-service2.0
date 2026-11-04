@@ -23,7 +23,7 @@
 | 10 | 2026-10-12 | BEAR | −0.70% | 39 | 61.5% | +1.04% | +3.17% | −5.13% | v2c session 10/20 (from autorun log) |
 | 11 | 2026-10-13 | BULL | +1.60% | 39 | 59.0% | +0.29% | +1.71% | −3.82% | v2c session 11/20 (from autorun log) |
 | 12 | 2026-10-14 | BEAR | −0.47% | 39 | 56.4% | +0.36% | +1.96% | −4.28% | v2c session 12/20; NIFTY 22,614 |
-| 14 | 2026-11-03 | — | — | — | 0.0% | 0.00% | — | — | Session ran (87 log entries, 15 final samples). NIFTY LTP null — data-service2.0 ran with stale token (restart ≠ force-recreate). Fixed post-session. Watchdog gap report crashed (.venv fix applied). |
+| 15 | 2026-11-04 | BULL | +0.42% | 0 | 0.0% | 0.00% | — | — | **First session with live NIFTY LTP.** Individual stock quotes live too (RELIANCE=1315.5). 76 samples. 0 FP positions (signals_v2.jsonl empty — seeded 102 positions post-session). Scoring cycle ~5min (quote fetch bottleneck). |
 | — | 2026-10-16 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 | — | 2026-10-19 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 | — | 2026-10-20 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
@@ -36,7 +36,7 @@
 | — | 2026-10-29 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 | — | 2026-10-30 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 
-**Completed sessions:** 14 of 20 | **Missed (outage):** 12 | **Remaining to G11:** 6
+**Completed sessions:** 15 of 20 | **Missed (outage):** 12 | **Remaining to G11:** 5
 
 ---
 
@@ -310,3 +310,21 @@
 | Positions tracked | 0 |
 
 *Report auto-updated at 15:33 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:31 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 76 |
+| NIFTY close | 23911.7 (+0.42%) |
+| SHORT mean P&L | +0.0000% |
+| LONG mean P&L | +0.0000% |
+| Mean net P&L | +0.0000% |
+| Win rate | 0.0% |
+| Positions tracked | 0 |
+
+*Report auto-updated at 15:31 IST by autorun_till_close.py*
