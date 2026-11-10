@@ -1,17 +1,17 @@
 {
-  "run_timestamp": "2026-11-04T15:30:29.882237+00:00",
+  "run_timestamp": "2026-11-10T10:18:18.595662+00:00",
   "model": "v2c",
   "cost_model": "futures 7.26bps (ISSUE-12 fix)",
-  "n_records": 319,
-  "n_live": 102,
+  "n_records": 389,
+  "n_live": 172,
   "n_historical": 217,
-  "win_rate": 0.6176,
-  "mean_net_return": 0.007088,
-  "max_drawdown_corrected": 0.0,
+  "win_rate": 0.5244,
+  "mean_net_return": 0.005739,
+  "max_drawdown_corrected": -0.00198,
   "regime_distribution": {
     "BULL": 83,
     "BEAR": 231,
-    "UNKNOWN": 5
+    "UNKNOWN": 75
   },
   "regimes_tested": [
     "BULL",

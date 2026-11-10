@@ -328,3 +328,75 @@
 | Positions tracked | 0 |
 
 *Report auto-updated at 15:31 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 22:13 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 2 |
+| NIFTY close | 24372.75 (+1.72%) |
+| SHORT mean P&L | +0.0000% |
+| LONG mean P&L | +4.1892% |
+| Mean net P&L | +4.1892% |
+| Win rate | 83.3% |
+| Positions tracked | 6 |
+
+*Report auto-updated at 22:13 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:30 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 66 |
+| NIFTY close | 24372.75 (+1.72%) |
+| SHORT mean P&L | +0.0000% |
+| LONG mean P&L | +0.0888% |
+| Mean net P&L | +0.0888% |
+| Win rate | 50.0% |
+| Positions tracked | 4 |
+
+*Report auto-updated at 15:30 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:34 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 27 |
+| NIFTY close | 24371.05 (+1.71%) |
+| SHORT mean P&L | +0.0000% |
+| LONG mean P&L | +0.4644% |
+| Mean net P&L | +0.4644% |
+| Win rate | 50.0% |
+| Positions tracked | 8 |
+
+*Report auto-updated at 15:34 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:44 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 2 |
+| NIFTY close | 25003.65 (+0.07%) |
+| SHORT mean P&L | +0.0000% |
+| LONG mean P&L | -0.0750% |
+| Mean net P&L | -0.0750% |
+| Win rate | 33.3% |
+| Positions tracked | 3 |
+
+*Report auto-updated at 15:44 IST by autorun_till_close.py*
