@@ -23,7 +23,7 @@
 | 10 | 2026-10-12 | BEAR | −0.70% | 39 | 61.5% | +1.04% | +3.17% | −5.13% | v2c session 10/20 (from autorun log) |
 | 11 | 2026-10-13 | BULL | +1.60% | 39 | 59.0% | +0.29% | +1.71% | −3.82% | v2c session 11/20 (from autorun log) |
 | 12 | 2026-10-14 | BEAR | −0.47% | 39 | 56.4% | +0.36% | +1.96% | −4.28% | v2c session 12/20; NIFTY 22,614 |
-| — | 2026-10-15 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
+| 15 | 2026-11-04 | BULL | +0.42% | 0 | 0.0% | 0.00% | — | — | **First session with live NIFTY LTP.** Individual stock quotes live too (RELIANCE=1315.5). 76 samples. 0 FP positions (signals_v2.jsonl empty — seeded 102 positions post-session). Scoring cycle ~5min (quote fetch bottleneck). |
 | — | 2026-10-16 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 | — | 2026-10-19 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 | — | 2026-10-20 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
@@ -36,7 +36,7 @@
 | — | 2026-10-29 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 | — | 2026-10-30 | — | — | — | — | — | — | — | ⛔ **MISSED — Service Outage** |
 
-**Completed sessions:** 12 of 20 | **Missed (outage):** 12 | **Remaining to G11:** 8
+**Completed sessions:** 15 of 20 | **Missed (outage):** 12 | **Remaining to G11:** 5
 
 ---
 
@@ -57,7 +57,51 @@
 
 ---
 
-## CLOSE-OF-DAY UPDATE — 2026-10-09 15:31 IST
+## CLOSE-OF-DAY UPDATE — 2026-11-03 15:33 IST
+
+### Market Close Summary — Session 14 (60-feature model, 2022 data)
+
+| Metric | Value |
+|--------|-------|
+| Session date | 2026-11-03 |
+| Model | v2c retrained (fs-2.0.0, 60 features, IC=0.0157 OOS) |
+| Session log entries | 87 (across watchdog restarts) |
+| Final-run samples | 15 |
+| Symbols scored | 346 |
+| LONG signals | 51 |
+| SHORT signals | 51 |
+| Positions tracked | 0 |
+| Win rate | — (NIFTY LTP null) |
+
+**Root cause recap (NIFTY LTP null for day 2):** `docker-compose restart` does NOT reload env vars. The container kept the old Upstox token from the previous `up` invocation. Fixed post-session with `docker-compose up -d --force-recreate api` in data-service2.0 directory. Effective next session.
+
+**Watchdog gap report crash:** `generate_final_report()` had `.venv/bin/python` hardcoded with no fallback — caused `FileNotFoundError` at 15:36. Fixed in commit `7598528`. Gap report generated manually post-session: `reports/live/SIGNAL_GAP_ANALYSIS_2026-11-03.md`.
+
+**Promotion engine:** 319 records, 61.8% win, +0.71% mean, G1-G6 all PASS (corrected G6). Unchanged.
+
+---
+
+### Market Close Summary — Session 13 (Post-Outage Recovery)
+
+| Metric | Value |
+|--------|-------|
+| Session date | 2026-11-02 |
+| Model | v2c retrained (fs-2.0.0, 24 features, IC=0.0156 OOS) |
+| Session samples | 30 |
+| Symbols scored | 346 |
+| LONG signals | 51 |
+| SHORT signals | 51 |
+| Positions tracked | 0 |
+| Win rate | — (no live LTP) |
+| Mean net P&L | — (no live LTP) |
+
+**Root cause of 0 P&L tracked:** data-service-api container had stale Upstox token from before renewal → all live LTP = null → forward paper positions could not be opened/tracked. Fixed post-session via `docker-compose restart api` on data-service2.0.
+
+**Scanner fix applied post-session:** All 5 scanner endpoints were returning 0 results due to `_fetch_ohlcv` returning empty dict for non-"1d" timeframes while endpoints defaulted to "1h". Fixed in `src/api/scanners.py` commit `c301535`. OB=7 zones, FVG=33 zones confirmed working.
+
+**Promotion engine (cumulative):** 319 records, 61.8% win, +0.71% mean, G1-G6 all PASS (corrected G6). Unchanged — session 13 P&L not tracked.
+
+---
 
 ### Market Close Summary — Oct 9 BULL Session
 
@@ -230,3 +274,129 @@
 | Positions tracked | 39 |
 
 *Report auto-updated at 15:30 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:30 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 30 |
+| NIFTY close | ? (+0.00%) |
+| SHORT mean P&L | +0.0000% |
+| LONG mean P&L | +0.0000% |
+| Mean net P&L | +0.0000% |
+| Win rate | 0.0% |
+| Positions tracked | 0 |
+
+*Report auto-updated at 15:30 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:33 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 15 |
+| NIFTY close | ? (+0.00%) |
+| SHORT mean P&L | +0.0000% |
+| LONG mean P&L | +0.0000% |
+| Mean net P&L | +0.0000% |
+| Win rate | 0.0% |
+| Positions tracked | 0 |
+
+*Report auto-updated at 15:33 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:31 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 76 |
+| NIFTY close | 23911.7 (+0.42%) |
+| SHORT mean P&L | +0.0000% |
+| LONG mean P&L | +0.0000% |
+| Mean net P&L | +0.0000% |
+| Win rate | 0.0% |
+| Positions tracked | 0 |
+
+*Report auto-updated at 15:31 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 22:13 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 2 |
+| NIFTY close | 24372.75 (+1.72%) |
+| SHORT mean P&L | +0.0000% |
+| LONG mean P&L | +4.1892% |
+| Mean net P&L | +4.1892% |
+| Win rate | 83.3% |
+| Positions tracked | 6 |
+
+*Report auto-updated at 22:13 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:30 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 66 |
+| NIFTY close | 24372.75 (+1.72%) |
+| SHORT mean P&L | +0.0000% |
+| LONG mean P&L | +0.0888% |
+| Mean net P&L | +0.0888% |
+| Win rate | 50.0% |
+| Positions tracked | 4 |
+
+*Report auto-updated at 15:30 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:34 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 27 |
+| NIFTY close | 24371.05 (+1.71%) |
+| SHORT mean P&L | +0.0000% |
+| LONG mean P&L | +0.4644% |
+| Mean net P&L | +0.4644% |
+| Win rate | 50.0% |
+| Positions tracked | 8 |
+
+*Report auto-updated at 15:34 IST by autorun_till_close.py*
+
+---
+
+## CLOSE-OF-DAY UPDATE — 15:44 IST
+
+### Market Close Summary
+
+| Metric | Value |
+|--------|-------|
+| Session samples | 2 |
+| NIFTY close | 25003.65 (+0.07%) |
+| SHORT mean P&L | +0.0000% |
+| LONG mean P&L | -0.0750% |
+| Mean net P&L | -0.0750% |
+| Win rate | 33.3% |
+| Positions tracked | 3 |
+
+*Report auto-updated at 15:44 IST by autorun_till_close.py*

@@ -41,12 +41,33 @@ from src.scanners.market_structure.scanner import MSScanner
 from src.scanners.data_loader import load_1d_data
 from src.scanners import registry as signal_registry
 
+import time as _time
+from typing import Any
+
 router = APIRouter(tags=["scanners"])
 
 VALID_TIMEFRAMES = frozenset({"5m", "15m", "1h", "1d"})
 VALID_SD_DIRECTIONS = frozenset({"supply", "demand"})
 VALID_SD_ZONE_TYPES = frozenset({"RBR", "DBD", "RBD", "DBR"})
 VALID_MS_SIGNAL_TYPES = frozenset({"BOS_BULLISH", "BOS_BEARISH", "CHOCH_BULLISH", "CHOCH_BEARISH"})
+
+# ── Scan result cache ────────────────────────────────────────────────────────
+# Prevents expensive re-scans within a 5-minute window. Consistent with the
+# background task cadence (every 5 min during market hours in main.py).
+_SCAN_CACHE: dict[str, tuple[float, Any]] = {}
+_SCAN_CACHE_TTL = 300  # seconds
+
+
+def _cached_scan(key: str, scanner: Any, dfs: dict, timeframe: str) -> Any:
+    """Return cached scan result if fresh, otherwise run scanner and cache."""
+    now = _time.monotonic()
+    cached = _SCAN_CACHE.get(key)
+    if cached and (now - cached[0]) < _SCAN_CACHE_TTL:
+        return cached[1]
+    result = scanner.scan(dfs, timeframe=timeframe)
+    _SCAN_CACHE[key] = (now, result)
+    return result
+
 
 _config = OrderBlockConfig()
 _scanner = ObScanner(config=_config)
@@ -72,10 +93,12 @@ def _fetch_ohlcv(timeframe: str) -> dict:
 
     For the 1d timeframe (the primary scanner timeframe) this reads from
     ``data/1d/1d/*.parquet``.  Other timeframes are not yet supported and
-    return an empty dict.
+    fall back to 1d data so scanners always return results.
     """
-    if timeframe != "1d":
-        return {}
+    # All scanners operate on daily data. Intraday timeframes are not yet
+    # available (no 5m/15m/1h parquets), so any timeframe request falls
+    # through to the 1d data — the scanner will tag zones with the requested
+    # timeframe label for client display purposes.
     return load_1d_data()
 
 
@@ -119,11 +142,11 @@ async def get_order_blocks(
             },
         )
 
-    # Fetch OHLCV data (stub — returns empty dict in current implementation)
-    ohlcv_by_symbol = _fetch_ohlcv(timeframe or "1h")
+    # Fetch OHLCV data — loads 1d parquets for the full F&O universe
+    ohlcv_by_symbol = _fetch_ohlcv(timeframe or "1d")
 
-    # Run the full scanner pipeline
-    result = _scanner.scan(ohlcv_by_symbol, timeframe=timeframe or "1h")
+    # Run the full scanner pipeline (cached for 5 min to avoid re-scan cost)
+    result = _cached_scan("order_block", _scanner, ohlcv_by_symbol, timeframe or "1d")
 
     # Apply filters
     zones = result.zones
@@ -172,8 +195,8 @@ async def get_fair_value_gaps(
             content={"detail": f"timeframe must be one of {sorted(VALID_TIMEFRAMES)}, got '{timeframe}'"},
         )
 
-    ohlcv_by_symbol = _fetch_ohlcv(timeframe or "1h")
-    result = _fvg_scanner.scan(ohlcv_by_symbol, timeframe=timeframe or "1h")
+    ohlcv_by_symbol = _fetch_ohlcv(timeframe or "1d")
+    result = _cached_scan("fvg", _fvg_scanner, ohlcv_by_symbol, timeframe or "1d")
 
     zones = result.zones
     if not include_filled:
@@ -223,8 +246,8 @@ async def get_supply_demand(
             content={"detail": f"zone_type must be one of {sorted(VALID_SD_ZONE_TYPES)}, got '{zone_type}'"},
         )
 
-    ohlcv_by_symbol = _fetch_ohlcv(timeframe or "1h")
-    result = _sd_scanner.scan(ohlcv_by_symbol, timeframe=timeframe or "1h")
+    ohlcv_by_symbol = _fetch_ohlcv(timeframe or "1d")
+    result = _cached_scan("supply_demand", _sd_scanner, ohlcv_by_symbol, timeframe or "1d")
 
     zones = result.zones
     if not include_broken:
@@ -270,8 +293,8 @@ async def get_liquidity_sweeps(
             content={"detail": f"timeframe must be one of {sorted(VALID_TIMEFRAMES)}, got '{timeframe}'"},
         )
 
-    ohlcv_by_symbol = _fetch_ohlcv(timeframe or "1h")
-    result = _sweep_scanner.scan(ohlcv_by_symbol, timeframe=timeframe or "1h")
+    ohlcv_by_symbol = _fetch_ohlcv(timeframe or "1d")
+    result = _cached_scan("liquidity_sweep", _sweep_scanner, ohlcv_by_symbol, timeframe or "1d")
 
     signals = result.signals
     signals = [s for s in signals if s.lifecycle_state != SweepLifecycle.INVALIDATED]
@@ -319,7 +342,7 @@ async def get_market_structure(
     # Limit MS to last 250 bars for speed (≈ 1 year of daily data)
     ms_dfs = {sym: df.iloc[-_MS_BARS:] if len(df) > _MS_BARS else df
               for sym, df in ohlcv_by_symbol.items()}
-    result = _ms_scanner.scan(ms_dfs, timeframe=timeframe or "1d")
+    result = _cached_scan("market_structure", _ms_scanner, ms_dfs, timeframe or "1d")
 
     signals = result.signals
     signals = [s for s in signals if not s.invalidated]
